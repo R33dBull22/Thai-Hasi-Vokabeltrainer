@@ -338,8 +338,10 @@ export async function addVocabulary(
   try {
     const cached = localStorage.getItem(LOCAL_VOCAB_KEY);
     const list: Vocabulary[] = cached ? JSON.parse(cached) : [];
-    list.unshift(newVocab);
-    localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(list));
+    if (!list.some((v) => v.id === newVocab.id)) {
+      list.unshift(newVocab);
+      localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(list));
+    }
   } catch {}
 
   // 2. Always persist directly to Firestore so all users can see it

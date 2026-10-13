@@ -190,7 +190,15 @@ function AppContent() {
 
         // Subscribe to real-time updates from Firestore
         const unsubscribe = subscribeToCommunityVocabularies((remoteVocabs) => {
-          setVocabularies(remoteVocabs);
+          const seen = new Set<string>();
+          const deduped: Vocabulary[] = [];
+          remoteVocabs.forEach((v) => {
+            if (!seen.has(v.id)) {
+              seen.add(v.id);
+              deduped.push(v);
+            }
+          });
+          setVocabularies(deduped);
         }, user.uid);
 
         return () => unsubscribe();
@@ -241,7 +249,10 @@ function AppContent() {
     if (!user) return;
     const userId = user.uid;
     const created = await addVocabulary(newVocab, userId);
-    setVocabularies((prev) => [created, ...prev]);
+    setVocabularies((prev) => {
+      if (prev.some((v) => v.id === created.id)) return prev;
+      return [created, ...prev];
+    });
 
     // Update progress
     const updatedProgress = await fetchUserProgress(userId);
@@ -278,7 +289,10 @@ function AppContent() {
     for (const item of items) {
       const { phase, phaseDeToTh, phaseThToDe, ...vocabData } = item;
       const created = await addVocabulary(vocabData, userId);
-      setVocabularies((prev) => [created, ...prev]);
+      setVocabularies((prev) => {
+        if (prev.some((v) => v.id === created.id)) return prev;
+        return [created, ...prev];
+      });
 
       const basePhase = phase && phase >= 1 && phase <= 6 ? phase : 1;
       const finalDe = phaseDeToTh && phaseDeToTh >= 1 && phaseDeToTh <= 6 ? phaseDeToTh : basePhase;

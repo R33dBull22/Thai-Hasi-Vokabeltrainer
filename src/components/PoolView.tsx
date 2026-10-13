@@ -66,7 +66,10 @@ export const PoolView: React.FC<PoolViewProps> = ({
 
   // Due vocabs count (cards due in at least one direction)
   const dueVocabsCount = useMemo(() => {
+    const seenIds = new Set<string>();
     return vocabularies.filter((v) => {
+      if (seenIds.has(v.id)) return false;
+      seenIds.add(v.id);
       const prog = progressMap[v.id];
       return prog && isAnyDirectionDue(prog);
     }).length;
@@ -97,7 +100,10 @@ export const PoolView: React.FC<PoolViewProps> = ({
   // Group by lessons
   const groupedByLesson = useMemo(() => {
     const map: Record<string, Vocabulary[]> = {};
+    const seenIds = new Set<string>();
     vocabularies.forEach((v) => {
+      if (seenIds.has(v.id)) return;
+      seenIds.add(v.id);
       // Apply search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();

@@ -39,6 +39,7 @@ export const CreateView: React.FC<CreateViewProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setErrorMessage(null);
 
     if (!german.trim()) {
