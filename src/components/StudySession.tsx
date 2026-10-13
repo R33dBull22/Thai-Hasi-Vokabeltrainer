@@ -26,6 +26,7 @@ import { PHASES, getDirectionProgress, shuffleStudyCards } from '../utils/leitne
 import { speakThai } from '../utils/thaiAudio';
 import { EditVocabModal } from './EditVocabModal';
 import { saveStudySession } from '../services/statsService';
+import { ToneVisualizer } from './ToneVisualizer';
 
 export type StudyMode = 'preview_first' | 'skip_preview';
 export type StudyDirection = 'de_to_th' | 'both' | 'th_to_de';
@@ -573,6 +574,15 @@ export const StudySession: React.FC<StudySessionProps> = ({
                     {vocab.romanization}
                   </p>
                 )}
+                {!hideRomanization && (
+                  <div className="flex justify-center mt-2">
+                    <ToneVisualizer
+                      romanization={vocab.romanization}
+                      thai={vocab.thai}
+                      compact
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -595,6 +605,13 @@ export const StudySession: React.FC<StudySessionProps> = ({
                         {vocab.romanization}
                       </p>
                     )}
+                    <div className="flex justify-center mt-2">
+                      <ToneVisualizer
+                        romanization={vocab.romanization}
+                        thai={vocab.thai}
+                        showHelpIcon
+                      />
+                    </div>
                     {/* Audio button for Thai pronunciation */}
                     <div className="flex items-center justify-center gap-3 mt-2">
                       <button

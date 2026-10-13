@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
+import { generateRomanizationFromThai } from '../utils/thaiTones';
+import { ToneVisualizer } from './ToneVisualizer';
 
 interface CreateViewProps {
   existingLessons: string[];
@@ -87,6 +89,23 @@ export const CreateView: React.FC<CreateViewProps> = ({
   const handleTestAudio = () => {
     if (thai.trim()) {
       speakThai(thai.trim());
+    }
+  };
+
+  const handleAutoGenerateRomanization = () => {
+    if (!thai.trim()) return;
+    const generated = generateRomanizationFromThai(thai.trim());
+    if (generated.romanization) {
+      setRomanization(generated.romanization);
+    }
+  };
+
+  const handleThaiBlur = () => {
+    if (thai.trim() && !romanization.trim()) {
+      const generated = generateRomanizationFromThai(thai.trim());
+      if (generated.romanization) {
+        setRomanization(generated.romanization);
+      }
     }
   };
 
@@ -183,6 +202,7 @@ export const CreateView: React.FC<CreateViewProps> = ({
             type="text"
             value={thai}
             onChange={(e) => setThai(e.target.value)}
+            onBlur={handleThaiBlur}
             placeholder="z. B. สวัสดีครับ"
             className="w-full bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl px-3 py-3 text-lg font-thai text-white focus:outline-none focus:border-[#FF7A00]"
           />
@@ -190,9 +210,22 @@ export const CreateView: React.FC<CreateViewProps> = ({
 
         {/* 3. Romanisierung / Lautschrift */}
         <div className="bg-[#242426] rounded-2xl p-4 border border-[#323236]">
-          <label className="block text-xs font-semibold text-[#8E8E93] uppercase tracking-wider mb-2">
-            Lautschrift / Romanisierung (Optional)
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-[#8E8E93] uppercase tracking-wider">
+              Lautschrift / Romanisierung (Optional)
+            </label>
+            {thai.trim() && (
+              <button
+                type="button"
+                onClick={handleAutoGenerateRomanization}
+                className="flex items-center gap-1 text-[11px] font-semibold text-[#FF7A00] hover:text-[#FFA040] transition-colors cursor-pointer bg-[#FF7A00]/10 px-2.5 py-1 rounded-full border border-[#FF7A00]/30 shadow-xs"
+                title="Lautschrift mit Ton-Akzenten automatisch aus der Thai-Schrift berechnen"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#FF7A00]" />
+                <span>Aus Thai generieren</span>
+              </button>
+            )}
+          </div>
           <input
             type="text"
             value={romanization}
@@ -200,8 +233,20 @@ export const CreateView: React.FC<CreateViewProps> = ({
             placeholder="z. B. sà-wàt-dee kráp"
             className="w-full bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl px-3 py-2.5 text-sm text-[#FF7A00] focus:outline-none focus:border-[#FF7A00]"
           />
-          <p className="text-[11px] text-[#8E8E93] mt-1.5">
-            Tipp: Kann im Lernmodus per Klick verdeckt werden, um die echte Schrift zu trainieren.
+
+          {/* Tone Visualizer Live Preview */}
+          {(romanization.trim() || thai.trim()) && (
+            <div className="mt-3 pt-2.5 border-t border-[#323236]/60">
+              <ToneVisualizer
+                romanization={romanization}
+                thai={thai}
+                showHelpIcon
+              />
+            </div>
+          )}
+
+          <p className="text-[11px] text-[#8E8E93] mt-2">
+            Tipp: Wird beim Verlassen des Thai-Feldes automatisch mit den korrekten Ton-Akzenten vorgeschlagen.
           </p>
         </div>
 

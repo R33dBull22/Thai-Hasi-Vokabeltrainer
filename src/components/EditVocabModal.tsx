@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
+import { generateRomanizationFromThai } from '../utils/thaiTones';
+import { ToneVisualizer } from './ToneVisualizer';
 
 interface EditVocabModalProps {
   vocab: Vocabulary | null;
@@ -150,6 +152,14 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
     }
   };
 
+  const handleAutoGenerateRomanization = () => {
+    if (!thai.trim()) return;
+    const generated = generateRomanizationFromThai(thai.trim());
+    if (generated.romanization) {
+      setRomanization(generated.romanization);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
       <div
@@ -256,9 +266,22 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
 
           {/* Lautschrift */}
           <div className="bg-[#242426] rounded-2xl p-4 border border-[#323236]">
-            <label className="block text-xs font-semibold text-[#8E8E93] uppercase tracking-wider mb-2">
-              Lautschrift / Umschrift (Optional)
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-[#8E8E93] uppercase tracking-wider">
+                Lautschrift / Umschrift (Optional)
+              </label>
+              {thai.trim() && (
+                <button
+                  type="button"
+                  onClick={handleAutoGenerateRomanization}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-[#FF7A00] hover:text-[#FFA040] transition-colors cursor-pointer bg-[#FF7A00]/10 px-2.5 py-1 rounded-full border border-[#FF7A00]/30 shadow-xs"
+                  title="Lautschrift mit Ton-Akzenten automatisch aus der Thai-Schrift neu berechnen"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#FF7A00]" />
+                  <span>Aus Thai generieren</span>
+                </button>
+              )}
+            </div>
             <input
               type="text"
               value={romanization}
@@ -266,6 +289,17 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
               placeholder="z. B. sà-wàt-dee kráp"
               className="w-full bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl px-3 py-2.5 text-sm text-[#FF7A00] focus:outline-none focus:border-[#FF7A00]"
             />
+
+            {/* Tone Visualizer Live Preview */}
+            {(romanization.trim() || thai.trim()) && (
+              <div className="mt-3 pt-2.5 border-t border-[#323236]/60">
+                <ToneVisualizer
+                  romanization={romanization}
+                  thai={thai}
+                  showHelpIcon
+                />
+              </div>
+            )}
           </div>
 
           {/* Beispielsatz */}

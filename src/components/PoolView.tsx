@@ -22,6 +22,7 @@ import { Vocabulary, UserProgress } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
 import { PHASES, formatDueDate, isCardDue, getDirectionProgress, isAnyDirectionDue } from '../utils/leitner';
 import { EditVocabModal } from './EditVocabModal';
+import { ToneVisualizer } from './ToneVisualizer';
 
 interface PoolViewProps {
   vocabularies: Vocabulary[];
@@ -605,15 +606,20 @@ export const PoolView: React.FC<PoolViewProps> = ({
                               {vocab.german}
                             </p>
 
-                            {/* Line 2: Thai + Romanization */}
-                            <p className="text-xs text-[#A1A1AA] mt-0.5 truncate flex items-center gap-1.5 font-thai">
-                              <span className="text-[#E4E4E7] font-medium">{vocab.thai}</span>
+                            {/* Line 2: Thai + Romanization + Tone Badges */}
+                            <div className="text-xs text-[#A1A1AA] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[#E4E4E7] font-thai font-medium">{vocab.thai}</span>
                               {vocab.romanization && (
                                 <span className="text-[#FF7A00] font-sans">
                                   {vocab.romanization}
                                 </span>
                               )}
-                            </p>
+                              <ToneVisualizer
+                                romanization={vocab.romanization}
+                                thai={vocab.thai}
+                                compact
+                              />
+                            </div>
                           </div>
 
                           {/* Right Status / Actions */}

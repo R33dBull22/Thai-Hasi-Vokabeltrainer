@@ -41,6 +41,7 @@ import {
 } from '../services/vocabService';
 import { useAuth } from '../context/AuthContext';
 import { Trash2, RotateCcw } from 'lucide-react';
+import { THAI_TONES, ThaiTone } from '../utils/thaiTones';
 
 interface SettingsViewProps {
   vocabularies: Vocabulary[];
@@ -926,6 +927,36 @@ Lecker;อร่อย;a-roi;Essen & Trinken;อาหารนี้อร่�
                 Klassische thailändische Schrift mit deutlichen Kringeln/Schlaufen (Heads/Loops) und optimaler Platzierung für Ton- und Vokalzeichen.
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Die 5 Thailändischen Töne Übersicht */}
+        <div className="bg-[#242426] rounded-2xl p-4 border border-[#323236]">
+          <h2 className="text-xs font-semibold text-[#8E8E93] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <span>🎶</span>
+            <span>Die 5 thailändischen Töne</span>
+          </h2>
+          <p className="text-xs text-[#A1A1AA] mb-3">
+            In der Abfrage, im Vokabelpool und beim Anlegen werden alle Töne automatisch erkannt und visualisiert:
+          </p>
+          <div className="space-y-2">
+            {(['mid', 'low', 'falling', 'high', 'rising'] as ThaiTone[]).map((key) => {
+              const t = THAI_TONES[key];
+              return (
+                <div key={key} className={`p-2.5 rounded-xl border flex items-center gap-3 ${t.bgClass} ${t.borderClass}`}>
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-base ${t.colorClass} bg-black/30 shrink-0`}>
+                    {t.symbol}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-xs font-bold ${t.colorClass}`}>{t.germanName}</span>
+                      <span className="text-[10px] text-[#8E8E93]">({t.name})</span>
+                    </div>
+                    <p className="text-[11px] text-[#D1D1D6] mt-0.5 leading-snug">{t.description}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
