@@ -156,12 +156,31 @@ export const PoolView: React.FC<PoolViewProps> = ({
   const toggleExpand = (lesson: string) => {
     setExpandedLessons((prev) => ({
       ...prev,
-      [lesson]: prev[lesson] !== undefined ? !prev[lesson] : false, // default opened
+      [lesson]: !isLessonExpanded(lesson),
     }));
   };
 
   const isLessonExpanded = (lesson: string) => {
-    return expandedLessons[lesson] !== false; // open by default
+    if (searchQuery.trim()) {
+      return expandedLessons[lesson] !== false; // auto-expand during active search
+    }
+    return Boolean(expandedLessons[lesson]); // collapsed by default upon initial load
+  };
+
+  const areAllExpanded = useMemo(() => {
+    const lessonKeys = Object.keys(groupedByLesson);
+    if (lessonKeys.length === 0) return false;
+    return lessonKeys.every((l) => isLessonExpanded(l));
+  }, [groupedByLesson, expandedLessons, searchQuery]);
+
+  const toggleAllLessons = () => {
+    const lessonKeys = Object.keys(groupedByLesson);
+    const targetState = !areAllExpanded;
+    const next: Record<string, boolean> = {};
+    lessonKeys.forEach((l) => {
+      next[l] = targetState;
+    });
+    setExpandedLessons(next);
   };
 
   // Handle start study with selected cards
@@ -404,14 +423,26 @@ export const PoolView: React.FC<PoolViewProps> = ({
       </div>
 
       {/* Course Header Banner */}
-      <div className="bg-[#242426] rounded-2xl p-3 flex items-center gap-3 border border-[#323236] mb-4">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 border border-[#444448] flex items-center justify-center text-lg">
-          🇹🇭
+      <div className="bg-[#242426] rounded-2xl p-3 flex items-center justify-between border border-[#323236] mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 border border-[#444448] flex items-center justify-center text-lg shrink-0">
+            🇹🇭
+          </div>
+          <div className="min-w-0">
+            <span className="text-sm font-bold text-white tracking-tight truncate block">Thai Grund- & Aufbauwortschatz</span>
+            <p className="text-[11px] text-[#8E8E93] truncate">Gemeinsamer Wortschatz • Lektionen bearbeiten & verschieben</p>
+          </div>
         </div>
-        <div>
-          <span className="text-sm font-bold text-white tracking-tight">Thai Grund- & Aufbauwortschatz</span>
-          <p className="text-[11px] text-[#8E8E93]">Gemeinsamer Wortschatz • Lektionen bearbeiten & verschieben</p>
-        </div>
+
+        {Object.keys(groupedByLesson).length > 1 && (
+          <button
+            type="button"
+            onClick={toggleAllLessons}
+            className="text-[11px] text-[#FF7A00] hover:text-[#FFA040] whitespace-nowrap px-2.5 py-1 rounded-lg bg-[#FF7A00]/10 border border-[#FF7A00]/20 transition-colors shrink-0 ml-2 cursor-pointer font-medium"
+          >
+            {areAllExpanded ? 'Alle zuklappen' : 'Alle aufklappen'}
+          </button>
+        )}
       </div>
 
       {/* Accordion List */}
@@ -442,7 +473,7 @@ export const PoolView: React.FC<PoolViewProps> = ({
                 className="bg-[#242426] rounded-2xl border border-[#323236] overflow-hidden transition-all"
               >
                 {/* Accordion Header */}
-                <div className="p-3.5 flex items-center justify-between border-b border-[#323236]/60">
+                <div className={`p-3.5 flex items-center justify-between ${isExpanded ? 'border-b border-[#323236]/60' : ''}`}>
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     {/* Checkbox for entire lesson */}
                     <button
