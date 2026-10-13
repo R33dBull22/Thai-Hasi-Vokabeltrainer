@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, BookOpen, PlusCircle, Settings } from 'lucide-react';
+import { Home, BookOpen, PlusCircle, Settings, BarChart3 } from 'lucide-react';
 import { ActiveTab } from '../types/vocab';
 
 interface NavigationProps {
@@ -16,6 +16,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   const tabs: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }[] = [
     { id: 'learn', label: 'Lernen', icon: Home, badge: dueCount > 0 ? dueCount : undefined },
     { id: 'pool', label: 'Vokabelpool', icon: BookOpen },
+    { id: 'stats', label: 'Statistik', icon: BarChart3 },
     { id: 'create', label: 'Neu Anlegen', icon: PlusCircle },
     { id: 'settings', label: 'Einstellungen', icon: Settings },
   ];

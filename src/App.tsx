@@ -25,6 +25,7 @@ import { LearnView } from './components/LearnView';
 import { PoolView } from './components/PoolView';
 import { CreateView } from './components/CreateView';
 import { SettingsView } from './components/SettingsView';
+import { StatsDashboard } from './components/StatsDashboard';
 import { StudySession, StudyMode, StudyDirection, StudyInputMethod } from './components/StudySession';
 import { AuthModal } from './components/AuthModal';
 import { isCardDue, isAnyDirectionDue } from './utils/leitner';
@@ -480,7 +481,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-between selection:bg-[#FF7A00] selection:text-black">
       {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-md mx-auto">
+      <main className={`flex-1 w-full mx-auto ${activeTab === 'stats' ? 'max-w-2xl px-2 sm:px-4' : 'max-w-md'}`}>
         {loadingData ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
             <div className="w-10 h-10 border-3 border-[#FF7A00] border-t-transparent rounded-full animate-spin" />
@@ -499,6 +500,16 @@ function AppContent() {
                 onStartSession={handleStartSession}
                 onNavigatePool={() => setActiveTab('pool')}
                 onNavigateCreate={() => setActiveTab('create')}
+                onNavigateStats={() => setActiveTab('stats')}
+              />
+            )}
+
+            {activeTab === 'stats' && (
+              <StatsDashboard
+                vocabularies={vocabularies}
+                progressMap={progressMap}
+                onNavigateLearn={() => setActiveTab('learn')}
+                onNavigatePool={() => setActiveTab('pool')}
               />
             )}
 

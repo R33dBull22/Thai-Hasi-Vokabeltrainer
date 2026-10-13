@@ -25,6 +25,7 @@ import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
 import { PHASES, getDirectionProgress } from '../utils/leitner';
 import { speakThai } from '../utils/thaiAudio';
 import { EditVocabModal } from './EditVocabModal';
+import { saveStudySession } from '../services/statsService';
 
 export type StudyMode = 'preview_first' | 'skip_preview';
 export type StudyDirection = 'de_to_th' | 'both' | 'th_to_de';
@@ -156,6 +157,36 @@ export const StudySession: React.FC<StudySessionProps> = ({
   });
 
   const [isSessionComplete, setIsSessionComplete] = useState(false);
+  const sessionStartTime = useRef<number>(Date.now());
+  const hasSavedSession = useRef<boolean>(false);
+
+  const saveCurrentSession = (updatedResults?: typeof sessionResults) => {
+    if (hasSavedSession.current) return;
+    const res = updatedResults || sessionResults;
+    const totalCards = res.correctCount + res.incorrectCount;
+    if (totalCards === 0 && masteredTaskKeys.size === 0) return;
+
+    hasSavedSession.current = true;
+    const now = Date.now();
+    const duration = Math.max(5, Math.round((now - sessionStartTime.current) / 1000));
+
+    saveStudySession({
+      startedAt: new Date(sessionStartTime.current).toISOString(),
+      completedAt: new Date(now).toISOString(),
+      durationSeconds: duration,
+      cardsStudied: Math.max(1, totalCards || masteredTaskKeys.size),
+      correctCount: res.correctCount,
+      incorrectCount: res.incorrectCount,
+      promotedToPhase6Count: res.promotedToPhase6,
+      direction,
+      inputMethod: currentInputMethod,
+    });
+  };
+
+  const handleFinishSession = () => {
+    saveCurrentSession();
+    onFinish();
+  };
 
   const currentItem = cardQueue[currentIndex];
   const vocab = currentItem?.vocab;
@@ -275,6 +306,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
       const hasNextInQueue = !isCorrect || (currentIndex + 1 < cardQueue.length);
 
       if (newMasteredCount >= totalUniqueCount && !hasNextInQueue) {
+        saveCurrentSession();
         confetti({
           particleCount: 80,
           spread: 70,
@@ -366,7 +398,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
         <div className="max-w-md w-full mx-auto">
           <button
-            onClick={onFinish}
+            onClick={handleFinishSession}
             className="w-full py-4 rounded-full bg-[#FF7A00] text-black font-semibold text-base hover:bg-[#FF881A] transition-colors shadow-lg active:scale-[0.99]"
           >
             Fertig
@@ -416,7 +448,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
             <button
               type="button"
-              onClick={onFinish}
+              onClick={handleFinishSession}
               className="p-1 text-[#8E8E93] hover:text-white transition-colors"
               title="Session beenden"
             >

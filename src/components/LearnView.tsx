@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   SlidersHorizontal,
   Sparkles,
+  Trophy,
 } from 'lucide-react';
 import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
 import { isCardDue, isDirectionDue, getDirectionProgress } from '../utils/leitner';
@@ -36,6 +37,7 @@ interface LearnViewProps {
   ) => void;
   onNavigatePool: () => void;
   onNavigateCreate: () => void;
+  onNavigateStats?: () => void;
 }
 
 export const LearnView: React.FC<LearnViewProps> = ({
@@ -48,6 +50,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
   onStartSession,
   onNavigatePool,
   onNavigateCreate,
+  onNavigateStats,
 }) => {
   const [showReports, setShowReports] = useState(false);
   const [customizeModalCards, setCustomizeModalCards] = useState<StudyCardItem[] | null>(null);
@@ -175,13 +178,25 @@ export const LearnView: React.FC<LearnViewProps> = ({
             Thai
           </h1>
 
-          <button
-            onClick={() => setShowReports(true)}
-            className="p-1 -mr-1 text-[#8E8E93] hover:text-white transition-colors"
-            title="Statistik"
-          >
-            <Layers className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5 -mr-1">
+            {onNavigateStats && (
+              <button
+                onClick={onNavigateStats}
+                className="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors flex items-center gap-1"
+                title="Statistik & Awards ansehen"
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>Awards</span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowReports(true)}
+              className="p-1 text-[#8E8E93] hover:text-white transition-colors"
+              title="Phasen-Übersicht"
+            >
+              <Layers className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Status Toast Banner */}

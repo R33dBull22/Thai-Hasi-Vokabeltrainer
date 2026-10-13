@@ -50,7 +50,7 @@ export interface DeletedVocabEntry {
   previousProgress?: UserProgress;
 }
 
-export type ActiveTab = 'learn' | 'pool' | 'create' | 'settings';
+export type ActiveTab = 'learn' | 'pool' | 'stats' | 'create' | 'settings';
 
 export interface PhaseConfig {
   phase: number;
