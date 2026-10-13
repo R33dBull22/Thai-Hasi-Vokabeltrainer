@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
-import { PHASES, getDirectionProgress } from '../utils/leitner';
+import { PHASES, getDirectionProgress, shuffleStudyCards } from '../utils/leitner';
 import { speakThai } from '../utils/thaiAudio';
 import { EditVocabModal } from './EditVocabModal';
 import { saveStudySession } from '../services/statsService';
@@ -115,8 +115,8 @@ export const StudySession: React.FC<StudySessionProps> = ({
   onUpdateVocab,
   existingLessons = [],
 }) => {
-  // Session queue: wrong cards are pushed to the end so they are repeated
-  const [cardQueue, setCardQueue] = useState<StudyCardItem[]>(() => [...initialCards]);
+  // Session queue: intelligently shuffled so opposing directions of the same vocab never appear back-to-back
+  const [cardQueue, setCardQueue] = useState<StudyCardItem[]>(() => shuffleStudyCards(initialCards));
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Set of task keys (vocabId_direction) that have been answered correctly during this session

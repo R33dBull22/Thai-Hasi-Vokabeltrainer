@@ -11,7 +11,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
-import { isCardDue, isDirectionDue, getDirectionProgress } from '../utils/leitner';
+import { isCardDue, isDirectionDue, getDirectionProgress, shuffleStudyCards } from '../utils/leitner';
 import { ReportsModal } from './ReportsModal';
 import { StudySummaryModal } from './StudySummaryModal';
 import { StudyMode, StudyDirection, StudyInputMethod, StudyCardItem } from './StudySession';
@@ -124,18 +124,15 @@ export const LearnView: React.FC<LearnViewProps> = ({
 
   // All cards in deck for voluntary practice
   const allDeckCards: StudyCardItem[] = [];
-  deckVocabs.forEach((v, idx) => {
+  deckVocabs.forEach((v) => {
     const prog = progressMap[v.id];
     if (studyDirection === 'de_to_th') {
       allDeckCards.push({ vocab: v, progress: prog, direction: 'de_to_th' });
     } else if (studyDirection === 'th_to_de') {
       allDeckCards.push({ vocab: v, progress: prog, direction: 'th_to_de' });
     } else {
-      allDeckCards.push({
-        vocab: v,
-        progress: prog,
-        direction: idx % 2 === 0 ? 'de_to_th' : 'th_to_de',
-      });
+      allDeckCards.push({ vocab: v, progress: prog, direction: 'de_to_th' });
+      allDeckCards.push({ vocab: v, progress: prog, direction: 'th_to_de' });
     }
   });
 
@@ -158,7 +155,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
       }
       return;
     }
-    onStartSession(cards, studyMode, studyDirection, defaultInputMethod);
+    onStartSession(shuffleStudyCards(cards), studyMode, studyDirection, defaultInputMethod);
   };
 
   return (
@@ -414,10 +411,43 @@ export const LearnView: React.FC<LearnViewProps> = ({
           initialDirection={studyDirection}
           defaultInputMethod={defaultInputMethod}
           onStart={(mode, direction, inputMethod) => {
-            const list = customizeModalCards;
+            let list = customizeModalCards || [];
+            if (direction === 'de_to_th') {
+              const seen = new Set<string>();
+              list = list
+                .filter((item) => {
+                  if (seen.has(item.vocab.id)) return false;
+                  seen.add(item.vocab.id);
+                  return true;
+                })
+                .map((item) => ({ ...item, direction: 'de_to_th' as QueryDirection }));
+            } else if (direction === 'th_to_de') {
+              const seen = new Set<string>();
+              list = list
+                .filter((item) => {
+                  if (seen.has(item.vocab.id)) return false;
+                  seen.add(item.vocab.id);
+                  return true;
+                })
+                .map((item) => ({ ...item, direction: 'th_to_de' as QueryDirection }));
+            } else if (direction === 'both') {
+              const seen = new Set<string>();
+              const expandedList: StudyCardItem[] = [];
+              list.forEach((item) => {
+                if (!seen.has(item.vocab.id)) {
+                  seen.add(item.vocab.id);
+                  expandedList.push({ ...item, direction: 'de_to_th' });
+                  expandedList.push({ ...item, direction: 'th_to_de' });
+                }
+              });
+              if (expandedList.length > 0) {
+                list = expandedList;
+              }
+            }
+
             setCustomizeModalCards(null);
             onUpdateStudyPreferences(mode, direction, inputMethod);
-            onStartSession(list, mode, direction, inputMethod);
+            onStartSession(shuffleStudyCards(list), mode, direction, inputMethod);
           }}
         />
       )}

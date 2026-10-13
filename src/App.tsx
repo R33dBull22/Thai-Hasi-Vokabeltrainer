@@ -28,7 +28,7 @@ import { SettingsView } from './components/SettingsView';
 import { StatsDashboard } from './components/StatsDashboard';
 import { StudySession, StudyMode, StudyDirection, StudyInputMethod } from './components/StudySession';
 import { AuthModal } from './components/AuthModal';
-import { isCardDue, isAnyDirectionDue } from './utils/leitner';
+import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner';
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
@@ -427,7 +427,7 @@ function AppContent() {
     inputMethod?: StudyInputMethod
   ) => {
     setActiveSession({
-      cards,
+      cards: shuffleStudyCards(cards),
       mode,
       direction,
       inputMethod: inputMethod || defaultInputMethod,

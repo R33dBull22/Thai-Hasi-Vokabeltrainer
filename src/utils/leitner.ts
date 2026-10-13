@@ -224,3 +224,110 @@ export function isAnyDirectionDue(prog: UserProgress | undefined): boolean {
   if (!prog) return false;
   return isDirectionDue(prog, 'de_to_th') || isDirectionDue(prog, 'th_to_de');
 }
+
+/**
+ * Fisher-Yates array shuffle helper
+ */
+function fisherYatesShuffle<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/**
+ * Intelligently shuffles study cards so that:
+ * 1. The order of cards is thoroughly randomized.
+ * 2. Opposing query directions (DE -> TH and TH -> DE) of the SAME vocabulary
+ *    NEVER appear consecutively, and are spaced apart across the session as far as possible.
+ * 3. Direction priority per vocabulary is randomized (either DE->TH or TH->DE comes first).
+ */
+export function shuffleStudyCards<T extends { vocab: { id: string }; direction?: QueryDirection }>(
+  cards: T[]
+): T[] {
+  if (!cards || cards.length <= 1) return cards ? [...cards] : [];
+
+  // Group cards by vocabulary ID
+  const groups = new Map<string, T[]>();
+  cards.forEach((card) => {
+    const list = groups.get(card.vocab.id) || [];
+    list.push(card);
+    groups.set(card.vocab.id, list);
+  });
+
+  const firstHalf: T[] = [];
+  const secondHalf: T[] = [];
+
+  // Get all unique vocab groups in randomized order
+  const uniqueVocabGroups = fisherYatesShuffle(Array.from(groups.values()));
+
+  uniqueVocabGroups.forEach((group) => {
+    if (group.length === 1) {
+      // Single card: alternate or balance between first and second half
+      if (firstHalf.length <= secondHalf.length) {
+        firstHalf.push(group[0]);
+      } else {
+        secondHalf.push(group[0]);
+      }
+    } else {
+      // Multiple cards for same vocabulary (e.g. DE->TH and TH->DE):
+      // Randomize which direction goes into the first half vs second half
+      const shuffledGroup = fisherYatesShuffle(group);
+      firstHalf.push(shuffledGroup[0]);
+      secondHalf.push(shuffledGroup[1]);
+      // If there are more than 2, distribute remainder evenly
+      for (let i = 2; i < shuffledGroup.length; i++) {
+        if (i % 2 === 0) firstHalf.push(shuffledGroup[i]);
+        else secondHalf.push(shuffledGroup[i]);
+      }
+    }
+  });
+
+  // Independently shuffle both halves to thoroughly mix up the order of different words
+  const shuffledFirst = fisherYatesShuffle(firstHalf);
+  const shuffledSecond = fisherYatesShuffle(secondHalf);
+
+  const result: T[] = [...shuffledFirst, ...shuffledSecond];
+
+  // Post-processing safety: ensure no adjacent cards share the same vocabulary ID
+  for (let i = 1; i < result.length; i++) {
+    if (result[i].vocab.id === result[i - 1].vocab.id) {
+      // Find a suitable candidate ahead to swap with
+      let swapIdx = -1;
+      for (let j = i + 1; j < result.length; j++) {
+        if (
+          result[j].vocab.id !== result[i - 1].vocab.id &&
+          (j + 1 >= result.length || result[j + 1].vocab.id !== result[i].vocab.id)
+        ) {
+          swapIdx = j;
+          break;
+        }
+      }
+
+      if (swapIdx !== -1) {
+        const temp = result[i];
+        result[i] = result[swapIdx];
+        result[swapIdx] = temp;
+      } else {
+        // If no candidate ahead, look backwards before i-1
+        for (let j = 0; j < i - 1; j++) {
+          if (
+            result[j].vocab.id !== result[i].vocab.id &&
+            (j === 0 || result[j - 1].vocab.id !== result[i].vocab.id) &&
+            result[j + 1].vocab.id !== result[i].vocab.id
+          ) {
+            const temp = result[i];
+            result[i] = result[j];
+            result[j] = temp;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
