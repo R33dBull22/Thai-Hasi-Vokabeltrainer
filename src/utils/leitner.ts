@@ -315,10 +315,8 @@ export function shuffleStudyCards<T extends { vocab: { id: string }; direction?:
         for (let j = 0; j < i - 1; j++) {
           if (
             result[j].vocab.id !== result[i].vocab.id &&
-            result[j].vocab.id !== result[i - 1].vocab.id &&
             (j === 0 || result[j - 1].vocab.id !== result[i].vocab.id) &&
-            result[j + 1].vocab.id !== result[i].vocab.id &&
-            (i + 1 >= result.length || result[j].vocab.id !== result[i + 1].vocab.id)
+            result[j + 1].vocab.id !== result[i].vocab.id
           ) {
             const temp = result[i];
             result[i] = result[j];

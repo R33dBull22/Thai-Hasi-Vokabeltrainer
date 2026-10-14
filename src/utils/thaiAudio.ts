@@ -1,36 +1,80 @@
 import { normalizeThai } from './thaiTones';
 
-let currentAudio: HTMLAudioElement | null = null;
 let cachedThaiVoice: SpeechSynthesisVoice | null = null;
+let activeUtterance: SpeechSynthesisUtterance | null = null;
 
-if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-  const updateVoice = () => {
+/**
+ * Searches available browser voices for the highest quality Thai voice.
+ * Prioritizes natural, neural, and provider-specific Thai voices.
+ */
+function findBestThaiVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  if (!voices || voices.length === 0) return null;
+
+  const thaiVoices = voices.filter(
+    (v) =>
+      v.lang.toLowerCase().startsWith('th') ||
+      v.lang.toLowerCase().includes('th-') ||
+      v.lang.toLowerCase().includes('th_') ||
+      /thai/i.test(v.name)
+  );
+
+  if (thaiVoices.length === 0) return null;
+
+  // Prioritize enhanced, neural, natural, or recognized vendor Thai voices
+  const preferred = thaiVoices.find((v) =>
+    /google|natural|premium|enhanced|siri|kanya|narisa|premwadee|niwat/i.test(v.name)
+  );
+
+  return preferred || thaiVoices[0];
+}
+
+function updateVoiceCache() {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
     const voices = window.speechSynthesis.getVoices();
-    const thaiVoices = voices.filter((v) => v.lang.startsWith('th') || v.lang.includes('TH'));
-    cachedThaiVoice =
-      thaiVoices.find((v) => /google|natural|premium|siri|kanya|narisa/i.test(v.name)) ||
-      thaiVoices[0] ||
-      null;
-  };
-  updateVoice();
-  if (window.speechSynthesis.onvoiceschanged !== undefined) {
-    window.speechSynthesis.onvoiceschanged = updateVoice;
+    const best = findBestThaiVoice(voices);
+    if (best) {
+      cachedThaiVoice = best;
+    }
+  } catch {
+    // ignore
   }
 }
 
+// Initialize voices listener as early as possible
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  updateVoiceCache();
+  if (window.speechSynthesis.onvoiceschanged !== undefined) {
+    window.speechSynthesis.onvoiceschanged = updateVoiceCache;
+  }
+  window.speechSynthesis.addEventListener?.('voiceschanged', updateVoiceCache);
+}
+
 /**
- * Stops any currently playing Thai audio (both HTML5 Audio and SpeechSynthesis)
+ * Prepares Thai text for optimal pronunciation by text-to-speech engines:
+ * - Normalizes decomposed Sara Am (e.g. นํ้า -> น้ำ) and misplaced tone marks
+ * - Removes non-Thai notes in parentheses e.g. "สบายดี (wie geht es dir)" -> "สบายดี"
+ * - Converts dividers (/, ;) into pauses
+ * - Strips unneeded non-Thai punctuation
+ */
+export function prepareThaiForSpeech(text: string): string {
+  if (!text) return '';
+  let clean = normalizeThai(text);
+  // Strip annotations in parentheses like (Hallo) or (stilles Wasser)
+  clean = clean.replace(/\([a-zA-ZäöüÄÖÜß\s\d.,!?'-]+\)/g, '');
+  // Replace slashes/semicolons/linebreaks with comma for brief acoustic pause
+  clean = clean.replace(/\s*[\/;\n]\s*/g, ', ');
+  // Clean up non-Thai characters except punctuation
+  clean = clean.replace(/[^\u0E00-\u0E7F\s,!?.-]/g, '');
+  // Normalize whitespace
+  clean = clean.replace(/\s+/g, ' ').trim();
+  return clean;
+}
+
+/**
+ * Stops any currently playing Thai audio immediately
  */
 export function stopThaiSpeech() {
-  if (currentAudio) {
-    try {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-    } catch {
-      // ignore
-    }
-    currentAudio = null;
-  }
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
@@ -38,112 +82,79 @@ export function stopThaiSpeech() {
       // ignore
     }
   }
-}
-
-function getBestThaiVoice(): SpeechSynthesisVoice | null {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
-  const voices = window.speechSynthesis.getVoices();
-  const thaiVoices = voices.filter((v) => v.lang.startsWith('th') || v.lang.includes('TH'));
-  if (thaiVoices.length === 0) return null;
-
-  return (
-    thaiVoices.find((v) => /google|natural|premium|siri|kanya|narisa/i.test(v.name)) ||
-    thaiVoices[0]
-  );
-}
-
-function speakWithSpeechSynthesis(speechText: string, onEnd?: () => void): boolean {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    return false;
-  }
-
-  try {
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(speechText);
-    utterance.lang = 'th-TH';
-    utterance.rate = 0.9; // natural pace preserving tone contours
-    utterance.pitch = 1.0;
-
-    const voice = cachedThaiVoice || getBestThaiVoice();
-    if (voice) {
-      utterance.voice = voice;
-    }
-
-    if (onEnd) {
-      utterance.onend = () => onEnd();
-      utterance.onerror = () => onEnd();
-    }
-
-    window.speechSynthesis.speak(utterance);
-    return true;
-  } catch (err) {
-    console.warn('Speech synthesis fallback error:', err);
-    return false;
-  }
+  activeUtterance = null;
 }
 
 /**
- * Plays authentic Thai pronunciation using native Thai audio stream with Web Speech fallback.
- * Automatically normalizes Thai text (including decomposed Sara Am and tone marks).
+ * Synchronous, reliable speech synthesis for Thai language.
+ * Executed directly inside user gesture to comply with all browser autoplay and security policies.
  */
 export function speakThai(text: string, onEnd?: () => void): boolean {
-  if (typeof window === 'undefined' || !text) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
+    onEnd?.();
     return false;
   }
 
-  stopThaiSpeech();
+  const cleanText = prepareThaiForSpeech(text);
+  if (!cleanText) {
+    onEnd?.();
+    return false;
+  }
 
-  // Normalize Thai Unicode and clean formatting
-  const cleanText = normalizeThai(text)
-    .replace(/\s*[\/;\n]\s*/g, ', ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!cleanText) return false;
-
-  // 1. Primary Engine: High-Definition native Thai neural audio
   try {
-    const encoded = encodeURIComponent(cleanText);
-    const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=th&client=tw-ob&q=${encoded}`;
-    const audio = new Audio(audioUrl);
-    currentAudio = audio;
+    // 1. Resume audio context if the browser synthesis is in a paused state
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+
+    // 2. Cancel existing queued utterances
+    window.speechSynthesis.cancel();
+
+    // 3. Create utterance
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'th-TH';
+    utterance.rate = 0.88; // clear, natural cadence preserving tonal contours
+    utterance.pitch = 1.0;
+
+    // 4. Ensure voice selection
+    if (!cachedThaiVoice) {
+      updateVoiceCache();
+    }
+    if (cachedThaiVoice) {
+      utterance.voice = cachedThaiVoice;
+    }
+
+    // 5. Retain reference at module scope to prevent V8 garbage collection bug mid-speech
+    activeUtterance = utterance;
 
     let finished = false;
     const handleFinish = () => {
       if (finished) return;
       finished = true;
-      if (currentAudio === audio) {
-        currentAudio = null;
+      if (activeUtterance === utterance) {
+        activeUtterance = null;
       }
       onEnd?.();
     };
 
-    audio.onended = handleFinish;
-
-    audio.onerror = () => {
-      // Offline or network block fallback
-      if (currentAudio === audio) {
-        currentAudio = null;
-      }
-      speakWithSpeechSynthesis(cleanText, onEnd);
+    utterance.onend = handleFinish;
+    utterance.onerror = () => {
+      handleFinish();
     };
 
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Autoplay policy or playback error fallback
-        if (currentAudio === audio) {
-          currentAudio = null;
-        }
-        speakWithSpeechSynthesis(cleanText, onEnd);
-      });
+    // 6. Speak immediately within the user gesture event loop
+    window.speechSynthesis.speak(utterance);
+
+    // Chrome bugfix: Sometimes Chrome needs a resume kick if queued
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
     }
 
     return true;
   } catch (err) {
-    console.warn('Native audio play error, falling back to speech synthesis:', err);
-    return speakWithSpeechSynthesis(cleanText, onEnd);
+    console.warn('Speech synthesis error:', err);
+    activeUtterance = null;
+    onEnd?.();
+    return false;
   }
 }
-
