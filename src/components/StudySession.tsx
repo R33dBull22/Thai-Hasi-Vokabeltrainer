@@ -51,18 +51,34 @@ interface StudySessionProps {
   existingLessons?: string[];
 }
 
-function normalizeString(str: string): string {
+function normalizeGerman(str: string): string {
   return str
     .toLowerCase()
     .trim()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '')
-    .replace(/\s+/g, ' ');
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function normalizeThaiString(str: string): string {
-  return str.trim().replace(/\s+/g, '');
+  return str.trim().replace(/[\s\-_]+/g, '');
+}
+
+function normalizeRomanization(str: string): { spaced: string; collapsed: string } {
+  const base = str
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return {
+    spaced: base,
+    collapsed: base.replace(/\s+/g, ''),
+  };
 }
 
 function evaluateInput(
@@ -75,32 +91,77 @@ function evaluateInput(
   if (!trimmed) return false;
 
   if (isDeToTh) {
-    // Target is Thai script
-    const targetThai = normalizeThaiString(v.thai);
     const userThai = normalizeThaiString(trimmed);
-    if (userThai === targetThai) return true;
 
-    // Check romanization if permitted
+    // 1. Check Thai script against full string and any slash/comma separated alternatives
+    const thaiAlternatives = v.thai
+      .split(/[\/,;+&]/)
+      .map((s) => normalizeThaiString(s))
+      .filter(Boolean);
+
+    if (userThai === normalizeThaiString(v.thai) || thaiAlternatives.includes(userThai)) {
+      return true;
+    }
+
+    // 2. Check romanization if permitted
     if (allowRomanization && v.romanization) {
-      const targetRom = normalizeString(v.romanization);
-      const userRom = normalizeString(trimmed);
-      if (targetRom === userRom) return true;
+      const userRom = normalizeRomanization(trimmed);
+      const romAlternatives = v.romanization
+        .split(/[\/,;+&]/)
+        .map((s) => normalizeRomanization(s))
+        .filter((r) => Boolean(r.collapsed));
+
+      const fullRom = normalizeRomanization(v.romanization);
+
+      // Match either spaced ("sa wat dee") or collapsed ("sawatdee")
+      if (
+        userRom.collapsed === fullRom.collapsed ||
+        userRom.spaced === fullRom.spaced ||
+        romAlternatives.some(
+          (alt) => alt.collapsed === userRom.collapsed || alt.spaced === userRom.spaced
+        )
+      ) {
+        return true;
+      }
     }
 
     return false;
   } else {
     // Target is German
-    const targetGerman = normalizeString(v.german);
-    const userGerman = normalizeString(trimmed);
-    if (targetGerman === userGerman) return true;
+    const userGerman = normalizeGerman(trimmed);
+    if (!userGerman) return false;
 
-    // Split options like "Hallo / Guten Tag"
-    const options = v.german.split(/[\/,;]/).map((s) => normalizeString(s));
-    if (options.some((opt) => opt === userGerman || opt.includes(userGerman) || userGerman.includes(opt))) {
-      return true;
+    // Full target comparison
+    const fullGerman = normalizeGerman(v.german);
+    if (userGerman === fullGerman) return true;
+
+    // Split options by delimiter (e.g., "Hallo / Guten Tag (männlich gesprochen)")
+    const rawOptions = v.german.split(/[\/,;\n]/).map((s) => s.trim()).filter(Boolean);
+    const candidateVariants = new Set<string>();
+
+    for (const opt of rawOptions) {
+      const normFull = normalizeGerman(opt);
+      if (normFull) candidateVariants.add(normFull);
+
+      // Strip parentheses and brackets: "Guten Tag (männlich gesprochen)" -> "Guten Tag"
+      const strippedParentheses = opt
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\[[^\]]*\]/g, ' ')
+        .trim();
+      const normStripped = normalizeGerman(strippedParentheses);
+      if (normStripped) candidateVariants.add(normStripped);
+
+      // Optional: check without leading German articles ("der Hund" -> "Hund")
+      const withoutArticle = normStripped.replace(/^(der|die|das|ein|eine|einen|einem|einer)\s+/, '');
+      if (withoutArticle && withoutArticle !== normStripped) {
+        candidateVariants.add(withoutArticle);
+      }
     }
 
-    return false;
+    // User input without leading articles as well
+    const userWithoutArticle = userGerman.replace(/^(der|die|das|ein|eine|einen|einem|einer)\s+/, '');
+
+    return candidateVariants.has(userGerman) || (Boolean(userWithoutArticle) && candidateVariants.has(userWithoutArticle));
   }
 }
 

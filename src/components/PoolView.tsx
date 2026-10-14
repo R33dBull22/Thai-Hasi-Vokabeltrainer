@@ -81,6 +81,16 @@ export const PoolView: React.FC<PoolViewProps> = ({
     }).length;
   }, [vocabularies, progressMap]);
 
+  // In deck count based on actual pool vocabularies
+  const inDeckCount = useMemo(() => {
+    const seenIds = new Set<string>();
+    return vocabularies.filter((v) => {
+      if (seenIds.has(v.id)) return false;
+      seenIds.add(v.id);
+      return Boolean(progressMap[v.id]);
+    }).length;
+  }, [vocabularies, progressMap]);
+
   // Phase manipulation states
   const [stepBackConfirmLesson, setStepBackConfirmLesson] = useState<string | null>(null);
   const [isSteppingBack, setIsSteppingBack] = useState(false);
@@ -142,6 +152,27 @@ export const PoolView: React.FC<PoolViewProps> = ({
     });
     return Array.from(set);
   }, [vocabularies]);
+
+  const allFilteredVocabs = useMemo(() => {
+    return Object.values(groupedByLesson).flat();
+  }, [groupedByLesson]);
+
+  const allFilteredSelected = useMemo(() => {
+    if (allFilteredVocabs.length === 0) return false;
+    return allFilteredVocabs.every((v) => selectedIds.has(v.id));
+  }, [allFilteredVocabs, selectedIds]);
+
+  const toggleSelectAllFiltered = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        allFilteredVocabs.forEach((v) => next.delete(v.id));
+      } else {
+        allFilteredVocabs.forEach((v) => next.add(v.id));
+      }
+      return next;
+    });
+  };
 
   const toggleSelectCard = (id: string) => {
     setSelectedIds((prev) => {
@@ -212,7 +243,7 @@ export const PoolView: React.FC<PoolViewProps> = ({
     setIsAddingToDeck(true);
     try {
       await onAddBatchToDeck(idsToAdd);
-      setSelectedIds(new Set());
+      // Keep selectedIds intact so the user can immediately proceed to study or manage the selection!
       setToastMessage(
         `✓ ${idsToAdd.length} ${
           idsToAdd.length === 1 ? 'Vokabel' : 'Vokabeln'
@@ -256,6 +287,14 @@ export const PoolView: React.FC<PoolViewProps> = ({
         deleteOption === 'delete_cards',
         deleteOption === 'move_to_general' ? 'Allgemein' : undefined
       );
+      if (deleteOption === 'delete_cards') {
+        const deletedVocabIds = (groupedByLesson[deletingLesson] || []).map((v) => v.id);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          deletedVocabIds.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
       setToastMessage(`✓ Lektion „${deletingLesson}“ erfolgreich gelöscht!`);
       setDeletingLesson(null);
       setTimeout(() => setToastMessage(null), 4000);
@@ -483,7 +522,7 @@ export const PoolView: React.FC<PoolViewProps> = ({
               : 'bg-[#242426] text-[#8E8E93] border border-[#323236]'
           }`}
         >
-          In meinem Deck ({Object.keys(progressMap).length})
+          In meinem Deck ({inDeckCount})
         </button>
         <button
           onClick={() => setFilterMode('not_in_deck')}
@@ -493,7 +532,7 @@ export const PoolView: React.FC<PoolViewProps> = ({
               : 'bg-[#242426] text-[#8E8E93] border border-[#323236]'
           }`}
         >
-          Noch nicht gelernt ({Math.max(0, vocabularies.length - Object.keys(progressMap).length)})
+          Noch nicht gelernt ({Math.max(0, vocabularies.length - inDeckCount)})
         </button>
         <button
           onClick={() => setFilterMode('due')}
@@ -524,15 +563,32 @@ export const PoolView: React.FC<PoolViewProps> = ({
           </div>
         </div>
 
-        {Object.keys(groupedByLesson).length > 1 && (
-          <button
-            type="button"
-            onClick={toggleAllLessons}
-            className="text-[11px] text-[#FF7A00] hover:text-[#FFA040] whitespace-nowrap px-2.5 py-1 rounded-lg bg-[#FF7A00]/10 border border-[#FF7A00]/20 transition-colors shrink-0 ml-2 cursor-pointer font-medium"
-          >
-            {areAllExpanded ? 'Alle zuklappen' : 'Alle aufklappen'}
-          </button>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          {allFilteredVocabs.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleSelectAllFiltered}
+              className={`text-[11px] whitespace-nowrap px-2.5 py-1 rounded-lg border transition-colors cursor-pointer font-medium ${
+                allFilteredSelected
+                  ? 'bg-[#FF7A00] text-black border-[#FF7A00]'
+                  : 'text-[#D1D1D6] hover:text-white bg-[#1C1C1E] border-[#3A3A3D]'
+              }`}
+              title="Alle aktuell sichtbaren Vokabeln markieren oder abwählen"
+            >
+              {allFilteredSelected ? 'Auswahl aufheben' : `Alle markieren (${allFilteredVocabs.length})`}
+            </button>
+          )}
+
+          {Object.keys(groupedByLesson).length > 1 && (
+            <button
+              type="button"
+              onClick={toggleAllLessons}
+              className="text-[11px] text-[#FF7A00] hover:text-[#FFA040] whitespace-nowrap px-2.5 py-1 rounded-lg bg-[#FF7A00]/10 border border-[#FF7A00]/20 transition-colors cursor-pointer font-medium"
+            >
+              {areAllExpanded ? 'Zuklappen' : 'Aufklappen'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Accordion List */}
@@ -1036,6 +1092,11 @@ export const PoolView: React.FC<PoolViewProps> = ({
             onDeleteVocab
               ? async (id) => {
                   await onDeleteVocab(id);
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                  });
                   setToastMessage('✓ Vokabel gelöscht.');
                   setTimeout(() => setToastMessage(null), 3500);
                 }

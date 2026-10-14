@@ -101,10 +101,15 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
 
     setIsSaving(true);
     try {
+      const finalRom =
+        romanization.trim() ||
+        generateRomanizationFromThai(thai.trim()).romanization ||
+        undefined;
+
       await onSave(vocab.id, {
         german: german.trim(),
         thai: thai.trim(),
-        romanization: romanization.trim() || undefined,
+        romanization: finalRom,
         lesson: finalLesson,
         exampleThai: exampleThai.trim() || undefined,
         exampleGerman: exampleGerman.trim() || undefined,

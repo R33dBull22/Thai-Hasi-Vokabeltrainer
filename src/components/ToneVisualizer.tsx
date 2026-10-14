@@ -29,6 +29,14 @@ export const ToneVisualizer: React.FC<ToneVisualizerProps> = ({
   let syllables: SyllableTone[] = [];
   if (romanization && romanization.trim()) {
     syllables = extractTonesFromRomanization(romanization);
+    // If romanization has no diacritic tone marks at all (every syllable detected as 'mid'),
+    // but Thai script is available, prefer the phonetically analyzed tones from Thai!
+    if (thai && thai.trim() && syllables.length > 0 && syllables.every((s) => s.tone === 'mid')) {
+      const generated = generateRomanizationFromThai(thai);
+      if (generated.syllables.some((s) => s.tone !== 'mid')) {
+        syllables = generated.syllables;
+      }
+    }
   } else if (thai && thai.trim()) {
     const generated = generateRomanizationFromThai(thai);
     syllables = generated.syllables;

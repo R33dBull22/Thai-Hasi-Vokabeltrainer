@@ -59,10 +59,15 @@ export const CreateView: React.FC<CreateViewProps> = ({
 
     setIsSubmitting(true);
     try {
+      const finalRom =
+        romanization.trim() ||
+        generateRomanizationFromThai(thai.trim()).romanization ||
+        undefined;
+
       await onAddVocab({
         german: german.trim(),
         thai: thai.trim(),
-        romanization: romanization.trim() || undefined,
+        romanization: finalRom,
         lesson: finalLesson,
         exampleThai: exampleThai.trim() || undefined,
         exampleGerman: exampleGerman.trim() || undefined,

@@ -202,7 +202,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const formatted = validRows.map((r) => ({
         german: r.german,
         thai: r.thai,
-        romanization: r.romanization || undefined,
+        romanization:
+          r.romanization?.trim() ||
+          generateRomanizationFromThai(r.thai).romanization ||
+          undefined,
         lesson: r.lesson || 'Importierte Vokabeln',
         exampleThai: r.exampleThai || undefined,
         exampleGerman: r.exampleGerman || undefined,

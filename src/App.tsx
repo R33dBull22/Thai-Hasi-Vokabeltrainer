@@ -459,8 +459,21 @@ function AppContent() {
     direction: StudyDirection,
     inputMethod?: StudyInputMethod
   ) => {
+    let finalCards = cards;
+    if (direction === 'both' && cards.length > 0 && cards.every((c) => !c.direction)) {
+      finalCards = [
+        ...cards.map((c) => ({ ...c, direction: 'de_to_th' as QueryDirection })),
+        ...cards.map((c) => ({ ...c, direction: 'th_to_de' as QueryDirection })),
+      ];
+    } else if (direction !== 'both' && cards.some((c) => !c.direction)) {
+      finalCards = cards.map((c) => ({
+        ...c,
+        direction: c.direction || (direction as QueryDirection),
+      }));
+    }
+
     setActiveSession({
-      cards: shuffleStudyCards(cards),
+      cards: shuffleStudyCards(finalCards),
       mode,
       direction,
       inputMethod: inputMethod || defaultInputMethod,
