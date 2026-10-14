@@ -1148,6 +1148,57 @@ export async function moveVocabulariesToLesson(
 }
 
 /**
+ * Batch update the romanization of multiple vocabularies (e.g. after rule or dictionary improvements).
+ * Updates both the local storage cache and Firestore in chunks of up to 400 documents.
+ */
+export async function batchUpdateVocabulariesRomanization(
+  updates: { id: string; romanization: string }[]
+): Promise<number> {
+  if (!updates.length) return 0;
+
+  const updateMap = new Map(updates.map((u) => [u.id, u.romanization]));
+
+  // 1. Update in local storage
+  try {
+    const cached = localStorage.getItem(LOCAL_VOCAB_KEY);
+    if (cached) {
+      const list: Vocabulary[] = JSON.parse(cached);
+      let changed = false;
+      const updatedList = list.map((v) => {
+        if (updateMap.has(v.id)) {
+          changed = true;
+          return { ...v, romanization: updateMap.get(v.id)! };
+        }
+        return v;
+      });
+      if (changed) {
+        localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(updatedList));
+      }
+    }
+  } catch (err) {
+    console.warn('Error updating local vocab cache for batch romanization:', err);
+  }
+
+  // 2. Persist to Firestore in batches of up to 400
+  const BATCH_SIZE = 400;
+  for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+    const chunk = updates.slice(i, i + BATCH_SIZE);
+    try {
+      const batch = writeBatch(db);
+      for (const item of chunk) {
+        const docRef = doc(db, VOCAB_COLLECTION, item.id);
+        batch.set(docRef, { romanization: item.romanization }, { merge: true });
+      }
+      await batch.commit();
+    } catch (err) {
+      console.warn('Error batch updating romanizations in Firestore:', err);
+    }
+  }
+
+  return updates.length;
+}
+
+/**
  * Remove a vocabulary item from user's active study deck
  */
 export async function removeVocabFromUserDeck(userId: string, vocabId: string): Promise<void> {

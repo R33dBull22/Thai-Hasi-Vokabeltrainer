@@ -17,12 +17,15 @@ import {
   AlertTriangle,
   RotateCcw,
   ArrowDownCircle,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { Vocabulary, UserProgress } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
 import { PHASES, formatDueDate, isCardDue, getDirectionProgress, isAnyDirectionDue } from '../utils/leitner';
 import { EditVocabModal } from './EditVocabModal';
 import { ToneVisualizer } from './ToneVisualizer';
+import { generateRomanizationFromThai } from '../utils/thaiTones';
 
 interface PoolViewProps {
   vocabularies: Vocabulary[];
@@ -38,6 +41,7 @@ interface PoolViewProps {
   onStepBackLesson?: (lessonName: string) => Promise<number>;
   onResetVocabsPhase?: (vocabIds: string[]) => Promise<number>;
   onUpdateSinglePhase?: (vocabId: string, newPhase: number, targetDirection?: 'de_to_th' | 'th_to_de' | 'both') => Promise<void>;
+  onBatchUpdateRomanization?: (updates: { id: string; romanization: string }[]) => Promise<number>;
   existingLessons?: string[];
 }
 
@@ -55,6 +59,7 @@ export const PoolView: React.FC<PoolViewProps> = ({
   onStepBackLesson,
   onResetVocabsPhase,
   onUpdateSinglePhase,
+  onBatchUpdateRomanization,
   existingLessons = [],
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -327,19 +332,97 @@ export const PoolView: React.FC<PoolViewProps> = ({
     }
   };
 
+  // Sync / Recalculate romanization modal state
+  const [showSyncRomanizationModal, setShowSyncRomanizationModal] = useState(false);
+  const [syncScope, setSyncScope] = useState<'selected' | 'all'>('selected');
+  const [syncOnlyDiffs, setSyncOnlyDiffs] = useState<boolean>(true);
+  const [isSyncingRomanization, setIsSyncingRomanization] = useState(false);
+  const [showDiffPreviewList, setShowDiffPreviewList] = useState(false);
+
+  const targetSyncVocabs = useMemo(() => {
+    if (syncScope === 'selected' && selectedIds.size > 0) {
+      return vocabularies.filter((v) => selectedIds.has(v.id));
+    }
+    return vocabularies;
+  }, [syncScope, selectedIds, vocabularies]);
+
+  const syncDiffs = useMemo(() => {
+    return targetSyncVocabs.map((v) => {
+      const generated = generateRomanizationFromThai(v.thai).romanization;
+      const isDifferent = Boolean(
+        generated && generated.trim().toLowerCase() !== (v.romanization || '').trim().toLowerCase()
+      );
+      return {
+        vocab: v,
+        current: v.romanization || '',
+        generated: generated || '',
+        isDifferent,
+      };
+    });
+  }, [targetSyncVocabs]);
+
+  const changedDiffs = useMemo(() => {
+    return syncDiffs.filter((d) => d.isDifferent && d.generated);
+  }, [syncDiffs]);
+
+  const finalUpdatesToApply = useMemo(() => {
+    if (syncOnlyDiffs) {
+      return changedDiffs.map((d) => ({ id: d.vocab.id, romanization: d.generated }));
+    }
+    return syncDiffs
+      .filter((d) => d.generated)
+      .map((d) => ({ id: d.vocab.id, romanization: d.generated }));
+  }, [syncOnlyDiffs, changedDiffs, syncDiffs]);
+
+  const handleConfirmSyncRomanization = async () => {
+    if (!onBatchUpdateRomanization || !finalUpdatesToApply.length) return;
+    setIsSyncingRomanization(true);
+    try {
+      const count = await onBatchUpdateRomanization(finalUpdatesToApply);
+      setToastMessage(
+        `✓ Lautschrift & Töne für ${count} ${
+          count === 1 ? 'Vokabel' : 'Vokabeln'
+        } erfolgreich nachgezogen & aktualisiert!`
+      );
+      setShowSyncRomanizationModal(false);
+      setTimeout(() => setToastMessage(null), 5000);
+    } catch (err: any) {
+      setToastMessage(`Fehler beim Nachziehen: ${err.message || 'Unbekannt'}`);
+    } finally {
+      setIsSyncingRomanization(false);
+    }
+  };
+
   const selectedCount = selectedIds.size;
   const selectedNotInDeck = Array.from(selectedIds).filter((id) => !progressMap[id]).length;
 
   return (
     <div className="max-w-md mx-auto px-4 pt-3 pb-40 text-white">
-      {/* Top Header matching IMG_6341.png */}
-      <div className="flex items-center justify-between py-2 mb-3">
-        <h1 className="text-xl font-bold tracking-tight text-white">
-          Kärtchen auswählen
-        </h1>
-        <span className="text-xs text-[#8E8E93] bg-[#242426] px-2.5 py-1 rounded-full border border-[#323236]">
-          {vocabularies.length} Vokabeln
-        </span>
+      {/* Top Header matching IMG_6341.png with Lautschrift nachziehen button */}
+      <div className="flex items-center justify-between py-2 mb-3 gap-2">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-white">
+            Kärtchen auswählen
+          </h1>
+          <p className="text-[11px] text-[#8E8E93]">
+            {vocabularies.length} Vokabeln im Pool
+          </p>
+        </div>
+        {onBatchUpdateRomanization && (
+          <button
+            type="button"
+            onClick={() => {
+              setSyncScope(selectedIds.size > 0 ? 'selected' : 'all');
+              setShowDiffPreviewList(false);
+              setShowSyncRomanizationModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#242426] border border-[#3A3A3D] hover:border-emerald-500/60 text-xs text-[#D1D1D6] hover:text-white transition-colors cursor-pointer shadow-sm active:scale-95 shrink-0"
+            title="Lautschrift & Töne im Pool nachziehen"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Lautschrift nachziehen</span>
+          </button>
+        )}
       </div>
 
       {/* Success Confirmation Toast */}
@@ -1062,6 +1145,200 @@ export const PoolView: React.FC<PoolViewProps> = ({
         </div>
       )}
 
+      {/* Modal: Lautschrift & Töne nachziehen (Auto-Korrektur / Wörterbuch-Sync) */}
+      {showSyncRomanizationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div
+            className="bg-[#1C1C1E] border border-emerald-500/40 rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col text-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-[#2C2C2E] flex items-center justify-between shrink-0 bg-[#1C1C1E]">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <Sparkles className="w-5 h-5 shrink-0" />
+                <h3 className="text-base font-bold text-white">Lautschrift & Töne nachziehen</h3>
+              </div>
+              <button
+                onClick={() => setShowSyncRomanizationModal(false)}
+                className="w-7 h-7 rounded-full bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93] hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              <p className="text-[#D1D1D6] leading-relaxed">
+                Aktualisiert die Lautschrift (inklusive Tonhöhen-Akzenten) auf Basis der neuesten phonetischen Grammatikregeln und des erweiterten Thai-Wörterbuchs.
+              </p>
+
+              {/* Scope Selection */}
+              <div>
+                <label className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider block mb-2">
+                  Umfang auswählen:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={selectedIds.size === 0}
+                    onClick={() => setSyncScope('selected')}
+                    className={`p-3 rounded-2xl border text-left transition-colors cursor-pointer ${
+                      syncScope === 'selected'
+                        ? 'border-emerald-500 bg-emerald-500/10 text-white font-medium'
+                        : 'border-[#323236] bg-[#242426] text-[#A1A1AA] hover:border-[#444448]'
+                    } ${selectedIds.size === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-xs text-white">Markierte Vokabeln</span>
+                      {syncScope === 'selected' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    </div>
+                    <span className="text-[11px] text-[#8E8E93]">
+                      {selectedIds.size} ausgewählt
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSyncScope('all')}
+                    className={`p-3 rounded-2xl border text-left transition-colors cursor-pointer ${
+                      syncScope === 'all'
+                        ? 'border-emerald-500 bg-emerald-500/10 text-white font-medium'
+                        : 'border-[#323236] bg-[#242426] text-[#A1A1AA] hover:border-[#444448]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-xs text-white">Alle Vokabeln</span>
+                      {syncScope === 'all' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    </div>
+                    <span className="text-[11px] text-[#8E8E93]">
+                      {vocabularies.length} im gesamten Pool
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Status summary banner */}
+              <div
+                className={`p-3.5 rounded-2xl border flex items-start gap-2.5 ${
+                  changedDiffs.length > 0
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
+                    : 'bg-[#242426] border-[#323236] text-[#A1A1AA]'
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="font-semibold text-xs text-white">
+                    {changedDiffs.length > 0
+                      ? `${changedDiffs.length} von ${targetSyncVocabs.length} Vokabeln haben Optimierungen verfügbar`
+                      : `Alle ${targetSyncVocabs.length} Vokabeln entsprechen bereits dem aktuellen Stand!`}
+                  </p>
+                  <p className="text-[11px] mt-0.5 opacity-80 leading-relaxed">
+                    {changedDiffs.length > 0
+                      ? 'Abweichungen wurden erkannt (z. B. ฤ, Schrägstriche, erweiterte Wörterbucheinträge oder Ton-Markierungen).'
+                      : 'Es wurden keine Diskrepanzen zwischen der gespeicherten und der neu berechneten Lautschrift gefunden.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Options Checkbox */}
+              <div className="bg-[#242426] p-3 rounded-2xl border border-[#323236] space-y-2">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={syncOnlyDiffs}
+                    onChange={(e) => setSyncOnlyDiffs(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-500 focus:ring-0 focus:outline-none accent-emerald-500"
+                  />
+                  <span className="text-xs text-[#E4E4E7]">
+                    Nur abweichende / optimierte Lautschriften aktualisieren ({changedDiffs.length})
+                  </span>
+                </label>
+                {!syncOnlyDiffs && (
+                  <p className="text-[11px] text-amber-400/90 pl-6.5">
+                    Hinweis: Wenn deaktiviert, werden alle {targetSyncVocabs.length} Lautschriften neu generiert und gespeichert.
+                  </p>
+                )}
+              </div>
+
+              {/* Preview collapsible list */}
+              {changedDiffs.length > 0 && (
+                <div className="border border-[#2C2C2E] rounded-2xl p-3 bg-[#171719]">
+                  <button
+                    type="button"
+                    onClick={() => setShowDiffPreviewList((prev) => !prev)}
+                    className="w-full flex items-center justify-between text-xs text-[#8E8E93] hover:text-white transition-colors cursor-pointer"
+                  >
+                    <span className="font-medium text-white">Vorschau der Änderungen ({changedDiffs.length})</span>
+                    {showDiffPreviewList ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+
+                  {showDiffPreviewList && (
+                    <div className="max-h-56 overflow-y-auto space-y-2 pr-1 mt-3">
+                      {changedDiffs.map((d) => (
+                        <div
+                          key={d.vocab.id}
+                          className="p-2.5 bg-[#202024] border border-[#323236] rounded-xl text-xs space-y-1.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-white text-sm">{d.vocab.thai}</span>
+                            <span className="text-[10px] text-[#8E8E93] truncate max-w-[140px]">
+                              {d.vocab.german}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px]">
+                            <span className="text-red-400 line-through opacity-70 truncate font-mono">
+                              {d.current || '(leer)'}
+                            </span>
+                            <span className="text-[#8E8E93]">➔</span>
+                            <span className="text-emerald-400 font-semibold font-mono truncate">
+                              {d.generated}
+                            </span>
+                          </div>
+                          <ToneVisualizer romanization={d.generated} compact={true} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="p-4 border-t border-[#2C2C2E] flex gap-2 shrink-0 bg-[#1C1C1E]">
+              <button
+                type="button"
+                onClick={() => setShowSyncRomanizationModal(false)}
+                className="flex-1 py-2.5 rounded-full bg-[#2C2C2E] text-white text-xs font-semibold hover:bg-[#3A3A3D] cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSyncRomanization}
+                disabled={isSyncingRomanization || finalUpdatesToApply.length === 0}
+                className="flex-1 py-2.5 rounded-full bg-emerald-500 text-black text-xs font-bold hover:bg-emerald-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-lg"
+              >
+                {isSyncingRomanization ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Aktualisiere...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>
+                      {finalUpdatesToApply.length === 0
+                        ? 'Alles aktuell'
+                        : `${finalUpdatesToApply.length} Vokabeln nachziehen`}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sticky Bottom Actions */}
       <div className="fixed bottom-16 left-0 right-0 z-30 bg-[#121214]/95 backdrop-blur-md border-t border-[#2C2C2E] p-3 px-4">
         <div className="max-w-md mx-auto space-y-2">
@@ -1074,19 +1351,19 @@ export const PoolView: React.FC<PoolViewProps> = ({
             <span>+ Vokabeln eingeben</span>
           </button>
 
-          {/* Action Row for Selected Vocabs: Move + Von Anfang an lernen */}
+          {/* Action Row for Selected Vocabs: Move + Von Anfang an lernen + Lautschrift nachziehen */}
           {selectedCount > 0 && (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               {/* Von Anfang an lernen Button */}
               {onResetVocabsPhase && (
                 <button
                   type="button"
                   onClick={() => setShowResetSelectedConfirm(true)}
-                  className="py-2.5 px-3 rounded-full bg-[#242426] border border-amber-500/50 text-amber-300 font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer shadow"
+                  className="py-2.5 px-2 rounded-full bg-[#242426] border border-amber-500/50 text-amber-300 font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
                   title="Ausgewählte Vokabeln auf Phase 1 zurücksetzen"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="truncate">Von Anfang an ({selectedCount})</span>
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="truncate">Phase 1</span>
                 </button>
               )}
 
@@ -1099,11 +1376,28 @@ export const PoolView: React.FC<PoolViewProps> = ({
                     setCustomTargetMoveLesson('');
                     setMoveModalOpen(true);
                   }}
-                  className="py-2.5 px-3 rounded-full bg-[#242426] border border-[#FF7A00]/50 text-[#FF7A00] font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer shadow"
+                  className="py-2.5 px-2 rounded-full bg-[#242426] border border-[#FF7A00]/50 text-[#FF7A00] font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
                   title="Vokabeln in andere Lektion verschieben"
                 >
-                  <FolderInput className="w-3.5 h-3.5" />
-                  <span className="truncate">Verschieben ({selectedCount})</span>
+                  <FolderInput className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Verschieben</span>
+                </button>
+              )}
+
+              {/* Lautschrift nachziehen Button */}
+              {onBatchUpdateRomanization && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSyncScope('selected');
+                    setShowDiffPreviewList(false);
+                    setShowSyncRomanizationModal(true);
+                  }}
+                  className="py-2.5 px-2 rounded-full bg-[#242426] border border-emerald-500/50 text-emerald-300 font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
+                  title="Lautschrift & Töne für markierte Vokabeln nachziehen"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="truncate">Lautschrift ({selectedCount})</span>
                 </button>
               )}
             </div>

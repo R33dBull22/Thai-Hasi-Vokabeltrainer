@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
   Key,
+  Sparkles,
 } from 'lucide-react';
 import { isLiveFirebaseApiKeyConfigured } from '../firebase/config';
 import { Vocabulary, UserProgress, DeletedVocabEntry } from '../types/vocab';
@@ -41,7 +42,7 @@ import {
 } from '../services/vocabService';
 import { useAuth } from '../context/AuthContext';
 import { Trash2, RotateCcw } from 'lucide-react';
-import { THAI_TONES, ThaiTone } from '../utils/thaiTones';
+import { THAI_TONES, ThaiTone, generateRomanizationFromThai } from '../utils/thaiTones';
 
 interface SettingsViewProps {
   vocabularies: Vocabulary[];
@@ -50,6 +51,7 @@ interface SettingsViewProps {
     newVocabs: (Omit<Vocabulary, 'id' | 'createdAt'> & { phase?: number })[]
   ) => Promise<number>;
   onRestoreVocab?: (id: string) => Promise<void>;
+  onBatchUpdateRomanization?: (updates: { id: string; romanization: string }[]) => Promise<number>;
   defaultHideRomanization: boolean;
   onToggleDefaultHideRomanization: (val: boolean) => void;
   defaultInputMethod: StudyInputMethod;
@@ -69,6 +71,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   progressMap,
   onImportVocabs,
   onRestoreVocab,
+  onBatchUpdateRomanization,
   defaultHideRomanization,
   onToggleDefaultHideRomanization,
   defaultInputMethod,
@@ -84,6 +87,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const { user, isGuest, logout } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isSyncingAllRomanization, setIsSyncingAllRomanization] = useState(false);
+  const [syncRomanizationToast, setSyncRomanizationToast] = useState<string | null>(null);
 
   // Deleted items & restoration state
   const [deletedList, setDeletedList] = useState<DeletedVocabEntry[]>(() =>
@@ -532,6 +538,64 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* Lautschrift & Töne im Pool synchronisieren */}
+        {onBatchUpdateRomanization && (
+          <div className="bg-[#242426] rounded-2xl p-4 border border-[#323236]">
+            <h2 className="text-xs font-semibold text-[#8E8E93] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              Lautschrift & Töne im Wortschatz nachziehen
+            </h2>
+            <p className="text-xs text-[#A1A1AA] mb-3 leading-relaxed">
+              Gleiche alle {vocabularies.length} Vokabeln im Pool mit den neuesten Grammatik- & Ton-Regeln und dem erweiterten Thai-Wörterbuch ab (inkl. Korrektur von ฤ, Schrägstrichen und Tonmarkierungen).
+            </p>
+
+            {syncRomanizationToast && (
+              <div className="mb-3 p-2.5 rounded-xl bg-[#1C1C1E] border border-emerald-500/50 text-xs text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{syncRomanizationToast}</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              disabled={isSyncingAllRomanization || vocabularies.length === 0}
+              onClick={async () => {
+                if (!onBatchUpdateRomanization || vocabularies.length === 0) return;
+                setIsSyncingAllRomanization(true);
+                try {
+                  const updates = vocabularies
+                    .map((v) => {
+                      const gen = generateRomanizationFromThai(v.thai).romanization;
+                      return { id: v.id, romanization: gen };
+                    })
+                    .filter((u) => Boolean(u.romanization));
+
+                  const count = await onBatchUpdateRomanization(updates);
+                  setSyncRomanizationToast(`✓ Lautschrift für ${count} Vokabeln erfolgreich nachgezogen & aktualisiert!`);
+                  setTimeout(() => setSyncRomanizationToast(null), 5000);
+                } catch (err: any) {
+                  setSyncRomanizationToast(`Fehler: ${err.message || 'Unbekannt'}`);
+                } finally {
+                  setIsSyncingAllRomanization(false);
+                }
+              }}
+              className="w-full py-3 px-4 rounded-xl border border-emerald-500/40 bg-emerald-950/20 hover:bg-emerald-900/30 text-emerald-300 transition-colors text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isSyncingAllRomanization ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                  <span>Aktualisiere alle {vocabularies.length} Vokabeln...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <span>Alle {vocabularies.length} Lautschriften jetzt nachziehen</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* 1-Click Export Section (Anti-Lock-in) */}
         <div className="bg-[#242426] rounded-2xl p-4 border border-[#323236]">

@@ -19,6 +19,7 @@ import {
   updateVocabPhase,
   resetVocabsToPhaseOne,
   stepBackLessonPhase,
+  batchUpdateVocabulariesRomanization,
 } from './services/vocabService';
 import { Navigation } from './components/Navigation';
 import { LearnView } from './components/LearnView';
@@ -433,6 +434,24 @@ function AppContent() {
     }));
   };
 
+  // Batch update romanization for multiple vocabularies (e.g. sync from improved generator)
+  const handleBatchUpdateRomanization = async (
+    updates: { id: string; romanization: string }[]
+  ): Promise<number> => {
+    if (!updates.length) return 0;
+    const count = await batchUpdateVocabulariesRomanization(updates);
+    const updateMap = new Map(updates.map((u) => [u.id, u.romanization]));
+    setVocabularies((prev) =>
+      prev.map((v) => {
+        if (updateMap.has(v.id)) {
+          return { ...v, romanization: updateMap.get(v.id)! };
+        }
+        return v;
+      })
+    );
+    return count;
+  };
+
   // Start active study session
   const handleStartSession = (
     cards: { vocab: Vocabulary; progress?: UserProgress; direction?: QueryDirection }[],
@@ -544,6 +563,7 @@ function AppContent() {
                 onStepBackLesson={handleStepBackLesson}
                 onResetVocabsPhase={handleResetVocabsPhase}
                 onUpdateSinglePhase={handleUpdateSinglePhase}
+                onBatchUpdateRomanization={handleBatchUpdateRomanization}
                 existingLessons={existingLessons}
               />
             )}
@@ -562,6 +582,7 @@ function AppContent() {
                 progressMap={progressMap}
                 onImportVocabs={handleImportVocabs}
                 onRestoreVocab={handleRestoreVocab}
+                onBatchUpdateRomanization={handleBatchUpdateRomanization}
                 defaultHideRomanization={defaultHideRomanization}
                 onToggleDefaultHideRomanization={handleToggleHideRomanization}
                 defaultInputMethod={defaultInputMethod}
