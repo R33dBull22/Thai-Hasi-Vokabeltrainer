@@ -9,12 +9,14 @@ import {
   SlidersHorizontal,
   Sparkles,
   Trophy,
+  Headphones,
 } from 'lucide-react';
 import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
 import { isCardDue, isDirectionDue, getDirectionProgress, shuffleStudyCards } from '../utils/leitner';
 import { ReportsModal } from './ReportsModal';
 import { StudySummaryModal } from './StudySummaryModal';
 import { StudyMode, StudyDirection, StudyInputMethod, StudyCardItem } from './StudySession';
+import { ListeningSetupModal } from './ListeningSetupModal';
 import watArunJpg from '../assets/images/wat_arun_bangkok.jpg';
 import watArunWebp from '../assets/images/wat_arun_bangkok.webp';
 
@@ -35,6 +37,7 @@ interface LearnViewProps {
     direction: StudyDirection,
     inputMethod?: StudyInputMethod
   ) => void;
+  onStartListeningSession: (cards: Vocabulary[]) => void;
   onNavigatePool: () => void;
   onNavigateCreate: () => void;
   onNavigateStats?: () => void;
@@ -48,11 +51,13 @@ export const LearnView: React.FC<LearnViewProps> = ({
   defaultInputMethod,
   onUpdateStudyPreferences,
   onStartSession,
+  onStartListeningSession,
   onNavigatePool,
   onNavigateCreate,
   onNavigateStats,
 }) => {
   const [showReports, setShowReports] = useState(false);
+  const [showListeningModal, setShowListeningModal] = useState(false);
   const [customizeModalCards, setCustomizeModalCards] = useState<StudyCardItem[] | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -341,10 +346,20 @@ export const LearnView: React.FC<LearnViewProps> = ({
               onNavigatePool();
             }
           }}
-          className="w-full py-4 rounded-full bg-[#1C1C1E] border border-[#3A3A3D] text-white font-semibold text-sm hover:bg-[#242426] transition-colors flex items-center justify-center gap-2.5 active:scale-[0.99] shadow-sm"
+          className="w-full py-4 rounded-full bg-[#1C1C1E] border border-[#3A3A3D] text-white font-semibold text-sm hover:bg-[#242426] transition-colors flex items-center justify-center gap-2.5 active:scale-[0.99] shadow-sm cursor-pointer"
         >
           <ClipboardList className="w-4 h-4 text-[#8E8E93]" />
           <span>Tests und Aufgaben ({totalDeckCount})</span>
+        </button>
+
+        {/* Dedizierter Hörverstehen-Button (Audio-Abfrage) */}
+        <button
+          type="button"
+          onClick={() => setShowListeningModal(true)}
+          className="w-full py-4 rounded-full bg-gradient-to-r from-[#241E19] via-[#1F1E24] to-[#241E19] border border-[#FF7A00]/50 text-white font-semibold text-sm hover:border-[#FF7A00] hover:from-[#2F231B] hover:to-[#2A2430] transition-all flex items-center justify-center gap-2.5 active:scale-[0.99] shadow-md group cursor-pointer"
+        >
+          <Headphones className="w-5 h-5 text-[#FF7A00] group-hover:scale-115 transition-transform" />
+          <span>🎧 Hörverstehen trainieren (Audio-Abfrage)</span>
         </button>
 
         {/* Solid Orange button: Reguläre Übung */}
@@ -451,6 +466,15 @@ export const LearnView: React.FC<LearnViewProps> = ({
           }}
         />
       )}
+
+      {/* Listening Setup Modal */}
+      <ListeningSetupModal
+        isOpen={showListeningModal}
+        onClose={() => setShowListeningModal(false)}
+        vocabularies={vocabularies}
+        progressMap={progressMap}
+        onStart={onStartListeningSession}
+      />
     </div>
   );
 };

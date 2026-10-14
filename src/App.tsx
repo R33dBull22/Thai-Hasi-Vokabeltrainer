@@ -28,6 +28,7 @@ import { CreateView } from './components/CreateView';
 import { SettingsView } from './components/SettingsView';
 import { StatsDashboard } from './components/StatsDashboard';
 import { StudySession, StudyMode, StudyDirection, StudyInputMethod } from './components/StudySession';
+import { ListeningSession } from './components/ListeningSession';
 import { AuthModal } from './components/AuthModal';
 import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner';
 
@@ -45,6 +46,11 @@ function AppContent() {
     mode: StudyMode;
     direction: StudyDirection;
     inputMethod: StudyInputMethod;
+  } | null>(null);
+
+  // Active listening (audio) session state - no impact on Leitner phases
+  const [activeListeningSession, setActiveListeningSession] = useState<{
+    cards: Vocabulary[];
   } | null>(null);
 
   // User preference: default hide romanization
@@ -480,6 +486,11 @@ function AppContent() {
     });
   };
 
+  // Start active listening (audio-only) session - no Leitner progress changes
+  const handleStartListeningSession = (cards: Vocabulary[]) => {
+    setActiveListeningSession({ cards });
+  };
+
   // If active study session is running, render full-screen study interface
   if (activeSession) {
     return (
@@ -494,6 +505,17 @@ function AppContent() {
         acceptRomanizationTyping={acceptRomanizationTyping}
         onUpdateVocab={handleUpdateVocab}
         existingLessons={existingLessons}
+      />
+    );
+  }
+
+  // If active listening session is running, render full-screen listening interface
+  if (activeListeningSession) {
+    return (
+      <ListeningSession
+        cards={activeListeningSession.cards}
+        poolVocabularies={vocabularies}
+        onFinish={() => setActiveListeningSession(null)}
       />
     );
   }
@@ -544,6 +566,7 @@ function AppContent() {
                 defaultInputMethod={defaultInputMethod}
                 onUpdateStudyPreferences={handleUpdateStudyPreferences}
                 onStartSession={handleStartSession}
+                onStartListeningSession={handleStartListeningSession}
                 onNavigatePool={() => setActiveTab('pool')}
                 onNavigateCreate={() => setActiveTab('create')}
                 onNavigateStats={() => setActiveTab('stats')}
