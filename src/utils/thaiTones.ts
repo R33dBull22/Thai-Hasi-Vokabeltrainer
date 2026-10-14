@@ -299,8 +299,32 @@ const THAI_DICTIONARY: Record<string, string> = {
   'เยอรมัน': 'yoe-rá-man',
   'ประเทศเยอรมนี': 'bprà-thêet yoe-rá-má-nee',
   'อเมริกา': 'à-mee-rí-gaa',
+  'ประเทศอเมริกา': 'bprà-thêet à-mee-rí-gaa',
+  'ประเทศ': 'bprà-thêet',
+  'สหรัฐ': 'sà-hà-rát',
   'สหรัฐอเมริกา': 'sà-hà-rát à-mee-rí-gaa',
   'ประเทศไทย': 'bprà-thêet thai',
+
+  // Jahreszeiten & Wetter (inkl. ฤดู)
+  'ฤดู': 'rúe-doo',
+  'ฤดูใบไม้ร่วง': 'rúe-doo-bai-mái-rûang',
+  'ฤดูใบไม้ผลิ': 'rúe-doo-bai-mái-phlì',
+  'ฤดูร้อน': 'rúe-doo-róon',
+  'ฤดูหนาว': 'rúe-doo-năao',
+  'ฤดูฝน': 'rúe-doo-fŏn',
+  'ใบไม้': 'bai-mái',
+  'ใบไม้ร่วง': 'bai-mái-rûang',
+  'ใบไม้ผลิ': 'bai-mái-phlì',
+  'ใบ': 'bai',
+  'ไม้': 'mái',
+  'ร่วง': 'rûang',
+  'ผลิ': 'phlì',
+  'ฝน': 'fŏn',
+  'ฝนตก': 'fŏn-dtòk',
+  'ตก': 'dtòk',
+  'พฤหัสบดี': 'phróe-hàt-sà-boh-dee',
+  'วันพฤหัสบดี': 'wan phróe-hàt-sà-boh-dee',
+  'วันพฤหัส': 'wan phróe-hàt',
   'ไทย': 'thai',
   'อังกฤษ': 'ang-grìt',
   'ประเทศอังกฤษ': 'bprà-thêet ang-grìt',
@@ -360,7 +384,7 @@ const HIGH_CONSONANTS = new Set(['ข', 'ฃ', 'ฉ', 'ฐ', 'ถ', 'ผ', 'ฝ'
 const MID_CONSONANTS = new Set(['ก', 'จ', 'ฎ', 'ฏ', 'ด', 'ต', 'บ', 'ป', 'อ']);
 const LOW_CONSONANTS = new Set([
   'ค', 'ฅ', 'ฆ', 'ง', 'ช', 'ซ', 'ฌ', 'ญ', 'ฑ', 'ฒ', 'ณ', 'ท', 'ธ', 'น',
-  'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ฬ', 'ฮ',
+  'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ฬ', 'ฮ', 'ฤ', 'ฦ',
 ]);
 
 const INITIAL_CONSONANTS: Record<string, string> = {
@@ -371,7 +395,7 @@ const INITIAL_CONSONANTS: Record<string, string> = {
   'น': 'n', 'บ': 'b', 'ป': 'bp', 'ผ': 'ph', 'ฝ': 'f', 'พ': 'ph',
   'ฟ': 'f', 'ภ': 'ph', 'ม': 'm', 'ย': 'y', 'ร': 'r', 'ล': 'l',
   'ว': 'w', 'ศ': 's', 'ษ': 's', 'ส': 's', 'ห': 'h', 'ฬ': 'l',
-  'ฮ': 'h', 'อ': '',
+  'ฮ': 'h', 'อ': '', 'ฤ': 'r', 'ฦ': 'l',
 };
 
 const CLUSTERS: Record<string, { roman: string; class: 'high' | 'mid' | 'low' }> = {
@@ -402,6 +426,8 @@ const CLUSTERS: Record<string, { roman: string; class: 'high' | 'mid' | 'low' }>
   'ทร': { roman: 's', class: 'low' },
   'ฝร': { roman: 'fr', class: 'high' },
   'ฟร': { roman: 'fr', class: 'low' },
+  'กฤ': { roman: 'gr', class: 'mid' },
+  'พฤ': { roman: 'phr', class: 'low' },
 };
 
 const FINAL_CONSONANTS: Record<string, { roman: string; isDead: boolean }> = {
@@ -537,12 +563,15 @@ export function extractTonesFromRomanization(romanization: string): SyllableTone
     .split(/[\s-]+/)
     .filter(Boolean);
 
-  return tokens.map((token) => {
-    const cleanSyllable = token.replace(/^[.,!?()":;]+|[.,!?()":;]+$/g, '');
+  const result: SyllableTone[] = [];
+  for (const token of tokens) {
+    const cleanSyllable = token.replace(/^[^a-zA-Z\u00C0-\u024F\u1E00-\u1EFF]+|[^a-zA-Z\u00C0-\u024F\u1E00-\u1EFF]+$/g, '');
+    if (!cleanSyllable) continue;
+
     const tone = detectToneFromSyllable(cleanSyllable);
     const info = THAI_TONES[tone];
 
-    return {
+    result.push({
       syllable: cleanSyllable,
       tone,
       toneName: info.germanName,
@@ -550,8 +579,10 @@ export function extractTonesFromRomanization(romanization: string): SyllableTone
       colorClass: info.colorClass,
       bgClass: info.bgClass,
       borderClass: info.borderClass,
-    };
-  });
+    });
+  }
+
+  return result;
 }
 
 function computeTone(
@@ -585,13 +616,8 @@ export function splitThaiIntoSyllables(text: string): string[] {
   let i = 0;
 
   const isLeadingVowel = (c: string) => /[เแโใไ]/.test(c);
-  const isConsonant = (c: string) => /[ก-ฮ]/.test(c);
-  const hasVowelOrTone = (idx: number) => {
-    if (idx + 1 < chars.length) {
-      return /[ิีึืุูั็่้๊๋ะาำๅ]/.test(chars[idx + 1]);
-    }
-    return false;
-  };
+  const isConsonant = (c: string) => /[ก-ฮฤฦ]/.test(c);
+  const isVowelOrTone = (c: string) => /[ิีึืุูั็่้๊๋ะาำๅ]/.test(c);
 
   while (i < chars.length) {
     if (chars[i] === ' ') {
@@ -600,62 +626,68 @@ export function splitThaiIntoSyllables(text: string): string[] {
     }
 
     const start = i;
-    let end = i + 1;
+    let end = i;
 
-    // If starts with leading vowel
-    if (isLeadingVowel(chars[start])) {
-      const consIdx = start + 1;
-      if (consIdx < chars.length && isConsonant(chars[consIdx])) {
-        // Check if next char forms a cluster
-        if (consIdx + 1 < chars.length && isConsonant(chars[consIdx + 1])) {
-          const pair = chars[consIdx] + chars[consIdx + 1];
-          if (CLUSTER_PAIRS.has(pair)) {
-            end = consIdx + 2;
-          } else {
-            end = consIdx + 1;
-          }
+    // 1. Initial onset
+    if (isLeadingVowel(chars[end])) {
+      end++; // leading vowel
+      if (end < chars.length && isConsonant(chars[end])) {
+        if (end + 1 < chars.length && isConsonant(chars[end + 1]) && CLUSTER_PAIRS.has(chars[end] + chars[end + 1])) {
+          end += 2;
         } else {
-          end = consIdx + 1;
+          end++;
         }
       }
-    } else if (isConsonant(chars[start])) {
-      // Check if starts with a cluster
-      if (start + 1 < chars.length && isConsonant(chars[start + 1])) {
-        const pair = chars[start] + chars[start + 1];
-        if (CLUSTER_PAIRS.has(pair)) {
-          end = start + 2;
-        }
+    } else if (isConsonant(chars[end])) {
+      if (end + 1 < chars.length && isConsonant(chars[end + 1]) && CLUSTER_PAIRS.has(chars[end] + chars[end + 1])) {
+        end += 2;
+      } else {
+        end++;
+      }
+    } else {
+      end++;
+      const chunk = chars.slice(start, end).join('').trim();
+      if (chunk) syllables.push(chunk);
+      i = end;
+      continue;
+    }
+
+    // 2. Consume vowel signs and diphthong glides attached to initial
+    while (end < chars.length) {
+      const c = chars[end];
+      if (isVowelOrTone(c) || c === '์') {
+        end++;
+      } else if ((c === 'ว' || c === 'ย' || c === 'อ') && end + 1 < chars.length && isConsonant(chars[end + 1])) {
+        // e.g. ร่วง (ว is vowel ua), เมือง (อ is vowel uea), เรียน (ย is vowel ia)
+        end++;
+      } else {
+        break;
       }
     }
 
-    // Now advance until next syllable boundary
-    while (end < chars.length) {
+    // 3. Optional: AT MOST ONE final consonant (coda)
+    if (end < chars.length && isConsonant(chars[end])) {
       const nextChar = chars[end];
+      const afterNext = end + 1 < chars.length ? chars[end + 1] : '';
 
-      // 1. Space
-      if (nextChar === ' ') break;
+      // If nextChar is followed by an attached vowel or tone mark, it belongs to the next syllable
+      const nextHasVowel = isVowelOrTone(afterNext);
 
-      // 2. Leading vowel always starts next syllable
-      if (isLeadingVowel(nextChar)) break;
-
-      // 3. Karan mark attaches to previous consonant (e.g. ร์, ท์)
-      if (nextChar === '์') {
+      if (!nextHasVowel) {
         end++;
-        continue;
+        // consume trailing tone/karan if any
+        while (end < chars.length && (isVowelOrTone(chars[end]) || chars[end] === '์')) {
+          end++;
+        }
+        // Handle double silent consonants with karan (e.g. สตร์, ทร์, ศร์)
+        if (end + 1 < chars.length && chars[end + 1] === '์') {
+          end += 2;
+        }
       }
-
-      // 4. Consonant followed by vowel or tone mark starts next syllable
-      if (isConsonant(nextChar) && hasVowelOrTone(end)) {
-        break;
-      }
-
-      end++;
     }
 
     const chunk = chars.slice(start, end).join('').trim();
-    if (chunk) {
-      syllables.push(chunk);
-    }
+    if (chunk) syllables.push(chunk);
     i = end;
   }
 
@@ -666,9 +698,45 @@ export function splitThaiIntoSyllables(text: string): string[] {
  * Parses an individual Thai syllable based on phonetic rules
  */
 export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone } {
-  // Strip silent consonant + karan (e.g. ร์, ท์, ส์)
+  // If no Thai character exists, return empty
+  if (!/[ก-๙]/.test(raw)) {
+    return { roman: '', tone: 'mid' };
+  }
+
+  // Strip silent consonant + karan (e.g. ร์, ท์, ส์, สตร์)
   let s = raw.replace(/.+[์]/g, '').replace(/.[์]/g, '').trim();
   if (!s) return { roman: '', tone: 'mid' };
+
+  // Explicit handling for vocalic ฤ (ru / rue) and ฦ (lu)
+  if (s.startsWith('ฤๅ') || s.startsWith('ฦๅ')) {
+    const isRu = s.startsWith('ฤ');
+    return {
+      roman: isRu ? 'rue' : 'lue',
+      tone: 'mid',
+    };
+  }
+  if (s === 'ฤ' || s === 'ฦ') {
+    const isRu = s === 'ฤ';
+    const base = isRu ? 'rue' : 'lue';
+    return {
+      roman: applyToneToSyllable(base, 'high'),
+      tone: 'high',
+    };
+  }
+  if (s.startsWith('ฤ')) {
+    if (s.includes('ก')) {
+      return {
+        roman: applyToneToSyllable('roek', 'falling'),
+        tone: 'falling',
+      };
+    }
+    if (s.includes('ท') || s.includes('ต') || s.includes('ษ')) {
+      return {
+        roman: applyToneToSyllable('rit', 'high'),
+        tone: 'high',
+      };
+    }
+  }
 
   let leadingVowel = '';
   if (/^[เแโใไ]/.test(s)) {
@@ -847,26 +915,12 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
   };
 }
 
-/**
- * Automatically generates phonetic romanization with tone marks from Thai text
- */
-export function generateRomanizationFromThai(thaiText: string): {
-  romanization: string;
-  syllables: SyllableTone[];
-} {
-  const clean = thaiText.trim();
-  if (!clean) return { romanization: '', syllables: [] };
-
-  // 1. Direct dictionary match for entire phrase
+function romanizeThaiSegment(clean: string): string {
+  if (!clean) return '';
   if (THAI_DICTIONARY[clean]) {
-    const rom = THAI_DICTIONARY[clean];
-    return {
-      romanization: rom,
-      syllables: extractTonesFromRomanization(rom),
-    };
+    return THAI_DICTIONARY[clean];
   }
 
-  // 2. Tokenize using longest match dictionary + rule-based syllable tokenizer
   const words: string[] = [];
   let i = 0;
 
@@ -902,7 +956,39 @@ export function generateRomanizationFromThai(thaiText: string): {
     }
   }
 
-  const resultRom = words.join('-').replace(/--+/g, '-');
+  return words.join('-').replace(/--+/g, '-');
+}
+
+/**
+ * Automatically generates phonetic romanization with tone marks from Thai text
+ */
+export function generateRomanizationFromThai(thaiText: string): {
+  romanization: string;
+  syllables: SyllableTone[];
+} {
+  const clean = thaiText.trim();
+  if (!clean) return { romanization: '', syllables: [] };
+
+  // Handle delimiter segments cleanly (e.g. "อเมริกา / ประเทศอเมริกา", "คำ1, คำ2")
+  if (/[\/\,\(\)\[\];+&]/.test(clean)) {
+    const parts = clean.split(/(\s*[\/\,\(\)\[\];+&]\s*)/);
+    const romParts: string[] = [];
+    for (const part of parts) {
+      if (/[\/\,\(\)\[\];+&]/.test(part)) {
+        romParts.push(part.trim());
+      } else if (part.trim()) {
+        const segRom = romanizeThaiSegment(part.trim());
+        if (segRom) romParts.push(segRom);
+      }
+    }
+    const finalRom = romParts.join(' ').replace(/\s+([\/,\)\]])/g, ' $1').replace(/([\/,\(\[])\s+/g, '$1 ');
+    return {
+      romanization: finalRom,
+      syllables: extractTonesFromRomanization(finalRom),
+    };
+  }
+
+  const resultRom = romanizeThaiSegment(clean);
   return {
     romanization: resultRom,
     syllables: extractTonesFromRomanization(resultRom),
