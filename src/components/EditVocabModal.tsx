@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
-import { generateRomanizationFromThai } from '../utils/thaiTones';
+import { generateRomanizationFromThai, normalizeThai } from '../utils/thaiTones';
 import { ToneVisualizer } from './ToneVisualizer';
 
 interface EditVocabModalProps {
@@ -108,10 +108,10 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
 
       await onSave(vocab.id, {
         german: german.trim(),
-        thai: thai.trim(),
+        thai: normalizeThai(thai.trim()),
         romanization: finalRom,
         lesson: finalLesson,
-        exampleThai: exampleThai.trim() || undefined,
+        exampleThai: exampleThai.trim() ? normalizeThai(exampleThai.trim()) : undefined,
         exampleGerman: exampleGerman.trim() || undefined,
       });
 

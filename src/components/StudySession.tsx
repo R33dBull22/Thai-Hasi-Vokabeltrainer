@@ -27,6 +27,7 @@ import { speakThai } from '../utils/thaiAudio';
 import { EditVocabModal } from './EditVocabModal';
 import { saveStudySession } from '../services/statsService';
 import { ToneVisualizer } from './ToneVisualizer';
+import { normalizeThai } from '../utils/thaiTones';
 
 export type StudyMode = 'preview_first' | 'skip_preview';
 export type StudyDirection = 'de_to_th' | 'both' | 'th_to_de';
@@ -63,7 +64,7 @@ function normalizeGerman(str: string): string {
 }
 
 function normalizeThaiString(str: string): string {
-  return str.trim().replace(/[\s\-_]+/g, '');
+  return normalizeThai(str).trim().replace(/[\s\-_]+/g, '');
 }
 
 function normalizeRomanization(str: string): { spaced: string; collapsed: string } {
