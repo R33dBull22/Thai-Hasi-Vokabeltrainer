@@ -23,7 +23,7 @@ import {
 import confetti from 'canvas-confetti';
 import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
 import { PHASES, getDirectionProgress, shuffleStudyCards } from '../utils/leitner';
-import { speakThai } from '../utils/thaiAudio';
+import { speakThai, stopThaiSpeech } from '../utils/thaiAudio';
 import { EditVocabModal } from './EditVocabModal';
 import { saveStudySession } from '../services/statsService';
 import { ToneVisualizer } from './ToneVisualizer';
@@ -274,6 +274,13 @@ export const StudySession: React.FC<StudySessionProps> = ({
   const currentPhase = dirProgress.phase;
 
   const currentTaskKey = vocab ? `${vocab.id}_${activeDirection}` : '';
+
+  // Stop speech on unmount
+  useEffect(() => {
+    return () => {
+      stopThaiSpeech();
+    };
+  }, []);
 
   // Auto-focus input when card changes
   useEffect(() => {

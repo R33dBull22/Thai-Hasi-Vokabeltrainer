@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Vocabulary } from '../types/vocab';
-import { speakThai } from '../utils/thaiAudio';
+import { speakThai, stopThaiSpeech } from '../utils/thaiAudio';
 import { ToneVisualizer } from './ToneVisualizer';
 
 interface ListeningSessionProps {
@@ -94,12 +94,22 @@ export const ListeningSession: React.FC<ListeningSessionProps> = ({
     return allList.sort(() => Math.random() - 0.5);
   }, [currentCard, poolVocabularies]);
 
+  // Stop any audio on unmount
+  useEffect(() => {
+    return () => {
+      stopThaiSpeech();
+    };
+  }, []);
+
   // Play audio for current card
   const handlePlayAudio = useCallback(() => {
     if (!currentCard) return;
     setIsPlayingAudio(true);
-    speakThai(currentCard.thai);
-    setTimeout(() => setIsPlayingAudio(false), 1200);
+    speakThai(currentCard.thai, () => {
+      setIsPlayingAudio(false);
+    });
+    // Safety fallback timer
+    setTimeout(() => setIsPlayingAudio(false), 2000);
   }, [currentCard]);
 
   // Autoplay audio on new card
