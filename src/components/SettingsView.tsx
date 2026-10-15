@@ -43,6 +43,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { Trash2, RotateCcw } from 'lucide-react';
 import { THAI_TONES, ThaiTone, generateRomanizationFromThai } from '../utils/thaiTones';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface SettingsViewProps {
   vocabularies: Vocabulary[];
@@ -392,6 +393,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* PWA App Installation & Offline Info */}
+        <PWAInstallButton variant="settings" />
 
         {/* Gelöschte Vokabeln wiederherstellen (Papierkorb) */}
         <div className="bg-[#242426] rounded-2xl p-4 border border-[#323236]">

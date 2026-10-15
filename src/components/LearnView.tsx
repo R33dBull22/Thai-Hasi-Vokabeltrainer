@@ -17,6 +17,7 @@ import { ReportsModal } from './ReportsModal';
 import { StudySummaryModal } from './StudySummaryModal';
 import { StudyMode, StudyDirection, StudyInputMethod, StudyCardItem } from './StudySession';
 import { ListeningSetupModal } from './ListeningSetupModal';
+import { PWAInstallButton } from './PWAInstallButton';
 import watArunJpg from '../assets/images/wat_arun_bangkok.jpg';
 import watArunWebp from '../assets/images/wat_arun_bangkok.webp';
 
@@ -181,6 +182,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
           </h1>
 
           <div className="flex items-center gap-1.5 -mr-1">
+            <PWAInstallButton variant="header" />
             {onNavigateStats && (
               <button
                 onClick={onNavigateStats}

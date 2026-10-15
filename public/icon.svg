@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1F1F23" />
+      <stop offset="50%" stop-color="#141416" />
+      <stop offset="100%" stop-color="#0B0B0C" />
+    </linearGradient>
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF9E40" />
+      <stop offset="50%" stop-color="#FF7A00" />
+      <stop offset="100%" stop-color="#E05D00" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF7A00" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#FF7A00" stop-opacity="0" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <circle cx="256" cy="256" r="190" fill="url(#glowGrad)" />
+
+  <!-- Outer Accent Border -->
+  <rect x="8" y="8" width="496" height="496" rx="104" fill="none" stroke="#FF7A00" stroke-opacity="0.25" stroke-width="4" />
+
+  <!-- Stylized Modern Thai Letter 'ท' / Temple Spire Element -->
+  <g transform="translate(0, -10)" filter="url(#glow)">
+    <!-- Temple Stupa / Crown Tip -->
+    <path d="M256 90 L266 140 L246 140 Z" fill="url(#primaryGrad)" />
+    <circle cx="256" cy="80" r="8" fill="#FFB766" />
+
+    <!-- Cute Hasi Ears / Pagoda Roof Silhouette subtle fusion -->
+    <path d="M200 150 C185 110 205 75 220 75 C232 75 238 100 232 150 Z" fill="url(#primaryGrad)" opacity="0.9" />
+    <path d="M312 150 C327 110 307 75 292 75 C280 75 274 100 280 150 Z" fill="url(#primaryGrad)" opacity="0.9" />
+    <path d="M208 140 C198 115 210 95 218 95 C225 95 228 110 224 140 Z" fill="#FFE2B8" opacity="0.75" />
+    <path d="M304 140 C314 115 302 95 294 95 C287 95 284 110 288 140 Z" fill="#FFE2B8" opacity="0.75" />
+
+    <!-- Thai Script Character: ไทย 'ท' / Central Card Shape -->
+    <rect x="156" y="160" width="200" height="200" rx="36" fill="#1C1C1F" stroke="#FF7A00" stroke-width="6" />
+
+    <!-- Thai Typography Glyph 'ท' (Tho Thahan) Stylized -->
+    <path d="M225 215 C215 215 205 225 205 240 C205 255 215 265 225 265 C235 265 245 255 245 240 L245 320 M245 235 C245 205 270 195 295 215 L295 320"
+          stroke="url(#primaryGrad)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  </g>
+
+  <!-- Star / 5-Tone Accent Dots -->
+  <circle cx="160" cy="405" r="7" fill="#38BDF8" />
+  <circle cx="208" cy="405" r="7" fill="#34D399" />
+  <circle cx="256" cy="405" r="9" fill="#FF7A00" />
+  <circle cx="304" cy="405" r="7" fill="#F472B6" />
+  <circle cx="352" cy="405" r="7" fill="#A78BFA" />
+
+  <!-- Subtitle Text -->
+  <text x="256" y="445" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="700" fill="#E4E4E7" letter-spacing="4">THAI HASI</text>
+</svg>

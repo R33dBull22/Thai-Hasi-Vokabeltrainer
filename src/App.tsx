@@ -30,6 +30,7 @@ import { StatsDashboard } from './components/StatsDashboard';
 import { StudySession, StudyMode, StudyDirection, StudyInputMethod } from './components/StudySession';
 import { ListeningSession } from './components/ListeningSession';
 import { AuthModal } from './components/AuthModal';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner';
 
 function AppContent() {
@@ -649,6 +650,9 @@ function AppContent() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
       />
+
+      {/* Connectivity Banner */}
+      <OfflineIndicator />
     </div>
   );
 }
