@@ -106,6 +106,25 @@ function getCachedVocabs(): Vocabulary[] {
   }
 }
 
+export function getCachedVocabularies(userId?: string): Vocabulary[] {
+  const localList = getCachedVocabs();
+  return filterOutUserDeletedVocabs(localList, userId);
+}
+
+export function getCachedUserProgress(userId: string): Record<string, UserProgress> {
+  const result: Record<string, UserProgress> = {};
+  if (!userId) return result;
+  try {
+    const cached =
+      localStorage.getItem(`${LOCAL_PROGRESS_KEY}_${userId}`) ||
+      localStorage.getItem(`${LEGACY_PROGRESS_KEY}_${userId}`);
+    if (cached) {
+      Object.assign(result, JSON.parse(cached));
+    }
+  } catch {}
+  return result;
+}
+
 function saveCachedVocabs(list: Vocabulary[]) {
   try {
     localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(list));
@@ -163,12 +182,23 @@ export async function seedInitialVocabularies(creatorId = 'system_starter'): Pro
  * Upload any vocabularies that exist in local cache but are missing from Firestore
  */
 export async function syncLocalVocabulariesToCloud(userId?: string): Promise<number> {
+  // If in flight mode / offline, don't attempt network calls
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return 0;
+  }
+
   const localList = getCachedVocabs();
   const activeLocal = filterOutUserDeletedVocabs(localList, userId);
   if (!Array.isArray(activeLocal) || activeLocal.length === 0) return 0;
 
   try {
-    const snap = await getDocs(collection(db, VOCAB_COLLECTION));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Sync timeout')), 3000)
+    );
+    const snap = await Promise.race([
+      getDocs(collection(db, VOCAB_COLLECTION)),
+      timeoutPromise,
+    ]);
     const remoteIds = new Set<string>();
     snap.forEach((d) => remoteIds.add(d.id));
 
@@ -199,11 +229,25 @@ export async function syncLocalVocabulariesToCloud(userId?: string): Promise<num
 }
 
 /**
- * Fetch all community vocabularies from Firestore
+ * Fetch all community vocabularies from Firestore (with immediate local cache return when offline)
  */
 export async function fetchCommunityVocabularies(userId?: string): Promise<Vocabulary[]> {
+  // 1. In offline / flight mode: return from local cache immediately!
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const local = getCachedVocabularies(userId);
+    if (local.length > 0) return local;
+  }
+
+  // 2. Try fetching from Firestore with a 3.5s timeout so it never hangs
   try {
-    const snap = await getDocs(collection(db, VOCAB_COLLECTION));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Fetch vocab timeout')), 3500)
+    );
+    const snap = await Promise.race([
+      getDocs(collection(db, VOCAB_COLLECTION)),
+      timeoutPromise,
+    ]);
+
     if (!snap.empty) {
       const list: Vocabulary[] = [];
       snap.forEach((d) => {
@@ -232,11 +276,10 @@ export async function fetchCommunityVocabularies(userId?: string): Promise<Vocab
     console.warn('Failed fetching community vocab from Firestore, falling back to local cache:', error);
   }
 
-  // If Firestore is empty or failed, check local storage cache
+  // If Firestore is empty or failed/timed out, return local storage cache
   const localList = getCachedVocabs();
   const activeLocal = filterOutUserDeletedVocabs(localList, userId);
   if (Array.isArray(activeLocal) && activeLocal.length > 0) {
-    syncLocalVocabulariesToCloud(userId).catch(() => {});
     return activeLocal;
   }
 
@@ -277,21 +320,24 @@ export function subscribeToCommunityVocabularies(
  * Fetch progress for a specific user
  */
 export async function fetchUserProgress(userId: string): Promise<Record<string, UserProgress>> {
-  const result: Record<string, UserProgress> = {};
+  const result: Record<string, UserProgress> = getCachedUserProgress(userId);
   if (!userId) return result;
 
-  // Check local cache first for fast display
-  const cached = localStorage.getItem(`${LOCAL_PROGRESS_KEY}_${userId}`);
-  if (cached) {
-    try {
-      Object.assign(result, JSON.parse(cached));
-    } catch {}
+  // 1. In offline / flight mode: return cached progress immediately!
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return result;
   }
 
-  // Query Firestore for this user's progress
+  // 2. Query Firestore with a 3.5s timeout so it never hangs
   try {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Fetch progress timeout')), 3500)
+    );
     const q = query(collection(db, PROGRESS_COLLECTION), where('userId', '==', userId));
-    const snap = await getDocs(q);
+    const snap = await Promise.race([
+      getDocs(q),
+      timeoutPromise,
+    ]);
     snap.forEach((d) => {
       const p = d.data() as UserProgress;
       const localProg = result[p.vocabId];

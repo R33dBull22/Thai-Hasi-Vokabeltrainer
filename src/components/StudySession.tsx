@@ -485,7 +485,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-3 sm:p-5 select-none overflow-hidden h-[100dvh]"
+      className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-3 sm:p-5 pt-safe pb-safe select-none overflow-hidden h-[100dvh]"
       onClick={() => setShowCardMenu(false)}
     >
       {/* Top Bar matching IMG_6357.png */}

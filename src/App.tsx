@@ -20,6 +20,8 @@ import {
   resetVocabsToPhaseOne,
   stepBackLessonPhase,
   batchUpdateVocabulariesRomanization,
+  getCachedVocabularies,
+  getCachedUserProgress,
 } from './services/vocabService';
 import { Navigation } from './components/Navigation';
 import { LearnView } from './components/LearnView';
@@ -36,9 +38,40 @@ import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('learn');
-  const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
-  const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>({});
-  const [loadingData, setLoadingData] = useState<boolean>(true);
+
+  // Synchronous cache hydration: loads 400+ words immediately without waiting for server/flight mode
+  const [vocabularies, setVocabularies] = useState<Vocabulary[]>(() => {
+    try {
+      const activeUser = localStorage.getItem('thai_hasis_active_user_v1');
+      const u = activeUser ? JSON.parse(activeUser) : null;
+      return getCachedVocabularies(u?.uid);
+    } catch {
+      return [];
+    }
+  });
+
+  const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>(() => {
+    try {
+      const activeUser = localStorage.getItem('thai_hasis_active_user_v1');
+      const u = activeUser ? JSON.parse(activeUser) : null;
+      if (u?.uid) {
+        return getCachedUserProgress(u.uid);
+      }
+    } catch {}
+    return {};
+  });
+
+  // Only show full loading spinner if cache is 100% empty
+  const [loadingData, setLoadingData] = useState<boolean>(() => {
+    try {
+      const activeUser = localStorage.getItem('thai_hasis_active_user_v1');
+      const u = activeUser ? JSON.parse(activeUser) : null;
+      const cached = getCachedVocabularies(u?.uid);
+      return cached.length === 0;
+    } catch {
+      return false;
+    }
+  });
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
 
   // Active study session state
@@ -154,7 +187,7 @@ function AppContent() {
     } catch {}
   };
 
-  // Load vocabularies & progress (only when logged in!)
+  // Load vocabularies & progress (instant local cache + graceful background cloud sync)
   const loadAllData = async () => {
     if (!user) {
       setVocabularies([]);
@@ -163,21 +196,34 @@ function AppContent() {
       return;
     }
 
-    setLoadingData(true);
-    try {
-      const userId = user.uid;
+    const userId = user.uid;
 
-      // 1. Upload any locally created vocabularies to Firestore so all users see them
+    // 1. Immediately hydrate state from local storage cache (0ms latency)
+    const cachedVocabs = getCachedVocabularies(userId);
+    const cachedProg = getCachedUserProgress(userId);
+    if (cachedVocabs.length > 0) {
+      setVocabularies(cachedVocabs);
+      setProgressMap(cachedProg);
+      setLoadingData(false);
+    }
+
+    // 2. In offline / flight mode: stop here! App is 100% operational offline.
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setLoadingData(false);
+      return;
+    }
+
+    // 3. Online: perform background cloud sync without blocking the user
+    try {
       await syncLocalVocabulariesToCloud(userId).catch(() => {});
 
-      // 2. Fetch all shared vocabularies from Firestore (filtering out deleted items)
       const vocabs = await fetchCommunityVocabularies(userId);
       setVocabularies(vocabs);
 
       const prog = await fetchUserProgress(userId);
       setProgressMap(prog);
 
-      // If user progress is completely empty on fresh install, auto-enroll initial cards into deck
+      // If progress is empty on fresh install, auto-enroll initial cards into deck
       if (Object.keys(prog).length === 0 && vocabs.length > 0) {
         const initialDeckIds = vocabs.slice(0, 8).map((v) => v.id);
         await addBatchToUserDeck(userId, initialDeckIds);
@@ -185,31 +231,44 @@ function AppContent() {
         setProgressMap(updatedProg);
       }
     } catch (err) {
-      console.error('Data loading error:', err);
+      console.warn('Background cloud sync warning (using cached data):', err);
     } finally {
       setLoadingData(false);
     }
   };
+
+  // Re-sync automatically as soon as the user reconnects / turns off flight mode
+  useEffect(() => {
+    const handleOnline = () => {
+      if (user) {
+        loadAllData();
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!authLoading) {
       if (user) {
         loadAllData();
 
-        // Subscribe to real-time updates from Firestore
-        const unsubscribe = subscribeToCommunityVocabularies((remoteVocabs) => {
-          const seen = new Set<string>();
-          const deduped: Vocabulary[] = [];
-          remoteVocabs.forEach((v) => {
-            if (!seen.has(v.id)) {
-              seen.add(v.id);
-              deduped.push(v);
-            }
-          });
-          setVocabularies(deduped);
-        }, user.uid);
+        // Subscribe to real-time updates from Firestore only when online
+        if (typeof navigator === 'undefined' || navigator.onLine) {
+          const unsubscribe = subscribeToCommunityVocabularies((remoteVocabs) => {
+            const seen = new Set<string>();
+            const deduped: Vocabulary[] = [];
+            remoteVocabs.forEach((v) => {
+              if (!seen.has(v.id)) {
+                seen.add(v.id);
+                deduped.push(v);
+              }
+            });
+            setVocabularies(deduped);
+          }, user.uid);
 
-        return () => unsubscribe();
+          return () => unsubscribe();
+        }
       } else {
         setVocabularies([]);
         setProgressMap({});
@@ -548,7 +607,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-between selection:bg-[#FF7A00] selection:text-black">
+    <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-between selection:bg-[#FF7A00] selection:text-black pt-safe">
       {/* Main Content Area */}
       <main className={`flex-1 w-full mx-auto ${activeTab === 'stats' ? 'max-w-2xl px-2 sm:px-4' : 'max-w-md'}`}>
         {loadingData ? (

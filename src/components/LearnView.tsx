@@ -181,8 +181,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
             Thai
           </h1>
 
-          <div className="flex items-center gap-1.5 -mr-1">
-            <PWAInstallButton variant="header" />
+          <div className="flex items-center gap-2 -mr-1">
             {onNavigateStats && (
               <button
                 onClick={onNavigateStats}

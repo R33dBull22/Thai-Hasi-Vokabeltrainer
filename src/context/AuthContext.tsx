@@ -122,7 +122,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
     return null; // Guest by default has no access until registered / logged in
   });
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(ACTIVE_SESSION_KEY) || localStorage.getItem(LEGACY_SESSION_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as AuthUser;
+        if (parsed && !parsed.isAnonymous) {
+          return false;
+        }
+      }
+    } catch {}
+    return true;
+  });
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {

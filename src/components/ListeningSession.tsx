@@ -207,7 +207,7 @@ export const ListeningSession: React.FC<ListeningSessionProps> = ({
     const percentage = Math.round((score / cards.length) * 100);
 
     return (
-      <div className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-4 overflow-y-auto animate-in fade-in">
+      <div className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-4 pt-safe pb-safe overflow-y-auto animate-in fade-in">
         <div className="max-w-md w-full mx-auto my-auto py-8 text-center space-y-6">
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-[#FF7A00]/25 to-[#FF7A00]/5 border-2 border-[#FF7A00] flex items-center justify-center mx-auto text-4xl shadow-xl">
             {percentage >= 80 ? '🏆' : percentage >= 50 ? '🎧' : '💪'}
@@ -285,7 +285,7 @@ export const ListeningSession: React.FC<ListeningSessionProps> = ({
   const progressPercent = Math.round(((currentIndex + 1) / cards.length) * 100);
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-4 pt-safe pb-safe overflow-y-auto">
       {/* Top Header */}
       <div className="w-full max-w-md mx-auto flex items-center justify-between pb-3 pt-1 border-b border-[#2C2C2E]">
         <button
