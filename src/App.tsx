@@ -300,8 +300,18 @@ function AppContent() {
     isCorrect: boolean,
     direction: QueryDirection = 'de_to_th'
   ): Promise<UserProgress> => {
-    if (!user) throw new Error('Nicht angemeldet');
-    const userId = user.uid;
+    const userId =
+      user?.uid ||
+      (() => {
+        try {
+          const stored = localStorage.getItem('thai_hasis_active_user_v1');
+          return stored ? JSON.parse(stored)?.uid : null;
+        } catch {
+          return null;
+        }
+      })() ||
+      'local_user';
+
     const curProg = progressMap[vocabId];
     const updated = await recordReviewResult(userId, vocabId, curProg, isCorrect, direction);
     setProgressMap((prev) => ({

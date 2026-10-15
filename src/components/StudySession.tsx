@@ -324,77 +324,87 @@ export const StudySession: React.FC<StudySessionProps> = ({
     if (!vocab || isSubmitting) return;
     setIsSubmitting(true);
 
-    try {
-      const updated = await onAnswer(vocab.id, isCorrect, activeDirection);
+    const currentVocab = vocab;
+    const taskDirection = activeDirection;
+    const taskKey = currentTaskKey;
+    const isMasteredBefore = masteredTaskKeys.has(taskKey);
 
-      const updatedDirProg = getDirectionProgress(updated, activeDirection);
-      const hitPhase6 = isCorrect && updatedDirProg.phase === 6 && currentPhase < 6;
-      if (hitPhase6) {
+    // 1. Instantly advance the UI state (zero lag)
+    if (isCorrect && !isMasteredBefore) {
+      setMasteredTaskKeys((prev) => new Set(prev).add(taskKey));
+    }
+
+    const curDirProg = getDirectionProgress(progress, taskDirection);
+    const nextPhase = isCorrect ? Math.min(6, curDirProg.phase + 1) : 1;
+    const hitPhase6 = isCorrect && nextPhase === 6 && currentPhase < 6;
+    if (hitPhase6) {
+      try {
         confetti({
           particleCount: 50,
           spread: 60,
           origin: { y: 0.7 },
         });
-      }
+      } catch {}
+    }
 
-      const isMasteredBefore = masteredTaskKeys.has(currentTaskKey);
+    setSessionResults((prev) => ({
+      correctCount: prev.correctCount + (isCorrect ? 1 : 0),
+      incorrectCount: prev.incorrectCount + (!isCorrect ? 1 : 0),
+      promotedToPhase6: prev.promotedToPhase6 + (hitPhase6 ? 1 : 0),
+      reviewedCards: [
+        ...prev.reviewedCards,
+        {
+          vocab: currentVocab,
+          isCorrect,
+          newPhase: nextPhase,
+          direction: taskDirection,
+        },
+      ],
+    }));
 
-      if (isCorrect && !isMasteredBefore) {
-        setMasteredTaskKeys((prev) => new Set(prev).add(currentTaskKey));
-      }
+    // If answered incorrectly: card re-enters study queue at the end with the same direction
+    if (!isCorrect) {
+      setCardQueue((prev) => [
+        ...prev,
+        { vocab: currentVocab, progress, direction: taskDirection },
+      ]);
+    }
 
-      setSessionResults((prev) => ({
-        correctCount: prev.correctCount + (isCorrect ? 1 : 0),
-        incorrectCount: prev.incorrectCount + (!isCorrect ? 1 : 0),
-        promotedToPhase6: prev.promotedToPhase6 + (hitPhase6 ? 1 : 0),
-        reviewedCards: [
-          ...prev.reviewedCards,
-          {
-            vocab,
-            isCorrect,
-            newPhase: updatedDirProg.phase,
-            direction: activeDirection,
-          },
-        ],
-      }));
+    const newMasteredCount = !isMasteredBefore && isCorrect
+      ? masteredTaskKeys.size + 1
+      : masteredTaskKeys.size;
 
-      // If answered incorrectly: card re-enters the study queue at the end with the same direction!
-      if (!isCorrect) {
-        setCardQueue((prev) => [
-          ...prev,
-          { vocab, progress: updated, direction: activeDirection },
-        ]);
-      }
+    const hasNextInQueue = !isCorrect || (currentIndex + 1 < cardQueue.length);
 
-      // Check if session is complete:
-      // Session finishes when ALL unique cards in this session have been answered correctly at least once,
-      // and we have reached the end of the current queue (taking into account the freshly re-enqueued card if wrong).
-      const newMasteredCount = (!isMasteredBefore && isCorrect)
-        ? masteredTaskKeys.size + 1
-        : masteredTaskKeys.size;
-
-      const hasNextInQueue = !isCorrect || (currentIndex + 1 < cardQueue.length);
-
-      if (newMasteredCount >= totalUniqueCount && !hasNextInQueue) {
-        saveCurrentSession();
+    if (newMasteredCount >= totalUniqueCount && !hasNextInQueue) {
+      saveCurrentSession();
+      try {
         confetti({
           particleCount: 80,
           spread: 70,
           origin: { y: 0.6 },
         });
-        setIsSessionComplete(true);
-      } else {
-        setCurrentIndex((i) => i + 1);
-        setIsRevealed(mode === 'preview_first');
-        setUserInput('');
-        setIsEvaluated(false);
-        setIsTypingCorrect(null);
-        setShowExample(false);
-      }
-    } catch (err) {
-      console.error('Answer recording failed:', err);
-    } finally {
+      } catch {}
+      setIsSessionComplete(true);
+    } else {
+      setCurrentIndex((i) => i + 1);
+      setIsRevealed(mode === 'preview_first');
+      setUserInput('');
+      setIsEvaluated(false);
+      setIsTypingCorrect(null);
+      setShowExample(false);
+    }
+
+    // Debounce double-taps briefly, then re-enable
+    setTimeout(() => {
       setIsSubmitting(false);
+    }, 120);
+
+    // 2. Persist progress asynchronously in background (never blocks UI!)
+    try {
+      await onAnswer(currentVocab.id, isCorrect, taskDirection);
+    } catch (err) {
+      console.warn('Background answer recording warning:', err);
     }
   };
 
@@ -874,7 +884,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               type="button"
               onClick={() => handleRate(true)}
               disabled={isSubmitting}
-              className="w-full py-4 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-base shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.99] flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-base shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer touch-manipulation disabled:opacity-50"
             >
               <CheckCircle2 className="w-5 h-5 text-white stroke-[2.5]" />
               <span>Gewusst</span>
@@ -887,7 +897,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                 type="button"
                 onClick={() => handleRate(false)}
                 disabled={isSubmitting}
-                className="py-4 rounded-full bg-[#242426] border border-rose-500/40 text-rose-400 font-semibold text-sm hover:bg-[#2C2C2E] hover:border-rose-500 transition-colors active:scale-[0.99] flex items-center justify-center gap-2"
+                className="py-4 rounded-full bg-[#242426] border border-rose-500/40 text-rose-400 font-semibold text-sm hover:bg-[#2C2C2E] hover:border-rose-500 transition-colors active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer touch-manipulation disabled:opacity-50"
               >
                 <ArrowLeft className="w-4 h-4 text-rose-400 stroke-[2.5]" />
                 <span>Nicht gewusst</span>
@@ -898,7 +908,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                 type="button"
                 onClick={() => handleRate(true)}
                 disabled={isSubmitting}
-                className="py-4 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold text-sm hover:bg-emerald-500/25 transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2"
+                className="py-4 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold text-sm hover:bg-emerald-500/25 transition-colors shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer touch-manipulation disabled:opacity-50"
               >
                 <span>Gelten lassen</span>
                 <ArrowRight className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
@@ -912,7 +922,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
           <button
             type="button"
             onClick={handleReveal}
-            className="w-full py-4 rounded-full bg-[#FF7A00] text-black font-semibold text-base hover:bg-[#FF881A] transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-full bg-[#FF7A00] text-black font-semibold text-base hover:bg-[#FF881A] transition-colors shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
           >
             <Eye className="w-4 h-4 text-black" />
             <span>Lösung anzeigen</span>
@@ -926,7 +936,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               type="button"
               onClick={() => handleRate(false)}
               disabled={isSubmitting}
-              className="py-4 rounded-full bg-[#242426] border border-rose-500/40 text-rose-400 font-semibold text-sm hover:bg-[#2C2C2E] hover:border-rose-500 transition-colors active:scale-[0.99] flex items-center justify-center gap-2"
+              className="py-4 rounded-full bg-[#242426] border border-rose-500/40 text-rose-400 font-semibold text-sm hover:bg-[#2C2C2E] hover:border-rose-500 transition-colors active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer touch-manipulation disabled:opacity-50"
             >
               <ArrowLeft className="w-4 h-4 text-rose-400 stroke-[2.5]" />
               <span>Nicht gewusst</span>
@@ -937,7 +947,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               type="button"
               onClick={() => handleRate(true)}
               disabled={isSubmitting}
-              className="py-4 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold text-sm hover:bg-emerald-500/25 transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2"
+              className="py-4 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold text-sm hover:bg-emerald-500/25 transition-colors shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer touch-manipulation disabled:opacity-50"
             >
               <span>Gewusst</span>
               <ArrowRight className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
