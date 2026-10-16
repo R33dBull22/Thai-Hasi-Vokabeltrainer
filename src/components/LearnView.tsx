@@ -348,11 +348,68 @@ export const LearnView: React.FC<LearnViewProps> = ({
               onNavigatePool();
             }
           }}
-          className="w-full py-4 rounded-full bg-[#1C1C1E] border border-[#3A3A3D] text-white font-semibold text-sm hover:bg-[#242426] transition-colors flex items-center justify-center gap-2.5 active:scale-[0.99] shadow-sm"
+          className="w-full py-4 rounded-full bg-[#1C1C1E] border border-[#3A3A3D] text-white font-semibold text-sm hover:bg-[#242426] transition-colors flex items-center justify-center gap-2.5 active:scale-[0.99] shadow-sm cursor-pointer"
         >
           <ClipboardList className="w-4 h-4 text-[#8E8E93]" />
           <span>Tests und Aufgaben ({totalDeckCount})</span>
         </button>
+
+        {/* Solid Orange button: Reguläre Übung & Einstellungen */}
+        {dueCount > 0 ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleDirectStart(dueCards)}
+              className="flex-1 py-4 rounded-full bg-[#FF7A00] text-black font-semibold text-base hover:bg-[#FF881A] transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2.5 cursor-pointer"
+            >
+              <RotateCcw className="w-5 h-5 text-black stroke-[2.5]" />
+              <span>Reguläre Übung ({dueCount})</span>
+            </button>
+            <button
+              onClick={() => setCustomizeModalCards(dueCards)}
+              className="p-4 rounded-full bg-[#1C1C1E] border border-[#3A3A3D] text-[#8E8E93] hover:text-[#FF7A00] hover:border-[#FF7A00] transition-colors active:scale-95 cursor-pointer"
+              title="Abfrage-Optionen anpassen"
+            >
+              <SlidersHorizontal className="w-5 h-5" />
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 py-3.5 px-4 rounded-full bg-[#1C1C1E] border border-emerald-500/30 text-emerald-400 font-medium text-sm flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Alle Vokabeln für heute erledigt! ✓</span>
+              </div>
+              {totalDeckCount > 0 && (
+                <button
+                  onClick={() => setCustomizeModalCards(allDeckCards)}
+                  className="p-3.5 rounded-full bg-[#1C1C1E] border border-[#3A3A3D] text-[#8E8E93] hover:text-[#FF7A00] hover:border-[#FF7A00] transition-colors active:scale-95 cursor-pointer"
+                  title="Abfrage-Optionen anpassen"
+                >
+                  <SlidersHorizontal className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            {otherDueCards.length > 0 && (
+              <button
+                onClick={() => handleDirectStart(otherDueCards)}
+                className="w-full py-3 px-4 rounded-full bg-[#242426] border border-[#FF7A00]/50 text-[#FF7A00] font-semibold text-xs hover:bg-[#2A2A2E] transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4 text-[#FF7A00]" />
+                <span>
+                  {otherDueCards.length} Vokabel(n) in {studyDirection === 'de_to_th' ? 'Thai ➔ DE' : 'DE ➔ Thai'} heute fällig
+                </span>
+              </button>
+            )}
+            {totalDeckCount > 0 && (
+              <button
+                onClick={() => handleDirectStart(allDeckCards)}
+                className="w-full py-2.5 text-xs text-[#8E8E93] hover:text-white transition-colors text-center cursor-pointer"
+              >
+                Freiwillig alle {totalDeckCount} Vokabeln wiederholen
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Ton-Detektiv Trainer Banner */}
         {onOpenToneTrainer && (
@@ -395,52 +452,6 @@ export const LearnView: React.FC<LearnViewProps> = ({
               Starten →
             </span>
           </button>
-        )}
-
-        {/* Solid Orange button: Reguläre Übung */}
-        {dueCount > 0 ? (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleDirectStart(dueCards)}
-              className="flex-1 py-4 rounded-full bg-[#FF7A00] text-black font-semibold text-base hover:bg-[#FF881A] transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2.5"
-            >
-              <RotateCcw className="w-5 h-5 text-black stroke-[2.5]" />
-              <span>Reguläre Übung ({dueCount})</span>
-            </button>
-            <button
-              onClick={() => setCustomizeModalCards(dueCards)}
-              className="p-4 rounded-full bg-[#1C1C1E] border border-[#3A3A3D] text-[#8E8E93] hover:text-[#FF7A00] hover:border-[#FF7A00] transition-colors active:scale-95"
-              title="Abfrage-Optionen anpassen"
-            >
-              <SlidersHorizontal className="w-5 h-5" />
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="w-full py-3.5 px-4 rounded-full bg-[#1C1C1E] border border-emerald-500/30 text-emerald-400 font-medium text-sm flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>Alle Vokabeln für heute erledigt! ✓</span>
-            </div>
-            {otherDueCards.length > 0 && (
-              <button
-                onClick={() => handleDirectStart(otherDueCards)}
-                className="w-full py-3 px-4 rounded-full bg-[#242426] border border-[#FF7A00]/50 text-[#FF7A00] font-semibold text-xs hover:bg-[#2A2A2E] transition-colors flex items-center justify-center gap-2"
-              >
-                <RotateCcw className="w-4 h-4 text-[#FF7A00]" />
-                <span>
-                  {otherDueCards.length} Vokabel(n) in {studyDirection === 'de_to_th' ? 'Thai ➔ DE' : 'DE ➔ Thai'} heute fällig
-                </span>
-              </button>
-            )}
-            {totalDeckCount > 0 && (
-              <button
-                onClick={() => handleDirectStart(allDeckCards)}
-                className="w-full py-2.5 text-xs text-[#8E8E93] hover:text-white transition-colors text-center"
-              >
-                Freiwillig alle {totalDeckCount} Vokabeln wiederholen
-              </button>
-            )}
-          </div>
         )}
       </div>
 
