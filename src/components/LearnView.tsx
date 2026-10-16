@@ -38,6 +38,7 @@ interface LearnViewProps {
   onNavigatePool: () => void;
   onNavigateCreate: () => void;
   onNavigateStats?: () => void;
+  onOpenToneTrainer?: () => void;
 }
 
 export const LearnView: React.FC<LearnViewProps> = ({
@@ -51,6 +52,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
   onNavigatePool,
   onNavigateCreate,
   onNavigateStats,
+  onOpenToneTrainer,
 }) => {
   const [showReports, setShowReports] = useState(false);
   const [customizeModalCards, setCustomizeModalCards] = useState<StudyCardItem[] | null>(null);
@@ -346,6 +348,27 @@ export const LearnView: React.FC<LearnViewProps> = ({
           <ClipboardList className="w-4 h-4 text-[#8E8E93]" />
           <span>Tests und Aufgaben ({totalDeckCount})</span>
         </button>
+
+        {/* Ton-Detektiv Trainer Banner */}
+        {onOpenToneTrainer && (
+          <button
+            onClick={onOpenToneTrainer}
+            className="w-full py-3.5 px-4 rounded-full bg-gradient-to-r from-[#242426] via-[#1F1F22] to-[#242426] border border-[#FF7A00]/40 text-white font-semibold text-sm hover:border-[#FF7A00] transition-all flex items-center justify-between active:scale-[0.99] shadow-sm group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-[#FF7A00]/20 flex items-center justify-center text-[#FF7A00] group-hover:scale-110 transition-transform">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <span className="block text-xs font-bold text-white">Ton-Detektiv: Tonregeln trainieren</span>
+                <span className="block text-[10px] text-[#8E8E93]">15 Tonregeln spielerisch entschlüsseln</span>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-[#FF7A00] px-2.5 py-1 rounded-full bg-[#FF7A00]/10 border border-[#FF7A00]/30 group-hover:bg-[#FF7A00] group-hover:text-black transition-all">
+              Starten →
+            </span>
+          </button>
+        )}
 
         {/* Solid Orange button: Reguläre Übung */}
         {dueCount > 0 ? (

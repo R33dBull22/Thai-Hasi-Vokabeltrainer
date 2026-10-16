@@ -32,12 +32,14 @@ interface ThaiReferenceViewProps {
   colorCodingEnabled?: boolean;
   onToggleColorCoding?: (enabled: boolean) => void;
   onNavigateLearn?: () => void;
+  onOpenToneTrainer?: () => void;
 }
 
 export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
   colorCodingEnabled = true,
   onToggleColorCoding,
   onNavigateLearn,
+  onOpenToneTrainer,
 }) => {
   const [activeSection, setActiveSection] = useState<'consonants' | 'vowels' | 'tone_rules' | 'cheatsheet'>('consonants');
   const [searchQuery, setSearchQuery] = useState('');
@@ -182,6 +184,15 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
           }`}
         >
           Spickzettel
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpenToneTrainer && onOpenToneTrainer()}
+          className="flex-1 py-2 px-2.5 rounded-xl text-center whitespace-nowrap font-medium transition-colors cursor-pointer bg-gradient-to-r from-amber-500/15 to-orange-500/20 text-[#FF7A00] hover:text-white border border-[#FF7A00]/40 flex items-center justify-center gap-1 shadow-sm"
+          title="Interaktiven Ton-Detektiv Trainer öffnen"
+        >
+          <span>🥋</span>
+          <span className="font-bold">Ton-Detektiv</span>
         </button>
       </div>
 
@@ -408,6 +419,35 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
       {/* SECTION 3: TON-MATRIX & INTERAKTIVER SIMULATOR */}
       {activeSection === 'tone_rules' && (
         <div className="space-y-4">
+          {/* Interactive Ton-Detektiv Call-to-Action */}
+          {onOpenToneTrainer && (
+            <div className="bg-gradient-to-r from-[#FF7A00]/20 via-[#242426] to-[#242426] p-4 rounded-3xl border border-[#FF7A00]/40 flex items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FF7A00] text-black flex items-center justify-center font-bold text-lg shadow-sm">
+                  🥋
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>Ton-Detektiv: Tonregeln trainieren</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FF7A00] text-black font-extrabold uppercase">
+                      Quiz
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-[#A1A1A6]">
+                    Wörter sehen, Konsonantenklasse & Tonregeln spielerisch erkennen
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenToneTrainer}
+                className="py-2.5 px-3.5 rounded-2xl bg-[#FF7A00] text-black font-bold text-xs hover:bg-[#FF881A] transition-colors shrink-0 shadow-sm active:scale-95 cursor-pointer"
+              >
+                Trainer starten →
+              </button>
+            </div>
+          )}
+
           {/* Interactive Tone Simulator Card */}
           <div className="p-4 bg-gradient-to-br from-[#242426] to-[#1C1C1E] rounded-3xl border border-[#3A3A3D] space-y-3 shadow-xl">
             <div className="flex items-center justify-between">

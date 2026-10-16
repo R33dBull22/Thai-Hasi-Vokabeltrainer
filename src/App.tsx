@@ -30,6 +30,7 @@ import { StatsDashboard } from './components/StatsDashboard';
 import { ThaiReferenceView } from './components/ThaiReferenceView';
 import { StudySession, StudyMode, StudyDirection, StudyInputMethod } from './components/StudySession';
 import { AuthModal } from './components/AuthModal';
+import { ToneRuleTrainerModal } from './components/ToneRuleTrainerModal';
 import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner';
 
 function AppContent() {
@@ -39,6 +40,12 @@ function AppContent() {
   const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>({});
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [toneTrainerOpen, setToneTrainerOpen] = useState<boolean>(false);
+
+  // Deck vocabularies
+  const deckVocabs = useMemo(() => {
+    return vocabularies.filter((v) => progressMap[v.id]);
+  }, [vocabularies, progressMap]);
 
   // Active study session state
   const [activeSession, setActiveSession] = useState<{
@@ -586,6 +593,7 @@ function AppContent() {
                 onNavigatePool={() => setActiveTab('pool')}
                 onNavigateCreate={() => setActiveTab('create')}
                 onNavigateStats={() => setActiveTab('stats')}
+                onOpenToneTrainer={() => setToneTrainerOpen(true)}
               />
             )}
 
@@ -594,6 +602,7 @@ function AppContent() {
                 colorCodingEnabled={colorCodingEnabled}
                 onToggleColorCoding={handleToggleColorCoding}
                 onNavigateLearn={() => setActiveTab('learn')}
+                onOpenToneTrainer={() => setToneTrainerOpen(true)}
               />
             )}
 
@@ -677,6 +686,13 @@ function AppContent() {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
+      />
+
+      {/* Interactive Thai Tone Rule Trainer (Ton-Detektiv) */}
+      <ToneRuleTrainerModal
+        isOpen={toneTrainerOpen}
+        onClose={() => setToneTrainerOpen(false)}
+        deckVocabs={deckVocabs}
       />
     </div>
   );
