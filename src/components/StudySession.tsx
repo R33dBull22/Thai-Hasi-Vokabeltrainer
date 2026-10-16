@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Send,
   GraduationCap,
+  Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
@@ -30,6 +31,7 @@ import { saveStudySession } from '../services/statsService';
 import { ToneVisualizer } from './ToneVisualizer';
 import { ThaiColorWord } from './ThaiColorWord';
 import { ThaiReferenceView } from './ThaiReferenceView';
+import { ToneRulesCheatsheet } from './ToneRulesCheatsheet';
 
 export type StudyMode = 'preview_first' | 'skip_preview';
 export type StudyDirection = 'de_to_th' | 'both' | 'th_to_de';
@@ -186,6 +188,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
   const [cardQueue, setCardQueue] = useState<StudyCardItem[]>(() => shuffleStudyCards(initialCards));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showReferenceModal, setShowReferenceModal] = useState(false);
+  const [showCheatsheetModal, setShowCheatsheetModal] = useState(false);
 
   // Set of task keys (vocabId_direction) that have been answered correctly during this session
   const [masteredTaskKeys, setMasteredTaskKeys] = useState<Set<string>>(new Set());
@@ -516,9 +519,19 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
             <button
               type="button"
+              onClick={() => setShowCheatsheetModal(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400/20 text-xs font-semibold transition-colors cursor-pointer"
+              title="Tonregeln-Cheatsheet öffnen"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>Tonregeln</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowReferenceModal(true)}
               className="p-1 text-[#8E8E93] hover:text-[#FF7A00] transition-colors cursor-pointer"
-              title="Thai-Tafel & Spickzettel öffnen"
+              title="Thai-Tafel öffnen"
             >
               <GraduationCap className="w-5 h-5 stroke-[2]" />
             </button>
@@ -1011,6 +1024,36 @@ export const StudySession: React.FC<StudySessionProps> = ({
               <ThaiReferenceView
                 colorCodingEnabled={colorCodingEnabled}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Direct In-Session Tone Rules Cheatsheet Modal */}
+      {showCheatsheetModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-md animate-in fade-in"
+          onClick={() => setShowCheatsheetModal(false)}
+        >
+          <div
+            className="bg-[#1C1C1E] border border-[#3A3A3D] rounded-3xl w-full max-w-lg max-h-[92vh] flex flex-col text-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 border-b border-[#2C2C2E] flex items-center justify-between shrink-0 bg-[#1C1C1E]">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-[#FF7A00]" />
+                <h3 className="text-sm font-bold text-white">Tonregeln-Cheatsheet</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCheatsheetModal(false)}
+                className="w-7 h-7 rounded-full bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93] hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <ToneRulesCheatsheet onClose={() => setShowCheatsheetModal(false)} isModal={true} />
             </div>
           </div>
         </div>

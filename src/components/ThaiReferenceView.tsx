@@ -26,6 +26,7 @@ import {
 import { speakThai } from '../utils/thaiAudio';
 import { THAI_TONES, ThaiTone } from '../utils/thaiTones';
 import { ThaiColorWord } from './ThaiColorWord';
+import { ToneRulesCheatsheet } from './ToneRulesCheatsheet';
 
 interface ThaiReferenceViewProps {
   colorCodingEnabled?: boolean;
@@ -605,24 +606,43 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
 
       {/* SECTION 4: SPICKZETTEL & MERKHILFEN */}
       {activeSection === 'cheatsheet' && (
-        <div className="space-y-4 text-xs">
-          {/* Merksatz 1: Die 9 Mittleren Konsonanten */}
-          <div className="bg-[#242426] p-4 rounded-2xl border border-amber-400/40 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-              <span>🐔</span>
-              <h3>Merksatz: Die 9 Mittleren Konsonanten</h3>
-            </div>
-            <p className="text-[#D1D1D6] text-xs leading-relaxed">
-              In thailändischen Schulen lernt jedes Kind diesen Merkvers für die 9 mittleren Zeichen:
-            </p>
-            <div className="p-3 bg-[#1C1C1E] rounded-xl border border-[#3A3A3D] space-y-1 font-thai text-sm text-amber-300">
-              <p className="font-bold">ไก่ จิก เด็ก ตาย เด็ก ตาย บน ปาก โอ่ง</p>
-              <p className="text-xs text-[#8E8E93] font-sans">
-                gài jik dèk dtaai dèk dtaai bon bpàak òhng
+        <div className="space-y-6 text-xs animate-in fade-in">
+          {/* Complete Interactive Tone Rules Cheatsheet */}
+          <ToneRulesCheatsheet />
+
+          {/* Traditional School Mnemonics */}
+          <div className="pt-2 border-t border-[#2C2C2E] space-y-4">
+            <h3 className="text-xs font-bold text-[#8E8E93] uppercase tracking-wider">
+              Traditionelle thailändische Schul-Merksätze:
+            </h3>
+
+            {/* Merksatz 1: Die 9 Mittleren Konsonanten */}
+            <div className="bg-[#242426] p-4 rounded-2xl border border-amber-400/40 space-y-2">
+              <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                <span>🐔</span>
+                <h4>Merksatz: Die 9 Mittleren Konsonanten</h4>
+              </div>
+              <p className="text-[#D1D1D6] text-xs leading-relaxed">
+                In thailändischen Schulen lernt jedes Kind diesen Merkvers für die 9 mittleren Zeichen:
               </p>
-              <p className="text-[11px] text-[#A1A1AA] font-sans italic">
-                (Das Huhn pickt das Kind tot auf dem Rand des Wassertrogs)
-              </p>
+              <div className="p-3 bg-[#1C1C1E] rounded-xl border border-[#3A3A3D] space-y-1 font-thai text-sm text-amber-300">
+                <p className="font-bold">ไก่ จิก เด็ก ตาย เด็ก ตาย บน ปาก โอ่ง</p>
+                <p className="text-xs text-[#8E8E93] font-sans">
+                  gài jik dèk dtaai dèk dtaai bon bpàak òhng
+                </p>
+                <p className="text-[11px] text-[#A1A1AA] font-sans italic">
+                  (Das Huhn pickt das Kind tot auf dem Rand des Wassertrogs)
+                </p>
+              </div>
+              <div className="text-[11px] text-[#8E8E93] grid grid-cols-2 gap-1 pt-1">
+                <span>• ก = ไก่ (Huhn)</span>
+                <span>• จ = จิก (picken)</span>
+                <span>• ด, ฎ = เด็ก (Kind)</span>
+                <span>• ต, ฏ = ตาย (tot)</span>
+                <span>• บ = บน (auf)</span>
+                <span>• ป = ปาก (Mund/Rand)</span>
+                <span>• อ = โอ่ง (Wassertrog)</span>
+              </div>
             </div>
             <div className="text-[11px] text-[#8E8E93] grid grid-cols-2 gap-1 pt-1">
               <span>• ก = ไก่ (Huhn)</span>
