@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  updateDoc,
   deleteDoc,
   query,
   where,
@@ -106,25 +107,6 @@ function getCachedVocabs(): Vocabulary[] {
   }
 }
 
-export function getCachedVocabularies(userId?: string): Vocabulary[] {
-  const localList = getCachedVocabs();
-  return filterOutUserDeletedVocabs(localList, userId);
-}
-
-export function getCachedUserProgress(userId: string): Record<string, UserProgress> {
-  const result: Record<string, UserProgress> = {};
-  if (!userId) return result;
-  try {
-    const cached =
-      localStorage.getItem(`${LOCAL_PROGRESS_KEY}_${userId}`) ||
-      localStorage.getItem(`${LEGACY_PROGRESS_KEY}_${userId}`);
-    if (cached) {
-      Object.assign(result, JSON.parse(cached));
-    }
-  } catch {}
-  return result;
-}
-
 function saveCachedVocabs(list: Vocabulary[]) {
   try {
     localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(list));
@@ -182,23 +164,12 @@ export async function seedInitialVocabularies(creatorId = 'system_starter'): Pro
  * Upload any vocabularies that exist in local cache but are missing from Firestore
  */
 export async function syncLocalVocabulariesToCloud(userId?: string): Promise<number> {
-  // If in flight mode / offline, don't attempt network calls
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return 0;
-  }
-
   const localList = getCachedVocabs();
   const activeLocal = filterOutUserDeletedVocabs(localList, userId);
   if (!Array.isArray(activeLocal) || activeLocal.length === 0) return 0;
 
   try {
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Sync timeout')), 3000)
-    );
-    const snap = await Promise.race([
-      getDocs(collection(db, VOCAB_COLLECTION)),
-      timeoutPromise,
-    ]);
+    const snap = await getDocs(collection(db, VOCAB_COLLECTION));
     const remoteIds = new Set<string>();
     snap.forEach((d) => remoteIds.add(d.id));
 
@@ -229,25 +200,38 @@ export async function syncLocalVocabulariesToCloud(userId?: string): Promise<num
 }
 
 /**
- * Fetch all community vocabularies from Firestore (with immediate local cache return when offline)
+ * Automatically corrects known phonetic bugs in cards (e.g. legacy bpâan-thà for ป้ายรถเมล์)
+ */
+export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
+  cleaned: Vocabulary[];
+  needsCloudSync: Vocabulary[];
+} {
+  const needsCloudSync: Vocabulary[] = [];
+  const cleaned = list.map((v) => {
+    if (
+      v.thai &&
+      (v.thai.includes('ป้ายรถเมล์') || v.romanization?.includes('bpâan-thà'))
+    ) {
+      const fixedRom = v.thai.includes('อยู่ที่ไหน')
+        ? 'bpâai-rót-mee yòo thêe-năi kráp'
+        : 'bpâai-rót-mee';
+      if (v.romanization !== fixedRom) {
+        const updated = { ...v, romanization: fixedRom };
+        needsCloudSync.push(updated);
+        return updated;
+      }
+    }
+    return v;
+  });
+  return { cleaned, needsCloudSync };
+}
+
+/**
+ * Fetch all community vocabularies from Firestore
  */
 export async function fetchCommunityVocabularies(userId?: string): Promise<Vocabulary[]> {
-  // 1. In offline / flight mode: return from local cache immediately!
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    const local = getCachedVocabularies(userId);
-    if (local.length > 0) return local;
-  }
-
-  // 2. Try fetching from Firestore with a 3.5s timeout so it never hangs
   try {
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Fetch vocab timeout')), 3500)
-    );
-    const snap = await Promise.race([
-      getDocs(collection(db, VOCAB_COLLECTION)),
-      timeoutPromise,
-    ]);
-
+    const snap = await getDocs(collection(db, VOCAB_COLLECTION));
     if (!snap.empty) {
       const list: Vocabulary[] = [];
       snap.forEach((d) => {
@@ -256,6 +240,16 @@ export async function fetchCommunityVocabularies(userId?: string): Promise<Vocab
 
       // Filter out vocabs or lessons that this user deleted
       const activeList = filterOutUserDeletedVocabs(list, userId);
+      const { cleaned, needsCloudSync } = autoCorrectKnownVocabErrors(activeList);
+      if (needsCloudSync.length > 0) {
+        needsCloudSync.forEach(async (item) => {
+          try {
+            await updateDoc(doc(db, VOCAB_COLLECTION, item.id), {
+              romanization: item.romanization,
+            });
+          } catch {}
+        });
+      }
 
       // Also check if there are local vocabs not yet in Firestore, and sync them
       try {
@@ -264,23 +258,26 @@ export async function fetchCommunityVocabularies(userId?: string): Promise<Vocab
         const remoteIds = new Set(list.map((v) => v.id));
         const unsynced = activeLocal.filter((v) => !remoteIds.has(v.id));
         if (unsynced.length > 0) {
-          activeList.unshift(...unsynced);
+          cleaned.unshift(...unsynced);
           syncLocalVocabulariesToCloud(userId).catch(() => {});
         }
       } catch {}
 
-      saveCachedVocabs(activeList);
-      return activeList;
+      saveCachedVocabs(cleaned);
+      return cleaned;
     }
   } catch (error) {
     console.warn('Failed fetching community vocab from Firestore, falling back to local cache:', error);
   }
 
-  // If Firestore is empty or failed/timed out, return local storage cache
+  // If Firestore is empty or failed, check local storage cache
   const localList = getCachedVocabs();
   const activeLocal = filterOutUserDeletedVocabs(localList, userId);
   if (Array.isArray(activeLocal) && activeLocal.length > 0) {
-    return activeLocal;
+    const { cleaned, needsCloudSync } = autoCorrectKnownVocabErrors(activeLocal);
+    saveCachedVocabs(cleaned);
+    syncLocalVocabulariesToCloud(userId).catch(() => {});
+    return cleaned;
   }
 
   // If both Firestore and local cache are empty, seed starter vocabularies
@@ -304,10 +301,20 @@ export function subscribeToCommunityVocabularies(
           list.push({ id: d.id, ...(d.data() as Omit<Vocabulary, 'id'>) });
         });
         const activeList = filterOutUserDeletedVocabs(list, userId);
+        const { cleaned, needsCloudSync } = autoCorrectKnownVocabErrors(activeList);
+        if (needsCloudSync.length > 0) {
+          needsCloudSync.forEach(async (item) => {
+            try {
+              await updateDoc(doc(db, VOCAB_COLLECTION, item.id), {
+                romanization: item.romanization,
+              });
+            } catch {}
+          });
+        }
         try {
-          localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(activeList));
+          localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(cleaned));
         } catch {}
-        onUpdate(activeList);
+        onUpdate(cleaned);
       }
     },
     (error) => {
@@ -320,24 +327,21 @@ export function subscribeToCommunityVocabularies(
  * Fetch progress for a specific user
  */
 export async function fetchUserProgress(userId: string): Promise<Record<string, UserProgress>> {
-  const result: Record<string, UserProgress> = getCachedUserProgress(userId);
+  const result: Record<string, UserProgress> = {};
   if (!userId) return result;
 
-  // 1. In offline / flight mode: return cached progress immediately!
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return result;
+  // Check local cache first for fast display
+  const cached = localStorage.getItem(`${LOCAL_PROGRESS_KEY}_${userId}`);
+  if (cached) {
+    try {
+      Object.assign(result, JSON.parse(cached));
+    } catch {}
   }
 
-  // 2. Query Firestore with a 3.5s timeout so it never hangs
+  // Query Firestore for this user's progress
   try {
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Fetch progress timeout')), 3500)
-    );
     const q = query(collection(db, PROGRESS_COLLECTION), where('userId', '==', userId));
-    const snap = await Promise.race([
-      getDocs(q),
-      timeoutPromise,
-    ]);
+    const snap = await getDocs(q);
     snap.forEach((d) => {
       const p = d.data() as UserProgress;
       const localProg = result[p.vocabId];
@@ -1194,6 +1198,57 @@ export async function moveVocabulariesToLesson(
 }
 
 /**
+ * Batch update the romanization of multiple vocabularies (e.g. after rule or dictionary improvements).
+ * Updates both the local storage cache and Firestore in chunks of up to 400 documents.
+ */
+export async function batchUpdateVocabulariesRomanization(
+  updates: { id: string; romanization: string }[]
+): Promise<number> {
+  if (!updates.length) return 0;
+
+  const updateMap = new Map(updates.map((u) => [u.id, u.romanization]));
+
+  // 1. Update in local storage
+  try {
+    const cached = localStorage.getItem(LOCAL_VOCAB_KEY);
+    if (cached) {
+      const list: Vocabulary[] = JSON.parse(cached);
+      let changed = false;
+      const updatedList = list.map((v) => {
+        if (updateMap.has(v.id)) {
+          changed = true;
+          return { ...v, romanization: updateMap.get(v.id)! };
+        }
+        return v;
+      });
+      if (changed) {
+        localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(updatedList));
+      }
+    }
+  } catch (err) {
+    console.warn('Error updating local vocab cache for batch romanization:', err);
+  }
+
+  // 2. Persist to Firestore in batches of up to 400
+  const BATCH_SIZE = 400;
+  for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+    const chunk = updates.slice(i, i + BATCH_SIZE);
+    try {
+      const batch = writeBatch(db);
+      for (const item of chunk) {
+        const docRef = doc(db, VOCAB_COLLECTION, item.id);
+        batch.set(docRef, { romanization: item.romanization }, { merge: true });
+      }
+      await batch.commit();
+    } catch (err) {
+      console.warn('Error batch updating romanizations in Firestore:', err);
+    }
+  }
+
+  return updates.length;
+}
+
+/**
  * Remove a vocabulary item from user's active study deck
  */
 export async function removeVocabFromUserDeck(userId: string, vocabId: string): Promise<void> {
@@ -1292,56 +1347,12 @@ export async function recordReviewResult(
     localStorage.setItem(key, JSON.stringify(map));
   } catch {}
 
-  // 2. Background sync with Firestore (non-blocking, fire-and-forget so UI never waits)
-  if (typeof navigator === 'undefined' || navigator.onLine) {
-    setDoc(doc(db, PROGRESS_COLLECTION, updated.id), sanitizeForFirestore(updated)).catch((error) => {
-      console.warn('Firestore progress sync warning (progress preserved in localStorage):', error);
-    });
+  // 2. Sync with Firestore
+  try {
+    await setDoc(doc(db, PROGRESS_COLLECTION, updated.id), updated);
+  } catch (error) {
+    console.warn('Firestore progress sync warning (progress preserved in localStorage):', error);
   }
 
   return updated;
 }
-
-/**
- * Batch update romanization for multiple vocabularies in local cache and Firestore
- */
-export async function batchUpdateVocabulariesRomanization(
-  updates: { id: string; romanization: string }[]
-): Promise<number> {
-  if (!updates.length) return 0;
-
-  const updateMap = new Map(updates.map((u) => [u.id, u.romanization]));
-
-  // 1. Update in local storage
-  try {
-    const cached = getCachedVocabs();
-    let localChanged = false;
-    const updatedVocabs = cached.map((v) => {
-      if (updateMap.has(v.id)) {
-        localChanged = true;
-        return { ...v, romanization: updateMap.get(v.id)! };
-      }
-      return v;
-    });
-    if (localChanged) {
-      localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(updatedVocabs));
-    }
-  } catch (err) {
-    console.warn('Local storage batch romanization update error:', err);
-  }
-
-  // 2. Update in Firestore
-  try {
-    const batch = writeBatch(db);
-    for (const u of updates) {
-      const ref = doc(db, VOCAB_COLLECTION, u.id);
-      batch.update(ref, { romanization: u.romanization });
-    }
-    await batch.commit();
-  } catch (error) {
-    console.warn('Firestore batchUpdateVocabulariesRomanization warning (local cache updated):', error);
-  }
-
-  return updates.length;
-}
-

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
-import { generateRomanizationFromThai, normalizeThai } from '../utils/thaiTones';
+import { generateRomanizationFromThai } from '../utils/thaiTones';
 import { ToneVisualizer } from './ToneVisualizer';
 
 interface CreateViewProps {
@@ -66,10 +66,10 @@ export const CreateView: React.FC<CreateViewProps> = ({
 
       await onAddVocab({
         german: german.trim(),
-        thai: normalizeThai(thai.trim()),
+        thai: thai.trim(),
         romanization: finalRom,
         lesson: finalLesson,
-        exampleThai: exampleThai.trim() ? normalizeThai(exampleThai.trim()) : undefined,
+        exampleThai: exampleThai.trim() || undefined,
         exampleGerman: exampleGerman.trim() || undefined,
         creatorId: 'local_user',
       });

@@ -20,8 +20,6 @@ import {
   resetVocabsToPhaseOne,
   stepBackLessonPhase,
   batchUpdateVocabulariesRomanization,
-  getCachedVocabularies,
-  getCachedUserProgress,
 } from './services/vocabService';
 import { Navigation } from './components/Navigation';
 import { LearnView } from './components/LearnView';
@@ -29,49 +27,17 @@ import { PoolView } from './components/PoolView';
 import { CreateView } from './components/CreateView';
 import { SettingsView } from './components/SettingsView';
 import { StatsDashboard } from './components/StatsDashboard';
+import { ThaiReferenceView } from './components/ThaiReferenceView';
 import { StudySession, StudyMode, StudyDirection, StudyInputMethod } from './components/StudySession';
-import { ListeningSession } from './components/ListeningSession';
 import { AuthModal } from './components/AuthModal';
-import { OfflineIndicator } from './components/OfflineIndicator';
 import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner';
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('learn');
-
-  // Synchronous cache hydration: loads 400+ words immediately without waiting for server/flight mode
-  const [vocabularies, setVocabularies] = useState<Vocabulary[]>(() => {
-    try {
-      const activeUser = localStorage.getItem('thai_hasis_active_user_v1');
-      const u = activeUser ? JSON.parse(activeUser) : null;
-      return getCachedVocabularies(u?.uid);
-    } catch {
-      return [];
-    }
-  });
-
-  const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>(() => {
-    try {
-      const activeUser = localStorage.getItem('thai_hasis_active_user_v1');
-      const u = activeUser ? JSON.parse(activeUser) : null;
-      if (u?.uid) {
-        return getCachedUserProgress(u.uid);
-      }
-    } catch {}
-    return {};
-  });
-
-  // Only show full loading spinner if cache is 100% empty
-  const [loadingData, setLoadingData] = useState<boolean>(() => {
-    try {
-      const activeUser = localStorage.getItem('thai_hasis_active_user_v1');
-      const u = activeUser ? JSON.parse(activeUser) : null;
-      const cached = getCachedVocabularies(u?.uid);
-      return cached.length === 0;
-    } catch {
-      return false;
-    }
-  });
+  const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
+  const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>({});
+  const [loadingData, setLoadingData] = useState<boolean>(true);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
 
   // Active study session state
@@ -80,11 +46,6 @@ function AppContent() {
     mode: StudyMode;
     direction: StudyDirection;
     inputMethod: StudyInputMethod;
-  } | null>(null);
-
-  // Active listening (audio) session state - no impact on Leitner phases
-  const [activeListeningSession, setActiveListeningSession] = useState<{
-    cards: Vocabulary[];
   } | null>(null);
 
   // User preference: default hide romanization
@@ -137,6 +98,23 @@ function AppContent() {
     }
   });
 
+  // User preference: color coding Thai consonants by class (Amber = Mid, Green = High, Blue = Low)
+  const [colorCodingEnabled, setColorCodingEnabled] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('thai_hasis_color_coding');
+      return stored !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleColorCoding = (enabled: boolean) => {
+    setColorCodingEnabled(enabled);
+    try {
+      localStorage.setItem('thai_hasis_color_coding', String(enabled));
+    } catch {}
+  };
+
   const handleToggleHideRomanization = (val: boolean) => {
     setDefaultHideRomanization(val);
     try {
@@ -187,7 +165,7 @@ function AppContent() {
     } catch {}
   };
 
-  // Load vocabularies & progress (instant local cache + graceful background cloud sync)
+  // Load vocabularies & progress (only when logged in!)
   const loadAllData = async () => {
     if (!user) {
       setVocabularies([]);
@@ -196,34 +174,21 @@ function AppContent() {
       return;
     }
 
-    const userId = user.uid;
-
-    // 1. Immediately hydrate state from local storage cache (0ms latency)
-    const cachedVocabs = getCachedVocabularies(userId);
-    const cachedProg = getCachedUserProgress(userId);
-    if (cachedVocabs.length > 0) {
-      setVocabularies(cachedVocabs);
-      setProgressMap(cachedProg);
-      setLoadingData(false);
-    }
-
-    // 2. In offline / flight mode: stop here! App is 100% operational offline.
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setLoadingData(false);
-      return;
-    }
-
-    // 3. Online: perform background cloud sync without blocking the user
+    setLoadingData(true);
     try {
+      const userId = user.uid;
+
+      // 1. Upload any locally created vocabularies to Firestore so all users see them
       await syncLocalVocabulariesToCloud(userId).catch(() => {});
 
+      // 2. Fetch all shared vocabularies from Firestore (filtering out deleted items)
       const vocabs = await fetchCommunityVocabularies(userId);
       setVocabularies(vocabs);
 
       const prog = await fetchUserProgress(userId);
       setProgressMap(prog);
 
-      // If progress is empty on fresh install, auto-enroll initial cards into deck
+      // If user progress is completely empty on fresh install, auto-enroll initial cards into deck
       if (Object.keys(prog).length === 0 && vocabs.length > 0) {
         const initialDeckIds = vocabs.slice(0, 8).map((v) => v.id);
         await addBatchToUserDeck(userId, initialDeckIds);
@@ -231,44 +196,31 @@ function AppContent() {
         setProgressMap(updatedProg);
       }
     } catch (err) {
-      console.warn('Background cloud sync warning (using cached data):', err);
+      console.error('Data loading error:', err);
     } finally {
       setLoadingData(false);
     }
   };
-
-  // Re-sync automatically as soon as the user reconnects / turns off flight mode
-  useEffect(() => {
-    const handleOnline = () => {
-      if (user) {
-        loadAllData();
-      }
-    };
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, [user?.uid]);
 
   useEffect(() => {
     if (!authLoading) {
       if (user) {
         loadAllData();
 
-        // Subscribe to real-time updates from Firestore only when online
-        if (typeof navigator === 'undefined' || navigator.onLine) {
-          const unsubscribe = subscribeToCommunityVocabularies((remoteVocabs) => {
-            const seen = new Set<string>();
-            const deduped: Vocabulary[] = [];
-            remoteVocabs.forEach((v) => {
-              if (!seen.has(v.id)) {
-                seen.add(v.id);
-                deduped.push(v);
-              }
-            });
-            setVocabularies(deduped);
-          }, user.uid);
+        // Subscribe to real-time updates from Firestore
+        const unsubscribe = subscribeToCommunityVocabularies((remoteVocabs) => {
+          const seen = new Set<string>();
+          const deduped: Vocabulary[] = [];
+          remoteVocabs.forEach((v) => {
+            if (!seen.has(v.id)) {
+              seen.add(v.id);
+              deduped.push(v);
+            }
+          });
+          setVocabularies(deduped);
+        }, user.uid);
 
-          return () => unsubscribe();
-        }
+        return () => unsubscribe();
       } else {
         setVocabularies([]);
         setProgressMap({});
@@ -300,18 +252,8 @@ function AppContent() {
     isCorrect: boolean,
     direction: QueryDirection = 'de_to_th'
   ): Promise<UserProgress> => {
-    const userId =
-      user?.uid ||
-      (() => {
-        try {
-          const stored = localStorage.getItem('thai_hasis_active_user_v1');
-          return stored ? JSON.parse(stored)?.uid : null;
-        } catch {
-          return null;
-        }
-      })() ||
-      'local_user';
-
+    if (!user) throw new Error('Nicht angemeldet');
+    const userId = user.uid;
     const curProg = progressMap[vocabId];
     const updated = await recordReviewResult(userId, vocabId, curProg, isCorrect, direction);
     setProgressMap((prev) => ({
@@ -451,6 +393,26 @@ function AppContent() {
     });
   };
 
+  // Batch delete multiple vocabularies handler
+  const handleBatchDeleteVocabs = async (vocabIds: string[]): Promise<number> => {
+    if (!user || !vocabIds.length) return 0;
+    const userId = user.uid;
+    for (const id of vocabIds) {
+      const targetVocab = vocabularies.find((v) => v.id === id);
+      await deleteVocabulary(id, userId, targetVocab);
+    }
+    const idSet = new Set(vocabIds);
+    setVocabularies((prev) => prev.filter((v) => !idSet.has(v.id)));
+    setProgressMap((prev) => {
+      const next = { ...prev };
+      for (const id of vocabIds) {
+        delete next[id];
+      }
+      return next;
+    });
+    return vocabIds.length;
+  };
+
   // Restore vocabulary handler
   const handleRestoreVocab = async (id: string) => {
     if (!user) return;
@@ -556,11 +518,6 @@ function AppContent() {
     });
   };
 
-  // Start active listening (audio-only) session - no Leitner progress changes
-  const handleStartListeningSession = (cards: Vocabulary[]) => {
-    setActiveListeningSession({ cards });
-  };
-
   // If active study session is running, render full-screen study interface
   if (activeSession) {
     return (
@@ -575,17 +532,7 @@ function AppContent() {
         acceptRomanizationTyping={acceptRomanizationTyping}
         onUpdateVocab={handleUpdateVocab}
         existingLessons={existingLessons}
-      />
-    );
-  }
-
-  // If active listening session is running, render full-screen listening interface
-  if (activeListeningSession) {
-    return (
-      <ListeningSession
-        cards={activeListeningSession.cards}
-        poolVocabularies={vocabularies}
-        onFinish={() => setActiveListeningSession(null)}
+        colorCodingEnabled={colorCodingEnabled}
       />
     );
   }
@@ -617,7 +564,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-between selection:bg-[#FF7A00] selection:text-black pt-safe">
+    <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-between selection:bg-[#FF7A00] selection:text-black">
       {/* Main Content Area */}
       <main className={`flex-1 w-full mx-auto ${activeTab === 'stats' ? 'max-w-2xl px-2 sm:px-4' : 'max-w-md'}`}>
         {loadingData ? (
@@ -636,10 +583,17 @@ function AppContent() {
                 defaultInputMethod={defaultInputMethod}
                 onUpdateStudyPreferences={handleUpdateStudyPreferences}
                 onStartSession={handleStartSession}
-                onStartListeningSession={handleStartListeningSession}
                 onNavigatePool={() => setActiveTab('pool')}
                 onNavigateCreate={() => setActiveTab('create')}
                 onNavigateStats={() => setActiveTab('stats')}
+              />
+            )}
+
+            {activeTab === 'reference' && (
+              <ThaiReferenceView
+                colorCodingEnabled={colorCodingEnabled}
+                onToggleColorCoding={handleToggleColorCoding}
+                onNavigateLearn={() => setActiveTab('learn')}
               />
             )}
 
@@ -661,8 +615,11 @@ function AppContent() {
                 }}
                 onAddBatchToDeck={handleBatchAddToDeck}
                 onNavigateCreate={() => setActiveTab('create')}
+                onNavigateReference={() => setActiveTab('reference')}
+                colorCodingEnabled={colorCodingEnabled}
                 onUpdateVocab={handleUpdateVocab}
                 onDeleteVocab={handleDeleteVocab}
+                onBatchDeleteVocabs={handleBatchDeleteVocabs}
                 onRenameLesson={handleRenameLesson}
                 onDeleteLesson={handleDeleteLesson}
                 onMoveVocabs={handleMoveVocabs}
@@ -695,6 +652,8 @@ function AppContent() {
                 onToggleDefaultInputMethod={handleToggleDefaultInputMethod}
                 acceptRomanizationTyping={acceptRomanizationTyping}
                 onToggleAcceptRomanizationTyping={handleToggleAcceptRomanizationTyping}
+                colorCodingEnabled={colorCodingEnabled}
+                onToggleColorCoding={handleToggleColorCoding}
                 studyMode={studyMode}
                 onToggleStudyMode={handleToggleStudyMode}
                 studyDirection={studyDirection}
@@ -719,9 +678,6 @@ function AppContent() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
       />
-
-      {/* Connectivity Banner */}
-      <OfflineIndicator />
     </div>
   );
 }

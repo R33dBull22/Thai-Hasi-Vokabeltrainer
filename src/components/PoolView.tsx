@@ -19,6 +19,7 @@ import {
   ArrowDownCircle,
   Sparkles,
   RefreshCw,
+  GraduationCap,
 } from 'lucide-react';
 import { Vocabulary, UserProgress } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
@@ -26,6 +27,7 @@ import { PHASES, formatDueDate, isCardDue, getDirectionProgress, isAnyDirectionD
 import { EditVocabModal } from './EditVocabModal';
 import { ToneVisualizer } from './ToneVisualizer';
 import { generateRomanizationFromThai } from '../utils/thaiTones';
+import { ThaiColorWord } from './ThaiColorWord';
 
 interface PoolViewProps {
   vocabularies: Vocabulary[];
@@ -33,8 +35,10 @@ interface PoolViewProps {
   onSelectForStudy: (selectedVocabs: { vocab: Vocabulary; progress?: UserProgress }[]) => void;
   onAddBatchToDeck: (vocabIds: string[]) => Promise<void>;
   onNavigateCreate: () => void;
+  onNavigateReference?: () => void;
   onUpdateVocab?: (id: string, updatedData: Partial<Omit<Vocabulary, 'id' | 'createdAt'>>) => Promise<void>;
   onDeleteVocab?: (id: string) => Promise<void>;
+  onBatchDeleteVocabs?: (vocabIds: string[]) => Promise<number>;
   onRenameLesson?: (oldName: string, newName: string) => Promise<void>;
   onDeleteLesson?: (lessonName: string, deleteVocabs: boolean, moveToLesson?: string) => Promise<void>;
   onMoveVocabs?: (vocabIds: string[], targetLesson: string) => Promise<void>;
@@ -43,6 +47,7 @@ interface PoolViewProps {
   onUpdateSinglePhase?: (vocabId: string, newPhase: number, targetDirection?: 'de_to_th' | 'th_to_de' | 'both') => Promise<void>;
   onBatchUpdateRomanization?: (updates: { id: string; romanization: string }[]) => Promise<number>;
   existingLessons?: string[];
+  colorCodingEnabled?: boolean;
 }
 
 export const PoolView: React.FC<PoolViewProps> = ({
@@ -51,8 +56,10 @@ export const PoolView: React.FC<PoolViewProps> = ({
   onSelectForStudy,
   onAddBatchToDeck,
   onNavigateCreate,
+  onNavigateReference,
   onUpdateVocab,
   onDeleteVocab,
+  onBatchDeleteVocabs,
   onRenameLesson,
   onDeleteLesson,
   onMoveVocabs,
@@ -61,6 +68,7 @@ export const PoolView: React.FC<PoolViewProps> = ({
   onUpdateSinglePhase,
   onBatchUpdateRomanization,
   existingLessons = [],
+  colorCodingEnabled = true,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -371,6 +379,35 @@ export const PoolView: React.FC<PoolViewProps> = ({
     }
   };
 
+  // Handle Batch Delete Selected Cards
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+
+  const handleConfirmBatchDelete = async () => {
+    if (!selectedIds.size) return;
+    setIsBatchDeleting(true);
+    try {
+      const idsToDelete = Array.from(selectedIds);
+      if (onBatchDeleteVocabs) {
+        await onBatchDeleteVocabs(idsToDelete);
+      } else if (onDeleteVocab) {
+        for (const id of idsToDelete) {
+          await onDeleteVocab(id);
+        }
+      }
+      setSelectedIds(new Set());
+      setShowBatchDeleteConfirm(false);
+      setToastMessage(
+        `✓ ${idsToDelete.length} Vokabelkarte(n) gelöscht (im Papierkorb unter Einstellungen wiederherstellbar)`
+      );
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      setToastMessage(`Fehler: ${err?.message || 'Konnte Vokabeln nicht löschen'}`);
+    } finally {
+      setIsBatchDeleting(false);
+    }
+  };
+
   // Sync / Recalculate romanization modal state
   const [showSyncRomanizationModal, setShowSyncRomanizationModal] = useState(false);
   const [syncScope, setSyncScope] = useState<'selected' | 'all'>('selected');
@@ -447,21 +484,34 @@ export const PoolView: React.FC<PoolViewProps> = ({
             {vocabularies.length} Vokabeln im Pool
           </p>
         </div>
-        {onBatchUpdateRomanization && (
-          <button
-            type="button"
-            onClick={() => {
-              setSyncScope(selectedIds.size > 0 ? 'selected' : 'all');
-              setShowDiffPreviewList(false);
-              setShowSyncRomanizationModal(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#242426] border border-[#3A3A3D] hover:border-emerald-500/60 text-xs text-[#D1D1D6] hover:text-white transition-colors cursor-pointer shadow-sm active:scale-95 shrink-0"
-            title="Lautschrift & Töne im Pool nachziehen"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Lautschrift nachziehen</span>
-          </button>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {onNavigateReference && (
+            <button
+              type="button"
+              onClick={onNavigateReference}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#242426] border border-[#3A3A3D] hover:border-amber-400/60 text-xs text-[#D1D1D6] hover:text-white transition-colors cursor-pointer shadow-sm active:scale-95"
+              title="Thai-Tafel & Spickzettel öffnen"
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-amber-400" />
+              <span>Tafel</span>
+            </button>
+          )}
+          {onBatchUpdateRomanization && (
+            <button
+              type="button"
+              onClick={() => {
+                setSyncScope(selectedIds.size > 0 ? 'selected' : 'all');
+                setShowDiffPreviewList(false);
+                setShowSyncRomanizationModal(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#242426] border border-[#3A3A3D] hover:border-emerald-500/60 text-xs text-[#D1D1D6] hover:text-white transition-colors cursor-pointer shadow-sm active:scale-95"
+              title="Lautschrift & Töne im Pool nachziehen"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Lautschrift</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Success Confirmation Toast */}
@@ -747,7 +797,11 @@ export const PoolView: React.FC<PoolViewProps> = ({
 
                             {/* Line 2: Thai + Romanization + Tone Badges */}
                             <div className="text-xs text-[#A1A1AA] mt-0.5 flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[#E4E4E7] font-thai font-medium">{vocab.thai}</span>
+                              <ThaiColorWord
+                                text={vocab.thai}
+                                enabled={colorCodingEnabled}
+                                className="text-[#E4E4E7] font-thai font-medium"
+                              />
                               {vocab.romanization && (
                                 <span className="text-[#FF7A00] font-sans">
                                   {vocab.romanization}
@@ -1206,6 +1260,55 @@ export const PoolView: React.FC<PoolViewProps> = ({
         </div>
       )}
 
+      {/* Modal: Ausgewählte Vokabeln löschen */}
+      {showBatchDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#1C1C1E] border border-rose-500/40 rounded-3xl w-full max-w-sm p-5 text-white shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#2C2C2E] mb-3">
+              <div className="flex items-center gap-2 text-rose-400">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                <h3 className="text-base font-bold text-white">Vokabeln löschen</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBatchDeleteConfirm(false)}
+                className="w-7 h-7 rounded-full bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93] hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[#D1D1D6] mb-3 leading-relaxed">
+              Möchtest du die <strong className="text-rose-400">{selectedIds.size}</strong> ausgewählten {selectedIds.size === 1 ? 'Vokabelkarte' : 'Vokabelkarten'} wirklich löschen?
+            </p>
+
+            <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl text-[11px] text-[#D1D1D6] mb-4 leading-relaxed">
+              Die Vokabeln werden in den Papierkorb verschoben und können in den <strong className="text-white">Einstellungen</strong> jederzeit wiederhergestellt werden.
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBatchDeleteConfirm(false)}
+                disabled={isBatchDeleting}
+                className="flex-1 py-2.5 rounded-full bg-[#2C2C2E] text-white text-xs font-semibold hover:bg-[#3A3A3D] cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBatchDelete}
+                disabled={isBatchDeleting}
+                className="flex-1 py-2.5 rounded-full bg-rose-600 text-white text-xs font-semibold hover:bg-rose-500 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isBatchDeleting ? 'Löschen...' : `Löschen (${selectedIds.size})`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal: Lautschrift & Töne nachziehen (Auto-Korrektur / Wörterbuch-Sync) */}
       {showSyncRomanizationModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
@@ -1412,15 +1515,15 @@ export const PoolView: React.FC<PoolViewProps> = ({
             <span>+ Vokabeln eingeben</span>
           </button>
 
-          {/* Action Row for Selected Vocabs: Move + Von Anfang an lernen + Lautschrift nachziehen */}
+          {/* Action Row for Selected Vocabs: Move + Von Anfang an lernen + Lautschrift nachziehen + Löschen */}
           {selectedCount > 0 && (
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-4 gap-1.5">
               {/* Von Anfang an lernen Button */}
               {onResetVocabsPhase && (
                 <button
                   type="button"
                   onClick={() => setShowResetSelectedConfirm(true)}
-                  className="py-2.5 px-2 rounded-full bg-[#242426] border border-amber-500/50 text-amber-300 font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
+                  className="py-2.5 px-1.5 rounded-full bg-[#242426] border border-amber-500/50 text-amber-300 font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
                   title="Ausgewählte Vokabeln auf Phase 1 zurücksetzen"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -1437,7 +1540,7 @@ export const PoolView: React.FC<PoolViewProps> = ({
                     setCustomTargetMoveLesson('');
                     setMoveModalOpen(true);
                   }}
-                  className="py-2.5 px-2 rounded-full bg-[#242426] border border-[#FF7A00]/50 text-[#FF7A00] font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
+                  className="py-2.5 px-1.5 rounded-full bg-[#242426] border border-[#FF7A00]/50 text-[#FF7A00] font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
                   title="Vokabeln in andere Lektion verschieben"
                 >
                   <FolderInput className="w-3.5 h-3.5 shrink-0" />
@@ -1454,11 +1557,24 @@ export const PoolView: React.FC<PoolViewProps> = ({
                     setShowDiffPreviewList(false);
                     setShowSyncRomanizationModal(true);
                   }}
-                  className="py-2.5 px-2 rounded-full bg-[#242426] border border-emerald-500/50 text-emerald-300 font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
+                  className="py-2.5 px-1.5 rounded-full bg-[#242426] border border-emerald-500/50 text-emerald-300 font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
                   title="Lautschrift & Töne für markierte Vokabeln nachziehen"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="truncate">Lautschrift ({selectedCount})</span>
+                  <span className="truncate">Lautschrift</span>
+                </button>
+              )}
+
+              {/* Ausgewählte löschen Button */}
+              {(onBatchDeleteVocabs || onDeleteVocab) && (
+                <button
+                  type="button"
+                  onClick={() => setShowBatchDeleteConfirm(true)}
+                  className="py-2.5 px-1.5 rounded-full bg-[#242426] border border-rose-500/50 text-rose-300 font-semibold text-xs hover:bg-[#2C2C2E] transition-colors active:scale-[0.99] flex items-center justify-center gap-1 cursor-pointer shadow"
+                  title="Ausgewählte Vokabeln löschen"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <span className="truncate">Löschen</span>
                 </button>
               )}
             </div>

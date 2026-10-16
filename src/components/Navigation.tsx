@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, BookOpen, PlusCircle, Settings, BarChart3 } from 'lucide-react';
+import { Home, BookOpen, PlusCircle, Settings, BarChart3, GraduationCap } from 'lucide-react';
 import { ActiveTab } from '../types/vocab';
 
 interface NavigationProps {
@@ -15,10 +15,11 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   const tabs: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }[] = [
     { id: 'learn', label: 'Lernen', icon: Home, badge: dueCount > 0 ? dueCount : undefined },
-    { id: 'pool', label: 'Vokabelpool', icon: BookOpen },
+    { id: 'pool', label: 'Pool', icon: BookOpen },
+    { id: 'reference', label: 'Tafel', icon: GraduationCap },
     { id: 'stats', label: 'Statistik', icon: BarChart3 },
-    { id: 'create', label: 'Neu Anlegen', icon: PlusCircle },
-    { id: 'settings', label: 'Einstellungen', icon: Settings },
+    { id: 'create', label: 'Neu', icon: PlusCircle },
+    { id: 'settings', label: 'Optionen', icon: Settings },
   ];
 
   return (
@@ -35,18 +36,18 @@ export const Navigation: React.FC<NavigationProps> = ({
             >
               <div className="relative">
                 <Icon
-                  className={`w-6 h-6 transition-transform ${
+                  className={`w-5 h-5 transition-transform ${
                     isActive ? 'text-[#FF7A00] scale-105' : 'text-[#8E8E93] hover:text-[#D1D1D6]'
                   }`}
                 />
                 {tab.badge !== undefined && tab.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 bg-[#FF7A00] text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center leading-none shadow-sm">
+                  <span className="absolute -top-1.5 -right-2 bg-[#FF7A00] text-black text-[9px] font-bold px-1 py-0.5 rounded-full min-w-[15px] text-center leading-none shadow-sm">
                     {tab.badge > 99 ? '99+' : tab.badge}
                   </span>
                 )}
               </div>
               <span
-                className={`text-[11px] mt-1 font-medium tracking-tight ${
+                className={`text-[10px] mt-1 font-medium tracking-tight ${
                   isActive ? 'text-[#FF7A00]' : 'text-[#8E8E93]'
                 }`}
               >

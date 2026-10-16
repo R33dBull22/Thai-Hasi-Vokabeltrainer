@@ -91,13 +91,22 @@ const THAI_DICTIONARY: Record<string, string> = {
   'หนังสือเดินทาง': 'năng-sŭe doen-thaang',
   'หนังสือ': 'năng-sŭe',
   'รถแท็กซี่': 'rót-tháaek-sêe',
+  'ป้ายรถเมล์อยู่ที่ไหนครับ': 'bpâai-rót-mee yòo thêe-năi kráp',
+  'ป้ายรถเมล์อยู่ที่ไหนค่ะ': 'bpâai-rót-mee yòo thêe-năi khâ',
+  'ป้ายรถเมล์อยู่ที่ไหน': 'bpâai-rót-mee yòo thêe-năi',
+  'ป้ายรถประจำทาง': 'bpâai rót bprà-jam thaang',
+  'ป้ายรถเมล์': 'bpâai-rót-mee',
+  'ป้าย': 'bpâai',
   'รถเมล์': 'rót-mee',
+  'เมล์': 'mee',
   'รถไฟฟ้า': 'rót-fai-fáa',
   'รถไฟ': 'rót-fai',
   'รถยนต์': 'rót-yon',
   'รถมอเตอร์ไซค์': 'rót-moo-dtooe-sai',
   'รถ': 'rót',
   'สถานีรถไฟ': 'sà-thăa-nee rót-fai',
+  'สถานีรถประจำทาง': 'sà-thăa-nee rót bprà-jam thaang',
+  'สถานีขนส่ง': 'sà-thăa-nee khŏn-sòng',
   'สถานี': 'sà-thăa-nee',
   'โรงแรม': 'roong-raaem',
   'โรงพยาบาล': 'roong-phá-yaa-baan',
@@ -154,9 +163,6 @@ const THAI_DICTIONARY: Record<string, string> = {
   'เผ็ดนิดหน่อย': 'phèt nít-nò̜i',
   'ไม่เผ็ด': 'mâi phèt',
   'เผ็ด': 'phèt',
-  'น้ำหนึ่งขวด': 'nám-nùeng-khùat',
-  'น้ำหนึ่งแก้ว': 'nám-nùeng-gâaew',
-  'น้ำดื่ม': 'nám-dùem',
   'น้ำเปล่า': 'nám-bplào',
   'น้ำแข็ง': 'nám-khăeng',
   'น้ำ': 'nám',
@@ -215,6 +221,16 @@ const THAI_DICTIONARY: Record<string, string> = {
   'ร้อย': 'ró̜i',
   'พัน': 'phan',
   'บาท': 'bàat',
+  '๐': 'sŭun',
+  '๑': 'nùeng',
+  '๒': 'săawng',
+  '๓': 'săam',
+  '๔': 'sèe',
+  '๕': 'hâa',
+  '๖': 'hòk',
+  '๗': 'jèt',
+  '๘': 'bpàaet',
+  '๙': 'gâao',
   'ซื้อ': 'súe',
   'ขาย': 'khăai',
   'เงิน': 'ngoen',
@@ -605,26 +621,6 @@ function computeTone(
   return initialClass === 'high' ? 'rising' : 'mid';
 }
 
-/**
- * Normalizes Thai text to standard Unicode representations.
- * Handles decomposed Sara Am (Nikhahit U+0E4D + Sara Aa U+0E32 / Lakkhangyao U+0E45),
- * tone mark placement with Sara Am, and common Thai typing variations.
- */
-export function normalizeThai(text: string): string {
-  if (!text) return text;
-  return text
-    // 1. Decomposed Sara Am with tone mark: Nikhahit + Tone + Sara Aa / Lakkhangyao
-    .replace(/\u0E4D([\u0E48-\u0E4B])([\u0E32\u0E45])/g, '$1\u0E33')
-    // 2. Tone + Nikhahit + Sara Aa / Lakkhangyao
-    .replace(/([\u0E48-\u0E4B])\u0E4D([\u0E32\u0E45])/g, '$1\u0E33')
-    // 3. Nikhahit + Sara Aa / Lakkhangyao + Tone
-    .replace(/\u0E4D([\u0E32\u0E45])([\u0E48-\u0E4B])/g, '$2\u0E33')
-    // 4. Decomposed Sara Am without tone: Nikhahit + Sara Aa / Lakkhangyao
-    .replace(/\u0E4D([\u0E32\u0E45])/g, '\u0E33')
-    // 5. Inverted typing: Sara Am + Tone -> Tone + Sara Am (standard Thai ordering)
-    .replace(/\u0E33([\u0E48-\u0E4B])/g, '$1\u0E33');
-}
-
 const CLUSTER_PAIRS = new Set([
   'กร', 'กล', 'กว', 'ขร', 'ขล', 'ขว', 'คร', 'คล', 'คว', 'ตร', 'ปร', 'ปล', 'ผล', 'พร', 'พล', 'ฟร', 'บล',
   'หม', 'หน', 'หว', 'หล', 'หย', 'หง', 'หร', 'หญ', 'อย', 'ทร',
@@ -634,14 +630,13 @@ const CLUSTER_PAIRS = new Set([
  * Splits arbitrary Thai text into phonetic syllable chunks
  */
 export function splitThaiIntoSyllables(text: string): string[] {
-  const normalized = normalizeThai(text);
   const syllables: string[] = [];
-  const chars = Array.from(normalized);
+  const chars = Array.from(text);
   let i = 0;
 
   const isLeadingVowel = (c: string) => /[เแโใไ]/.test(c);
   const isConsonant = (c: string) => /[ก-ฮฤฦ]/.test(c);
-  const isVowelOrTone = (c: string) => /[ิีึืุูั็่้๊๋ะาำๅํฺ]/.test(c);
+  const isVowelOrTone = (c: string) => /[ิีึืุูั็่้๊๋ะาำๅ]/.test(c);
 
   while (i < chars.length) {
     if (chars[i] === ' ') {
@@ -677,12 +672,24 @@ export function splitThaiIntoSyllables(text: string): string[] {
     }
 
     // 2. Consume vowel signs and diphthong glides attached to initial
+    const hasLeadingE = chars.slice(start, end).some((c) => c === 'เ' || c === 'แ');
+    let hasUpperI = false;
+    let hasUpperUe = false;
+    let hasSaraAa = false;
+
     while (end < chars.length) {
       const c = chars[end];
+      if (c === 'ี') hasUpperI = true;
+      if (c === 'ื') hasUpperUe = true;
+      if (c === 'า') hasSaraAa = true;
+
       if (isVowelOrTone(c) || c === '์') {
         end++;
-      } else if ((c === 'ว' || c === 'ย' || c === 'อ') && end + 1 < chars.length && isConsonant(chars[end + 1])) {
-        // e.g. ร่วง (ว is vowel ua), เมือง (อ is vowel uea), เรียน (ย is vowel ia)
+      } else if (
+        (c === 'ย' && hasLeadingE && hasUpperI) || // sara ia (เ-ีย)
+        (c === 'อ' && hasLeadingE && hasUpperUe) || // sara uea (เ-ือ)
+        (c === 'ว' && !hasSaraAa && end + 1 < chars.length && isConsonant(chars[end + 1])) // sara ua (e.g. ร่วง)
+      ) {
         end++;
       } else {
         break;
@@ -690,21 +697,14 @@ export function splitThaiIntoSyllables(text: string): string[] {
     }
 
     // 3. Optional: AT MOST ONE final consonant (coda)
-    // Note: Syllables with inherent-coda vowels (ำ / Sara Am, ใ / Sara Ai, ไ / Sara Ai, เ...า / Sara Ao)
-    // NEVER take a final consonant (coda) in Thai phonology!
-    const currentChunk = chars.slice(start, end).join('');
-    const hasInherentCodaVowel = /[ำใไ]/.test(currentChunk) || (currentChunk.startsWith('เ') && currentChunk.includes('า'));
-
-    if (!hasInherentCodaVowel && end < chars.length && isConsonant(chars[end])) {
+    if (end < chars.length && isConsonant(chars[end])) {
       const nextChar = chars[end];
       const afterNext = end + 1 < chars.length ? chars[end + 1] : '';
 
-      // If nextChar is followed by an attached vowel/tone or forms a consonant cluster with afterNext,
-      // it belongs to the next syllable's onset (e.g. 'หน' in 'หนึ่ง')
-      const isNextCluster = CLUSTER_PAIRS.has(nextChar + afterNext);
+      // If nextChar is followed by an attached vowel or tone mark, it belongs to the next syllable
       const nextHasVowel = isVowelOrTone(afterNext);
 
-      if (!nextHasVowel && !isNextCluster) {
+      if (!nextHasVowel) {
         end++;
         // consume trailing tone/karan if any
         while (end < chars.length && (isVowelOrTone(chars[end]) || chars[end] === '์')) {
@@ -729,15 +729,34 @@ export function splitThaiIntoSyllables(text: string): string[] {
  * Parses an individual Thai syllable based on phonetic rules
  */
 export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone } {
-  const norm = normalizeThai(raw);
   // If no Thai character exists, return empty
-  if (!/[ก-๙]/.test(norm)) {
+  if (!/[ก-๙]/.test(raw)) {
     return { roman: '', tone: 'mid' };
   }
 
-  // Strip silent consonant + karan (e.g. ร์, ท์, ส์, สตร์)
-  let s = norm.replace(/.+[์]/g, '').replace(/.[์]/g, '').trim();
+  // Strip silent consonant + karan (e.g. ร์, ท์, ส์, ล์, or double silent consonants like สตร์, ทร์, ศร์)
+  let s = raw
+    .replace(/(?:สตร์|ทร์|ตร์|ดร์|[ก-ฮ][ิุ]?์)/g, '')
+    .replace(/์/g, '')
+    .trim();
   if (!s) return { roman: '', tone: 'mid' };
+
+  // Explicit handling for Thai numerals (๐-๙)
+  if (/^[๐-๙]$/.test(s)) {
+    const digitMap: Record<string, { roman: string; tone: ThaiTone }> = {
+      '๐': { roman: 'sŭun', tone: 'rising' },
+      '๑': { roman: 'nùeng', tone: 'low' },
+      '๒': { roman: 'săawng', tone: 'rising' },
+      '๓': { roman: 'săam', tone: 'rising' },
+      '๔': { roman: 'sèe', tone: 'low' },
+      '๕': { roman: 'hâa', tone: 'falling' },
+      '๖': { roman: 'hòk', tone: 'low' },
+      '๗': { roman: 'jèt', tone: 'low' },
+      '๘': { roman: 'bpàaet', tone: 'low' },
+      '๙': { roman: 'gâao', tone: 'falling' },
+    };
+    return digitMap[s] || { roman: '', tone: 'mid' };
+  }
 
   // Explicit handling for vocalic ฤ (ru / rue) and ฦ (lu)
   if (s.startsWith('ฤๅ') || s.startsWith('ฦๅ')) {
@@ -867,11 +886,11 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
     vowel = 'ua';
     isLong = true;
     s = s.substring(1);
-  } else if (s.includes('ำ') || s.includes('ํ')) {
+  } else if (s.includes('ำ')) {
     vowel = 'am';
     isLong = false;
     isDead = false;
-    s = s.replace(/[ำํ]/g, '');
+    s = s.replace('ำ', '');
   } else if (s.includes('ี')) {
     vowel = 'ee';
     isLong = true;
@@ -948,20 +967,19 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
 }
 
 function romanizeThaiSegment(clean: string): string {
-  const normalized = normalizeThai(clean);
-  if (!normalized) return '';
-  if (THAI_DICTIONARY[normalized]) {
-    return THAI_DICTIONARY[normalized];
+  if (!clean) return '';
+  if (THAI_DICTIONARY[clean]) {
+    return THAI_DICTIONARY[clean];
   }
 
   const words: string[] = [];
   let i = 0;
 
-  while (i < normalized.length) {
+  while (i < clean.length) {
     let matched = false;
     // Check dictionary prefixes from longest to shortest
-    for (let len = Math.min(normalized.length - i, 20); len >= 2; len--) {
-      const sub = normalized.substring(i, i + len);
+    for (let len = Math.min(clean.length - i, 50); len >= 2; len--) {
+      const sub = clean.substring(i, i + len);
       if (THAI_DICTIONARY[sub]) {
         words.push(THAI_DICTIONARY[sub]);
         i += len;
@@ -971,15 +989,15 @@ function romanizeThaiSegment(clean: string): string {
     }
 
     if (!matched) {
-      if (normalized[i] === ' ') {
+      if (clean[i] === ' ') {
         i++;
         continue;
       }
 
       // Find next chunk using splitThaiIntoSyllables
-      const remaining = normalized.substring(i);
+      const remaining = clean.substring(i);
       const splitChunks = splitThaiIntoSyllables(remaining);
-      const nextChunk = splitChunks[0] || normalized[i];
+      const nextChunk = splitChunks[0] || clean[i];
 
       const parsed = parseThaiSyllable(nextChunk);
       if (parsed.roman) {
@@ -999,7 +1017,7 @@ export function generateRomanizationFromThai(thaiText: string): {
   romanization: string;
   syllables: SyllableTone[];
 } {
-  const clean = normalizeThai(thaiText.trim());
+  const clean = thaiText.trim();
   if (!clean) return { romanization: '', syllables: [] };
 
   // Handle delimiter segments cleanly (e.g. "อเมริกา / ประเทศอเมริกา", "คำ1, คำ2")

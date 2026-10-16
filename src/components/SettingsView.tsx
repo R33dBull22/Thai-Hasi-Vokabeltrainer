@@ -23,6 +23,7 @@ import {
   ChevronUp,
   Key,
   Sparkles,
+  Palette,
 } from 'lucide-react';
 import { isLiveFirebaseApiKeyConfigured } from '../firebase/config';
 import { Vocabulary, UserProgress, DeletedVocabEntry } from '../types/vocab';
@@ -43,7 +44,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { Trash2, RotateCcw } from 'lucide-react';
 import { THAI_TONES, ThaiTone, generateRomanizationFromThai } from '../utils/thaiTones';
-import { PWAInstallButton } from './PWAInstallButton';
 
 interface SettingsViewProps {
   vocabularies: Vocabulary[];
@@ -65,6 +65,8 @@ interface SettingsViewProps {
   onToggleStudyDirection: (direction: StudyDirection) => void;
   onOpenAuthModal: () => void;
   onRefreshData: () => Promise<void>;
+  colorCodingEnabled?: boolean;
+  onToggleColorCoding?: (enabled: boolean) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -85,6 +87,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onToggleStudyDirection,
   onOpenAuthModal,
   onRefreshData,
+  colorCodingEnabled = true,
+  onToggleColorCoding,
 }) => {
   const { user, isGuest, logout } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -393,9 +397,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
         </div>
-
-        {/* PWA App Installation & Offline Info */}
-        <PWAInstallButton variant="settings" />
 
         {/* Gelöschte Vokabeln wiederherstellen (Papierkorb) */}
         <div className="bg-[#242426] rounded-2xl p-4 border border-[#323236]">
@@ -956,6 +957,33 @@ Lecker;อร่อย;a-roi;Essen & Trinken;อาหารนี้อร่�
               <div className="w-5 h-5 rounded-full bg-white shadow-md" />
             </button>
           </div>
+
+          {/* Konsonanten-Farbkodierung Toggle */}
+          {onToggleColorCoding && (
+            <div className="flex items-center justify-between py-2.5 border-b border-[#323236]/60">
+              <div>
+                <p className="text-sm font-medium text-white flex items-center gap-1.5">
+                  <Palette className="w-4 h-4 text-amber-400" />
+                  <span>Farbkodierung der Konsonanten</span>
+                </p>
+                <p className="text-xs text-[#8E8E93] mt-0.5">
+                  Hebt Konsonanten dezent nach ihrer Klasse hervor:{' '}
+                  <span className="text-amber-400 font-semibold">Gold = Mitte</span>,{' '}
+                  <span className="text-emerald-400 font-semibold">Grün = Hoch</span>,{' '}
+                  <span className="text-sky-400 font-semibold">Blau = Tief</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onToggleColorCoding(!colorCodingEnabled)}
+                className={`w-12 h-6 rounded-full transition-colors p-0.5 flex items-center shrink-0 ml-3 cursor-pointer ${
+                  colorCodingEnabled ? 'bg-[#FF7A00] justify-end' : 'bg-[#3A3A3D] justify-start'
+                }`}
+              >
+                <div className="w-5 h-5 rounded-full bg-white shadow-md" />
+              </button>
+            </div>
+          )}
 
           {/* Keyboard suggestions note */}
           <div className="flex items-center justify-between py-2.5 border-b border-[#323236]/60 text-xs text-[#A1A1AA]">

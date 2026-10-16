@@ -1,6 +1,5 @@
 import { Vocabulary, UserProgress } from '../types/vocab';
 import { getDirectionProgress } from '../utils/leitner';
-import { normalizeThai } from '../utils/thaiTones';
 
 export interface ExportData {
   vocabularies: (Vocabulary & { phase?: number; phaseDeToTh?: number; phaseThToDe?: number })[];
@@ -263,12 +262,12 @@ export function parseCSVContent(text: string): ParsedCSVRow[] {
 
     const isValid = Boolean(german.trim() && thai.trim());
     result.push({
-      german: german.trim(),
-      thai: normalizeThai(thai.trim()),
-      romanization: romanization.trim(),
+      german,
+      thai,
+      romanization,
       lesson: lesson.trim() || 'Importierte Vokabeln',
-      exampleThai: exampleThai.trim() ? normalizeThai(exampleThai.trim()) : '',
-      exampleGerman: exampleGerman.trim(),
+      exampleThai,
+      exampleGerman,
       phase: Math.min(finalDePhase, finalThPhase),
       phaseDeToTh: finalDePhase,
       phaseThToDe: finalThPhase,
