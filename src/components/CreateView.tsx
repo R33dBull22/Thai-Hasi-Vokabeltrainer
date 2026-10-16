@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Plus,
   Sparkles,
@@ -37,38 +37,53 @@ export const CreateView: React.FC<CreateViewProps> = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const isSubmittingRef = useRef(false);
+  const lastSubmitTimeRef = useRef(0);
+  const isPointerOverSubmitRef = useRef(false);
+
   const finalLesson = lesson === '__new__' ? customLesson.trim() : lesson;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
+  const executeSave = async () => {
+    const now = Date.now();
+    // Guard against double submission (e.g. form submit + button click)
+    if (isSubmittingRef.current || now - lastSubmitTimeRef.current < 600) {
+      return;
+    }
+
     setErrorMessage(null);
 
-    if (!german.trim()) {
+    const trimmedGerman = german.trim();
+    const trimmedThai = thai.trim();
+    const trimmedLesson = finalLesson.trim();
+
+    if (!trimmedGerman) {
       setErrorMessage('Bitte gib die deutsche Bedeutung ein.');
       return;
     }
-    if (!thai.trim()) {
+    if (!trimmedThai) {
       setErrorMessage('Bitte gib die thailändischen Schriftzeichen ein.');
       return;
     }
-    if (!finalLesson) {
+    if (!trimmedLesson) {
       setErrorMessage('Bitte wähle oder erstelle eine Lektion.');
       return;
     }
 
+    isSubmittingRef.current = true;
+    lastSubmitTimeRef.current = now;
     setIsSubmitting(true);
+
     try {
       const finalRom =
         romanization.trim() ||
-        generateRomanizationFromThai(thai.trim()).romanization ||
+        generateRomanizationFromThai(trimmedThai).romanization ||
         undefined;
 
       await onAddVocab({
-        german: german.trim(),
-        thai: thai.trim(),
+        german: trimmedGerman,
+        thai: trimmedThai,
         romanization: finalRom,
-        lesson: finalLesson,
+        lesson: trimmedLesson,
         exampleThai: exampleThai.trim() || undefined,
         exampleGerman: exampleGerman.trim() || undefined,
         creatorId: 'local_user',
@@ -83,12 +98,18 @@ export const CreateView: React.FC<CreateViewProps> = ({
 
       setTimeout(() => {
         setSuccessMessage(null);
-      }, 2500);
+      }, 3500);
     } catch (err: any) {
       setErrorMessage(err.message || 'Fehler beim Speichern der Vokabel.');
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeSave();
   };
 
   const handleTestAudio = () => {
@@ -106,6 +127,11 @@ export const CreateView: React.FC<CreateViewProps> = ({
   };
 
   const handleThaiBlur = () => {
+    // If the user tapped the submit button, avoid any delayed state change
+    // that would re-render the view and cancel the ongoing tap/click event!
+    if (isPointerOverSubmitRef.current || isSubmittingRef.current) {
+      return;
+    }
     if (thai.trim() && !romanization.trim()) {
       const generated = generateRomanizationFromThai(thai.trim());
       if (generated.romanization) {
@@ -130,9 +156,20 @@ export const CreateView: React.FC<CreateViewProps> = ({
       </div>
 
       {successMessage && (
-        <div className="mb-4 p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl flex items-center gap-2 text-emerald-300 text-xs animate-in fade-in">
-          <Check className="w-4 h-4 shrink-0" />
-          <span>{successMessage}</span>
+        <div className="mb-4 p-3.5 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl flex items-center justify-between gap-2 text-emerald-300 text-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span className="font-medium">{successMessage}</span>
+          </div>
+          {onSuccessNavigate && (
+            <button
+              type="button"
+              onClick={onSuccessNavigate}
+              className="shrink-0 px-2.5 py-1 bg-emerald-500/30 hover:bg-emerald-500/40 text-emerald-200 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer"
+            >
+              Zum Deck →
+            </button>
+          )}
         </div>
       )}
 
@@ -308,10 +345,29 @@ export const CreateView: React.FC<CreateViewProps> = ({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-4 rounded-full bg-[#FF7A00] text-black font-semibold text-base hover:bg-[#FF881A] transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2"
+            onPointerDown={() => {
+              isPointerOverSubmitRef.current = true;
+              // Cleanly blur any active input so keyboard dismiss doesn't shift the button mid-tap
+              if (
+                document.activeElement instanceof HTMLElement &&
+                (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')
+              ) {
+                document.activeElement.blur();
+              }
+            }}
+            onPointerUp={() => {
+              setTimeout(() => {
+                isPointerOverSubmitRef.current = false;
+              }, 400);
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              executeSave();
+            }}
+            className="w-full py-4 rounded-full bg-[#FF7A00] hover:bg-[#FF881A] active:bg-[#e06c00] text-black font-semibold text-base shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer touch-manipulation disabled:opacity-50"
           >
             <Plus className="w-5 h-5 text-black stroke-[3]" />
-            <span>Vokabel speichern & lernen</span>
+            <span>{isSubmitting ? 'Wird gespeichert...' : 'Vokabel speichern & lernen'}</span>
           </button>
         </div>
       </form>
