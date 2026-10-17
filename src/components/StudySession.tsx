@@ -487,10 +487,6 @@ export const StudySession: React.FC<StudySessionProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-3 sm:p-5 select-none overflow-hidden h-[100dvh]"
-      style={{
-        paddingTop: 'max(calc(env(safe-area-inset-top) + 8px), 56px)',
-        paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 8px), 24px)',
-      }}
       onClick={() => setShowCardMenu(false)}
     >
       {/* Top Bar matching IMG_6357.png */}
@@ -1004,7 +1000,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
       {/* In-Session Thai Reference & Tone Cheatsheet Modal */}
       {showReferenceModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 pt-safe pb-safe bg-black/85 backdrop-blur-md animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-md animate-in fade-in"
           onClick={() => setShowReferenceModal(false)}
         >
           <div
@@ -1036,7 +1032,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
       {/* Direct In-Session Tone Rules Cheatsheet Modal */}
       {showCheatsheetModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 pt-safe pb-safe bg-black/85 backdrop-blur-md animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-md animate-in fade-in"
           onClick={() => setShowCheatsheetModal(false)}
         >
           <div

@@ -396,6 +396,34 @@ const THAI_DICTIONARY: Record<string, string> = {
   'ปี': 'bpee',
   'เดือน': 'duean',
   'วัน': 'wan',
+  'วันนี้': 'wan-née',
+  'พรุ่งนี้': 'phrûng-née',
+  'เมื่อวาน': 'mûea-waan',
+  'วันจันทร์': 'wan-jan',
+  'วันอังคาร': 'wan ang-khaan',
+  'วันพุธ': 'wan-phút',
+  'วันศุกร์': 'wan-sùk',
+  'วันเสาร์': 'wan-săo',
+  'วันอาทิตย์': 'wan aa-thít',
+  'อาทิตย์': 'aa-thít',
+  'สัปดาห์': 'sàp-daa',
+  'ขนม': 'khà-nŏm',
+  'ถนน': 'thà-nŏn',
+  'ระบบ': 'rá-bòp',
+  'สงบ': 'sà-ngòp',
+  'สมุด': 'sà-mùt',
+  'ฉลาม': 'chà-lăam',
+  'ตลก': 'dtà-lòk',
+  'ก็': 'gô̜',
+  'เคย': 'khooei',
+  'ไม่เคย': 'mâi khooei',
+  'เลย': 'looei',
+  'ไม่เป็นไรเลย': 'mâi pen rai looei',
+  'ผู้หญิง': 'phôo-yĭng',
+  'ผู้ชาย': 'phôo-chaai',
+  'จังหวัด': 'jang-wàt',
+  'กรุงเทพ': 'grung-thêep',
+  'กรุงเทพฯ': 'grung-thêep',
 };
 
 // Thai consonant classes
@@ -430,6 +458,9 @@ const CLUSTERS: Record<string, { roman: string; class: 'high' | 'mid' | 'low' }>
   'ตร': { roman: 'dtr', class: 'mid' },
   'ปร': { roman: 'bpr', class: 'mid' },
   'ปล': { roman: 'bpl', class: 'mid' },
+  'บล': { roman: 'bl', class: 'mid' },
+  'บร': { roman: 'br', class: 'mid' },
+  'ดร': { roman: 'dr', class: 'mid' },
   'ผล': { roman: 'phl', class: 'high' },
   'พร': { roman: 'phr', class: 'low' },
   'พล': { roman: 'phl', class: 'low' },
@@ -604,9 +635,9 @@ export function extractTonesFromRomanization(romanization: string): SyllableTone
   return result;
 }
 
-function computeTone(
+export function computeTone(
   initialClass: 'high' | 'mid' | 'low',
-  toneMark: 'mai_ek' | 'mai_tho' | 'mai_tri' | 'mai_chattawa' | null,
+  toneMark: 'mai_ek' | 'mai_tho' | 'mai_tri' | 'mai_chattawa' | null | 'none',
   isDead: boolean,
   isLongVowel: boolean
 ): ThaiTone {
@@ -622,8 +653,8 @@ function computeTone(
 }
 
 const CLUSTER_PAIRS = new Set([
-  'กร', 'กล', 'กว', 'ขร', 'ขล', 'ขว', 'คร', 'คล', 'คว', 'ตร', 'ปร', 'ปล', 'ผล', 'พร', 'พล', 'ฟร', 'บล',
-  'หม', 'หน', 'หว', 'หล', 'หย', 'หง', 'หร', 'หญ', 'อย', 'ทร',
+  'กร', 'กล', 'กว', 'ขร', 'ขล', 'ขว', 'คร', 'คล', 'คว', 'ตร', 'ปร', 'ปล', 'ผล', 'พร', 'พล', 'ฟร', 'บล', 'บร', 'ดร', 'ฝร',
+  'กฤ', 'พฤ', 'หม', 'หน', 'หว', 'หล', 'หย', 'หง', 'หร', 'หญ', 'อย', 'ทร',
 ]);
 
 /**
@@ -640,6 +671,21 @@ export function splitThaiIntoSyllables(text: string): string[] {
 
   while (i < chars.length) {
     if (chars[i] === ' ') {
+      i++;
+      continue;
+    }
+
+    // Handle Thai repetition sign (ไม้ยมก ๆ) by repeating the previous syllable
+    if (chars[i] === 'ๆ') {
+      if (syllables.length > 0) {
+        syllables.push(syllables[syllables.length - 1]);
+      }
+      i++;
+      continue;
+    }
+
+    // Handle Thai abbreviation sign (ไปยาลน้อย ฯ)
+    if (chars[i] === 'ฯ') {
       i++;
       continue;
     }
@@ -696,15 +742,45 @@ export function splitThaiIntoSyllables(text: string): string[] {
       }
     }
 
+    // Handle vowel Sara Aw (สระออ - อ) after initial consonant with or without tone mark:
+    // e.g. ขอบ, ชอบ, บอก, สอน, นอน, ต้อน, ห้อง, น้อง, ร้อน
+    const hasVowelSignSoFar = chars.slice(start, end).some((c) => isVowelOrTone(c) && !/^[่้๊๋]$/.test(c));
+    if (!hasLeadingE && !hasVowelSignSoFar && end < chars.length && chars[end] === 'อ') {
+      if (end + 1 < chars.length && isConsonant(chars[end + 1])) {
+        const afterO = chars[end + 1];
+        const afterAfterO = end + 2 < chars.length ? chars[end + 2] : '';
+        const afterOHasVowel = isVowelOrTone(afterAfterO) || isLeadingVowel(afterO);
+        const afterOIsCluster = CLUSTER_PAIRS.has(afterO + afterAfterO);
+        if (!afterOHasVowel && !afterOIsCluster) {
+          end++; // consume 'อ' as vowel
+        }
+      }
+    }
+
+    // Check if an explicit vowel sign is attached to this initial
+    const hasExplicitVowel =
+      isLeadingVowel(chars[start]) ||
+      chars.slice(start, end).some((c) => isVowelOrTone(c) || c === 'อ' || c === 'ว');
+
     // 3. Optional: AT MOST ONE final consonant (coda)
     if (end < chars.length && isConsonant(chars[end])) {
       const nextChar = chars[end];
       const afterNext = end + 1 < chars.length ? chars[end + 1] : '';
 
-      // If nextChar is followed by an attached vowel or tone mark, it belongs to the next syllable
-      const nextHasVowel = isVowelOrTone(afterNext);
+      // If nextChar is followed by an attached vowel or tone mark, or is a leading vowel, it belongs to the next syllable
+      const nextHasVowel = isVowelOrTone(afterNext) || isLeadingVowel(nextChar);
 
-      if (!nextHasVowel) {
+      // If nextChar + afterNext forms an onset cluster (e.g. คร in ครับ, ปร in โปรด), nextChar cannot be coda!
+      const nextIsCluster = CLUSTER_PAIRS.has(nextChar + afterNext);
+
+      // If current syllable has NO explicit vowel sign, and nextChar is followed by another consonant (e.g. ขนม, ถนน, ระบบ, สงบ, ตลก),
+      // then nextChar is the ONSET of the next syllable (e.g. ข + นม), NOT the coda of this one!
+      const isNextOnsetOfConsonantPair =
+        !hasExplicitVowel &&
+        isConsonant(afterNext) &&
+        !CLUSTER_PAIRS.has(chars[start] + nextChar);
+
+      if (!nextHasVowel && !isNextOnsetOfConsonantPair && !nextIsCluster) {
         end++;
         // consume trailing tone/karan if any
         while (end < chars.length && (isVowelOrTone(chars[end]) || chars[end] === '์')) {
@@ -725,13 +801,39 @@ export function splitThaiIntoSyllables(text: string): string[] {
   return syllables;
 }
 
+export interface ParsedThaiSyllable {
+  roman: string;
+  tone: ThaiTone;
+  initial: string;
+  initialChar: string;
+  initialClass: 'high' | 'mid' | 'low';
+  toneMark: 'mai_ek' | 'mai_tho' | 'mai_tri' | 'mai_chattawa' | null;
+  isDead: boolean;
+  isLong: boolean;
+  vowel: string;
+  finalCons: string;
+}
+
 /**
  * Parses an individual Thai syllable based on phonetic rules
  */
-export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone } {
+export function parseThaiSyllable(raw: string): ParsedThaiSyllable {
+  const emptyResult: ParsedThaiSyllable = {
+    roman: '',
+    tone: 'mid',
+    initial: '',
+    initialChar: '',
+    initialClass: 'mid',
+    toneMark: null,
+    isDead: false,
+    isLong: true,
+    vowel: '',
+    finalCons: '',
+  };
+
   // If no Thai character exists, return empty
   if (!/[ก-๙]/.test(raw)) {
-    return { roman: '', tone: 'mid' };
+    return emptyResult;
   }
 
   // Strip silent consonant + karan (e.g. ร์, ท์, ส์, ล์, or double silent consonants like สตร์, ทร์, ศร์)
@@ -739,23 +841,39 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
     .replace(/(?:สตร์|ทร์|ตร์|ดร์|[ก-ฮ][ิุ]?์)/g, '')
     .replace(/์/g, '')
     .trim();
-  if (!s) return { roman: '', tone: 'mid' };
+  if (!s) return emptyResult;
 
   // Explicit handling for Thai numerals (๐-๙)
   if (/^[๐-๙]$/.test(s)) {
-    const digitMap: Record<string, { roman: string; tone: ThaiTone }> = {
-      '๐': { roman: 'sŭun', tone: 'rising' },
-      '๑': { roman: 'nùeng', tone: 'low' },
-      '๒': { roman: 'săawng', tone: 'rising' },
-      '๓': { roman: 'săam', tone: 'rising' },
-      '๔': { roman: 'sèe', tone: 'low' },
-      '๕': { roman: 'hâa', tone: 'falling' },
-      '๖': { roman: 'hòk', tone: 'low' },
-      '๗': { roman: 'jèt', tone: 'low' },
-      '๘': { roman: 'bpàaet', tone: 'low' },
-      '๙': { roman: 'gâao', tone: 'falling' },
+    const digitMap: Record<string, ParsedThaiSyllable> = {
+      '๐': { roman: 'sŭun', tone: 'rising', initial: 's', initialChar: 'ส', initialClass: 'high', toneMark: null, isDead: false, isLong: true, vowel: 'oo', finalCons: 'n' },
+      '๑': { roman: 'nùeng', tone: 'low', initial: 'n', initialChar: 'น', initialClass: 'low', toneMark: 'mai_ek', isDead: false, isLong: false, vowel: 'ue', finalCons: 'ng' },
+      '๒': { roman: 'săawng', tone: 'rising', initial: 's', initialChar: 'ส', initialClass: 'high', toneMark: null, isDead: false, isLong: true, vowel: 'or', finalCons: 'ng' },
+      '๓': { roman: 'săam', tone: 'rising', initial: 's', initialChar: 'ส', initialClass: 'high', toneMark: null, isDead: false, isLong: true, vowel: 'aa', finalCons: 'm' },
+      '๔': { roman: 'sèe', tone: 'low', initial: 's', initialChar: 'ส', initialClass: 'high', toneMark: 'mai_ek', isDead: false, isLong: true, vowel: 'ee', finalCons: '' },
+      '๕': { roman: 'hâa', tone: 'falling', initial: 'h', initialChar: 'ห', initialClass: 'high', toneMark: 'mai_tho', isDead: false, isLong: true, vowel: 'aa', finalCons: '' },
+      '๖': { roman: 'hòk', tone: 'low', initial: 'h', initialChar: 'ห', initialClass: 'high', toneMark: null, isDead: true, isLong: false, vowel: 'o', finalCons: 'k' },
+      '๗': { roman: 'jèt', tone: 'low', initial: 'j', initialChar: 'จ', initialClass: 'mid', toneMark: null, isDead: true, isLong: false, vowel: 'e', finalCons: 't' },
+      '๘': { roman: 'bpàaet', tone: 'low', initial: 'bp', initialChar: 'ป', initialClass: 'mid', toneMark: null, isDead: true, isLong: true, vowel: 'aae', finalCons: 't' },
+      '๙': { roman: 'gâao', tone: 'falling', initial: 'g', initialChar: 'ก', initialClass: 'mid', toneMark: 'mai_tho', isDead: false, isLong: true, vowel: 'ao', finalCons: '' },
     };
-    return digitMap[s] || { roman: '', tone: 'mid' };
+    return digitMap[s] || emptyResult;
+  }
+
+  // Explicit handling for high-frequency irregular particle/conjunction ก็ (gô̜)
+  if (s === 'ก็') {
+    return {
+      roman: 'gô̜',
+      tone: 'falling',
+      initial: 'g',
+      initialChar: 'ก',
+      initialClass: 'mid',
+      toneMark: null,
+      isDead: true,
+      isLong: false,
+      vowel: 'aw',
+      finalCons: '',
+    };
   }
 
   // Explicit handling for vocalic ฤ (ru / rue) and ฦ (lu)
@@ -764,6 +882,14 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
     return {
       roman: isRu ? 'rue' : 'lue',
       tone: 'mid',
+      initial: isRu ? 'r' : 'l',
+      initialChar: isRu ? 'ฤ' : 'ฦ',
+      initialClass: 'low',
+      toneMark: null,
+      isDead: false,
+      isLong: true,
+      vowel: 'ue',
+      finalCons: '',
     };
   }
   if (s === 'ฤ' || s === 'ฦ') {
@@ -772,6 +898,14 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
     return {
       roman: applyToneToSyllable(base, 'high'),
       tone: 'high',
+      initial: isRu ? 'r' : 'l',
+      initialChar: isRu ? 'ฤ' : 'ฦ',
+      initialClass: 'low',
+      toneMark: null,
+      isDead: true,
+      isLong: false,
+      vowel: 'ue',
+      finalCons: '',
     };
   }
   if (s.startsWith('ฤ')) {
@@ -779,12 +913,28 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
       return {
         roman: applyToneToSyllable('roek', 'falling'),
         tone: 'falling',
+        initial: 'r',
+        initialChar: 'ฤ',
+        initialClass: 'low',
+        toneMark: null,
+        isDead: true,
+        isLong: true,
+        vowel: 'oe',
+        finalCons: 'k',
       };
     }
     if (s.includes('ท') || s.includes('ต') || s.includes('ษ')) {
       return {
         roman: applyToneToSyllable('rit', 'high'),
         tone: 'high',
+        initial: 'r',
+        initialChar: 'ฤ',
+        initialClass: 'low',
+        toneMark: null,
+        isDead: true,
+        isLong: false,
+        vowel: 'i',
+        finalCons: 't',
       };
     }
   }
@@ -804,6 +954,7 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
   s = s.replace(/[่้๊๋]/g, '');
 
   let initial = '';
+  let initialChar = '';
   let initialClass: 'high' | 'mid' | 'low' = 'mid';
 
   // Check cluster first
@@ -811,10 +962,12 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
     const cl = CLUSTERS[s.substring(0, 2)];
     initial = cl.roman;
     initialClass = cl.class;
+    initialChar = s.substring(0, 2);
     s = s.substring(2);
   } else if (s.length >= 1 && INITIAL_CONSONANTS[s[0]] !== undefined) {
     const c = s[0];
     initial = INITIAL_CONSONANTS[c];
+    initialChar = c;
     if (HIGH_CONSONANTS.has(c)) initialClass = 'high';
     else if (MID_CONSONANTS.has(c)) initialClass = 'mid';
     else initialClass = 'low';
@@ -850,6 +1003,11 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
     isLong = !s.includes('ะ');
     isDead = s.includes('ะ');
     s = s.replace('ิ', '').replace('อะ', '').replace(/^อ/, '');
+  } else if (leadingVowel === 'เ' && (s === 'ย' || (s.endsWith('ย') && !s.includes('ี') && !s.includes('ื') && !s.includes('ะ') && !s.includes('า')))) {
+    // สระเออ ลดรูปเมื่อสะกดด้วย ย (เคย, เลย, เนย, เตย, เฉย, เผย, เชย, เงย, เกย)
+    vowel = 'oe';
+    isLong = true;
+    isDead = false;
   } else if (leadingVowel === 'เ' && (s.includes('ะ') || s.includes('็'))) {
     vowel = 'e';
     isLong = false;
@@ -963,6 +1121,14 @@ export function parseThaiSyllable(raw: string): { roman: string; tone: ThaiTone 
   return {
     roman: applyToneToSyllable(rawRom, tone),
     tone,
+    initial,
+    initialChar: initialChar || initial,
+    initialClass,
+    toneMark,
+    isDead,
+    isLong,
+    vowel,
+    finalCons,
   };
 }
 
@@ -990,6 +1156,21 @@ function romanizeThaiSegment(clean: string): string {
 
     if (!matched) {
       if (clean[i] === ' ') {
+        i++;
+        continue;
+      }
+
+      // Handle Thai repetition sign (ไม้ยมก ๆ)
+      if (clean[i] === 'ๆ') {
+        if (words.length > 0) {
+          words.push(words[words.length - 1]);
+        }
+        i++;
+        continue;
+      }
+
+      // Handle Thai abbreviation sign (ไปยาลน้อย ฯ)
+      if (clean[i] === 'ฯ') {
         i++;
         continue;
       }
