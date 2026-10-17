@@ -569,7 +569,7 @@ function AppContent() {
   // Lockout for guests: unauthenticated visitors cannot see cards or study
   if (!authLoading && !user) {
     return (
-      <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-center items-center p-4 selection:bg-[#FF7A00] selection:text-black">
+      <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-center items-center p-4 pt-safe selection:bg-[#FF7A00] selection:text-black">
         <div className="w-full max-w-sm text-center mb-4">
           <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-br from-[#2E2E32] to-[#1C1C1E] border border-[#3A3A3D] flex items-center justify-center text-3xl shadow-xl mb-3">
             🇹🇭
@@ -593,7 +593,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-between selection:bg-[#FF7A00] selection:text-black">
+    <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-between selection:bg-[#FF7A00] selection:text-black pt-safe">
       {/* Main Content Area */}
       <main className={`flex-1 w-full mx-auto ${activeTab === 'stats' ? 'max-w-2xl px-2 sm:px-4' : 'max-w-md'}`}>
         {loadingData ? (
