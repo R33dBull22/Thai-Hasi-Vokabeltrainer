@@ -17,30 +17,49 @@
 
 /* iOS Safe Area & Standalone PWA adjustments */
 :root {
-  --sat: env(safe-area-inset-top, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
+  --sat: env(safe-area-inset-top, 54px);
+  --sab: env(safe-area-inset-bottom, 20px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 }
 
 .pt-safe {
-  padding-top: max(env(safe-area-inset-top, 0px), 24px);
+  padding-top: 54px;
+  padding-top: max(calc(env(safe-area-inset-top) + 6px), 54px);
 }
 
 .pb-safe {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  padding-bottom: 24px;
+  padding-bottom: max(calc(env(safe-area-inset-bottom) + 6px), 24px);
 }
 
 .pl-safe {
-  padding-left: max(env(safe-area-inset-left, 0px), 0px);
+  padding-left: max(env(safe-area-inset-left), 0px);
 }
 
 .pr-safe {
-  padding-right: max(env(safe-area-inset-right, 0px), 0px);
+  padding-right: max(env(safe-area-inset-right), 0px);
 }
 
 .top-safe {
-  top: max(env(safe-area-inset-top, 0px), 24px);
+  top: 54px;
+  top: max(calc(env(safe-area-inset-top) + 6px), 54px);
+}
+
+/* Specific iOS WebKit rules */
+@supports (-webkit-touch-callout: none) {
+  .pt-safe {
+    padding-top: 56px;
+    padding-top: max(calc(env(safe-area-inset-top) + 8px), 56px);
+  }
+}
+
+/* Standalone PWA (Homescreen App on iPhone) */
+@media all and (display-mode: standalone) {
+  .pt-safe {
+    padding-top: 58px;
+    padding-top: max(calc(env(safe-area-inset-top) + 8px), 58px);
+  }
 }
 
 .font-thai {

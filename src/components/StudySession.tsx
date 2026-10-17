@@ -486,7 +486,11 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-3 sm:p-5 pt-safe pb-safe select-none overflow-hidden h-[100dvh]"
+      className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-3 sm:p-5 select-none overflow-hidden h-[100dvh]"
+      style={{
+        paddingTop: 'max(calc(env(safe-area-inset-top) + 8px), 56px)',
+        paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 8px), 24px)',
+      }}
       onClick={() => setShowCardMenu(false)}
     >
       {/* Top Bar matching IMG_6357.png */}
