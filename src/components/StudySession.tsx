@@ -32,6 +32,7 @@ import { ToneVisualizer } from './ToneVisualizer';
 import { ThaiColorWord } from './ThaiColorWord';
 import { ThaiReferenceView } from './ThaiReferenceView';
 import { ToneRulesCheatsheet } from './ToneRulesCheatsheet';
+import { canonicalizeThaiString } from '../utils/thaiTones';
 
 export type StudyMode = 'preview_first' | 'skip_preview';
 export type StudyDirection = 'de_to_th' | 'both' | 'th_to_de';
@@ -68,10 +69,6 @@ function normalizeGerman(str: string): string {
     .trim();
 }
 
-function normalizeThaiString(str: string): string {
-  return str.trim().replace(/[\s\-_]+/g, '');
-}
-
 function normalizeRomanization(str: string): { spaced: string; collapsed: string } {
   const base = str
     .toLowerCase()
@@ -97,15 +94,34 @@ function evaluateInput(
   if (!trimmed) return false;
 
   if (isDeToTh) {
-    const userThai = normalizeThaiString(trimmed);
+    const userThai = canonicalizeThaiString(trimmed);
 
     // 1. Check Thai script against full string and any slash/comma separated alternatives
     const thaiAlternatives = v.thai
       .split(/[\/,;+&]/)
-      .map((s) => normalizeThaiString(s))
+      .map((s) => canonicalizeThaiString(s))
       .filter(Boolean);
 
-    if (userThai === normalizeThaiString(v.thai) || thaiAlternatives.includes(userThai)) {
+    const targetThai = canonicalizeThaiString(v.thai);
+
+    if (userThai === targetThai || thaiAlternatives.includes(userThai)) {
+      return true;
+    }
+
+    // Check without parentheses/brackets: e.g. "น้ำหนักเกิน (คำนาม)" -> "น้ำหนักเกิน"
+    const withoutParentheses = v.thai
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/\[[^\]]*\]/g, ' ')
+      .trim();
+    const canonWithoutParen = canonicalizeThaiString(withoutParentheses);
+    if (
+      canonWithoutParen &&
+      (userThai === canonWithoutParen ||
+        canonWithoutParen
+          .split(/[\/,;+&]/)
+          .map(canonicalizeThaiString)
+          .includes(userThai))
+    ) {
       return true;
     }
 
@@ -486,10 +502,12 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-3 sm:p-5 select-none overflow-hidden h-[100dvh]"
+      className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between pt-[60px] pb-safe px-3 sm:px-5 select-none overflow-hidden h-[100dvh]"
       style={{
-        paddingTop: 'max(calc(env(safe-area-inset-top) + 8px), 56px)',
-        paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 8px), 24px)',
+        paddingTop: 'calc(max(env(safe-area-inset-top, 0px), 54px) + 10px)',
+        paddingBottom: 'calc(max(env(safe-area-inset-bottom, 0px), 20px) + 8px)',
+        paddingLeft: 'max(env(safe-area-inset-left, 0px), 12px)',
+        paddingRight: 'max(env(safe-area-inset-right, 0px), 12px)',
       }}
       onClick={() => setShowCardMenu(false)}
     >

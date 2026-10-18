@@ -664,6 +664,37 @@ export function computeTone(
   return initialClass === 'high' ? 'rising' : 'mid';
 }
 
+/**
+ * Canonicalizes Thai text for robust equality comparison.
+ * Handles:
+ * - Keystroke ordering differences on iOS / Android keyboards:
+ *   e.g. Sara Am (\u0E33) typed before Mai Tho (\u0E49) vs Mai Tho typed before Sara Am
+ * - Decomposed Sara Am: Nikhahit (\u0E4D) + Sara Aa (\u0E32)
+ * - Tone mark before upper/lower vowels
+ * - Invisible characters: Zero-Width Space (\u200B), ZWNJ (\u200C), ZWJ (\u200D), BOM (\uFEFF), NBSP (\u00A0)
+ * - Whitespace, hyphens, and punctuation
+ */
+export function canonicalizeThaiString(str: string): string {
+  if (!str) return '';
+  let s = str
+    .replace(/[\u200B-\u200D\uFEFF\u00A0\u202A-\u202E\u00AD]/g, '')
+    .replace(/[\s\-_.,;!?]+/g, '')
+    .normalize('NFC');
+
+  // Decomposed Sara Am with tone mark in any position:
+  s = s.replace(/([\u0E48-\u0E4B])\u0E4D\u0E32/g, '$1\u0E33');
+  s = s.replace(/\u0E4D([\u0E48-\u0E4B])\u0E32/g, '$1\u0E33');
+  s = s.replace(/\u0E4D\u0E32/g, '\u0E33');
+
+  // Reorder Sara Am + Tone mark -> Tone mark + Sara Am
+  s = s.replace(/\u0E33([\u0E48-\u0E4B])/g, '$1\u0E33');
+
+  // Reorder Tone Mark before vowel -> Vowel + Tone Mark
+  s = s.replace(/([\u0E48-\u0E4B])([\u0E31\u0E34-\u0E39\u0E47])/g, '$2$1');
+
+  return s.trim();
+}
+
 const CLUSTER_PAIRS = new Set([
   'กร', 'กล', 'กว', 'ขร', 'ขล', 'ขว', 'คร', 'คล', 'คว', 'ตร', 'ปร', 'ปล', 'ผล', 'พร', 'พล', 'ฟร', 'บล', 'บร', 'ดร', 'ฝร',
   'กฤ', 'พฤ', 'หม', 'หน', 'หว', 'หล', 'หย', 'หง', 'หร', 'หญ', 'อย', 'ทร', 'ศร', 'สร', 'จร',
