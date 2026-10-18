@@ -1,17 +1,19 @@
 import React from 'react';
-import { Home, BookOpen, PlusCircle, Settings, BarChart3, GraduationCap } from 'lucide-react';
+import { Home, BookOpen, PlusCircle, Settings, BarChart3, GraduationCap, Crown } from 'lucide-react';
 import { ActiveTab } from '../types/vocab';
 
 interface NavigationProps {
   activeTab: ActiveTab;
   onChangeTab: (tab: ActiveTab) => void;
   dueCount: number;
+  isAdmin?: boolean;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   onChangeTab,
   dueCount,
+  isAdmin = false,
 }) => {
   const tabs: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }[] = [
     { id: 'learn', label: 'Lernen', icon: Home, badge: dueCount > 0 ? dueCount : undefined },
@@ -21,6 +23,10 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'create', label: 'Neu', icon: PlusCircle },
     { id: 'settings', label: 'Optionen', icon: Settings },
   ];
+
+  if (isAdmin) {
+    tabs.push({ id: 'admin', label: 'Admin', icon: Crown });
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#1C1C1E]/95 backdrop-blur-md border-t border-[#2C2C2E] px-3 py-2 pb-safe">

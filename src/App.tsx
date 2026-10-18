@@ -32,16 +32,19 @@ import { StudySession, StudyMode, StudyDirection, StudyInputMethod } from './com
 import { ListeningSession } from './components/ListeningSession';
 import { AuthModal } from './components/AuthModal';
 import { ToneRuleTrainerModal } from './components/ToneRuleTrainerModal';
+import { AdminView } from './components/AdminView';
+import { fetchAnnouncement, AdminAnnouncement } from './services/adminService';
 import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner';
 
 function AppContent() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('learn');
   const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>({});
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [toneTrainerOpen, setToneTrainerOpen] = useState<boolean>(false);
+  const [announcement, setAnnouncement] = useState<AdminAnnouncement | null>(null);
 
   // Deck vocabularies
   const deckVocabs = useMemo(() => {
@@ -208,6 +211,8 @@ function AppContent() {
         const updatedProg = await fetchUserProgress(userId);
         setProgressMap(updatedProg);
       }
+
+      fetchAnnouncement().then(setAnnouncement).catch(() => {});
     } catch (err) {
       console.error('Data loading error:', err);
     } finally {
@@ -569,7 +574,12 @@ function AppContent() {
   // Lockout for guests: unauthenticated visitors cannot see cards or study
   if (!authLoading && !user) {
     return (
-      <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-center items-center p-4 selection:bg-[#FF7A00] selection:text-black">
+      <div
+        className="min-h-screen bg-[#121214] text-white flex flex-col justify-center items-center p-4 selection:bg-[#FF7A00] selection:text-black"
+        style={{
+          paddingTop: 'max(calc(env(safe-area-inset-top) + 8px), 56px)',
+        }}
+      >
         <div className="w-full max-w-sm text-center mb-4">
           <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-br from-[#2E2E32] to-[#1C1C1E] border border-[#3A3A3D] flex items-center justify-center text-3xl shadow-xl mb-3">
             🇹🇭
@@ -593,7 +603,12 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121214] text-white flex flex-col justify-between selection:bg-[#FF7A00] selection:text-black">
+    <div
+      className="min-h-screen bg-[#121214] text-white flex flex-col justify-between selection:bg-[#FF7A00] selection:text-black"
+      style={{
+        paddingTop: 'max(calc(env(safe-area-inset-top) + 8px), 56px)',
+      }}
+    >
       {/* Main Content Area */}
       <main className={`flex-1 w-full mx-auto ${activeTab === 'stats' ? 'max-w-2xl px-2 sm:px-4' : 'max-w-md'}`}>
         {loadingData ? (
@@ -603,6 +618,27 @@ function AppContent() {
           </div>
         ) : (
           <>
+            {/* Global Admin Announcement Banner */}
+            {announcement && announcement.active && announcement.message && (
+              <aside
+                aria-label="Globale Ankündigung"
+                className="max-w-md mx-auto px-4 mb-3 animate-in fade-in"
+              >
+                <div
+                  className={`p-3 rounded-2xl text-xs flex items-center gap-2.5 shadow-lg border ${
+                    announcement.type === 'success'
+                      ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                      : announcement.type === 'warning'
+                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                      : 'bg-sky-500/15 border-sky-500/30 text-sky-300'
+                  }`}
+                >
+                  <span className="text-base shrink-0">📢</span>
+                  <p className="flex-1 font-medium leading-tight">{announcement.message}</p>
+                </div>
+              </aside>
+            )}
+
             {activeTab === 'learn' && (
               <LearnView
                 vocabularies={vocabularies}
@@ -692,6 +728,17 @@ function AppContent() {
                 onToggleStudyDirection={handleToggleStudyDirection}
                 onOpenAuthModal={() => setAuthModalOpen(true)}
                 onRefreshData={loadAllData}
+                onNavigateAdmin={() => setActiveTab('admin')}
+              />
+            )}
+
+            {activeTab === 'admin' && (
+              <AdminView
+                vocabularies={vocabularies}
+                progressMap={progressMap}
+                onBatchUpdateRomanization={handleBatchUpdateRomanization}
+                onRenameLesson={handleRenameLesson}
+                onNavigateHome={() => setActiveTab('learn')}
               />
             )}
           </>
@@ -703,6 +750,7 @@ function AppContent() {
         activeTab={activeTab}
         onChangeTab={setActiveTab}
         dueCount={dueCount}
+        isAdmin={isAdmin}
       />
 
       {/* Firebase Auth Modal */}

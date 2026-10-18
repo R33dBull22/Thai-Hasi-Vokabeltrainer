@@ -24,6 +24,7 @@ import {
   Key,
   Sparkles,
   Palette,
+  Crown,
 } from 'lucide-react';
 import { isLiveFirebaseApiKeyConfigured } from '../firebase/config';
 import { Vocabulary, UserProgress, DeletedVocabEntry } from '../types/vocab';
@@ -67,6 +68,7 @@ interface SettingsViewProps {
   onRefreshData: () => Promise<void>;
   colorCodingEnabled?: boolean;
   onToggleColorCoding?: (enabled: boolean) => void;
+  onNavigateAdmin?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -89,8 +91,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onRefreshData,
   colorCodingEnabled = true,
   onToggleColorCoding,
+  onNavigateAdmin,
 }) => {
-  const { user, isGuest, logout } = useAuth();
+  const { user, isGuest, logout, isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isSyncingAllRomanization, setIsSyncingAllRomanization] = useState(false);
@@ -299,6 +302,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* Super Admin Dashboard Access Banner */}
+        {isAdmin && onNavigateAdmin && (
+          <div className="bg-gradient-to-r from-amber-500/15 via-[#242426] to-[#FF7A00]/15 rounded-2xl p-4 border border-amber-400/40 flex items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-amber-400 text-black flex items-center justify-center font-bold shadow-md shrink-0">
+                <Crown className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0">
+                <span className="block text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Admin-Zentrale</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-400 text-black font-extrabold uppercase">
+                    Super Admin
+                  </span>
+                </span>
+                <span className="block text-[11px] text-[#A1A1A6] truncate">
+                  Einladungscodes, Benutzer, Pool-Health & Backups
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onNavigateAdmin}
+              className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-[#FF7A00] text-black font-bold text-xs hover:opacity-95 transition shrink-0 cursor-pointer shadow-md"
+            >
+              Öffnen →
+            </button>
+          </div>
+        )}
 
         {/* Cloud Synchronization Status Card */}
         <div className="bg-[#242426] rounded-2xl p-4 border border-[#323236]">

@@ -84,5 +84,15 @@ service cloud.firestore {
       allow update: if isValidId(userDocId) && isValidAppUser(incoming());
       allow delete: if isValidId(userDocId);
     }
+
+    // Admin settings, announcements & configuration
+    match /admin_settings/{settingId} {
+      allow read, write: if isValidId(settingId);
+    }
+
+    // Admin generated registration / invite codes
+    match /admin_codes/{codeId} {
+      allow read, write: if isValidId(codeId);
+    }
   }
 }

@@ -1,26 +1,7 @@
 // Thai Tone Rules Trainer Data & Dynamic Syllable Analyzer
 
 import { ConsonantClass, CONSONANT_CLASS_CONFIG, THAI_CONSONANTS } from './thaiAlphabet';
-import { ThaiTone, THAI_TONES, parseThaiSyllable, splitThaiIntoSyllables, computeTone, applyToneToSyllable } from '../utils/thaiTones';
-
-export interface ToneTrainerSyllableDetail {
-  syllableIndex: number;
-  totalSyllables: number;
-  syllable: string;
-  romanization: string;
-  initialLetter: string;
-  initialClass: ConsonantClass;
-  initialClassName: string;
-  toneMark: 'none' | 'mai_ek' | 'mai_tho' | 'mai_tri' | 'mai_chattawa';
-  toneMarkName: string;
-  syllableType: 'live' | 'dead';
-  syllableTypeName: string;
-  vowelLength: 'short' | 'long';
-  vowelLengthName: string;
-  tone: ThaiTone;
-  ruleFormula: string;
-  ruleTip: string;
-}
+import { ThaiTone, THAI_TONES, parseThaiSyllable, splitThaiIntoSyllables } from '../utils/thaiTones';
 
 export interface ToneTrainerWord {
   id: string;
@@ -40,9 +21,6 @@ export interface ToneTrainerWord {
   ruleFormula: string;
   ruleTip: string;
   level: number;
-  syllables?: ToneTrainerSyllableDetail[];
-  targetSyllableText?: string;
-  targetSyllableRoman?: string;
 }
 
 export interface ToneTrainerLevel {
@@ -770,71 +748,83 @@ export const CURATED_TONE_LEVELS: ToneTrainerLevel[] = [
 
 const HIGH_LETTERS = new Set(['ข', 'ฃ', 'ฉ', 'ฐ', 'ถ', 'ผ', 'ฝ', 'ศ', 'ษ', 'ส', 'ห']);
 const MID_LETTERS = new Set(['ก', 'จ', 'ด', 'ต', 'บ', 'ป', 'อ', 'ฎ', 'ฏ']);
-const SINGLE_LOW_CONSONANTS = new Set(['ง', 'ญ', 'น', 'ย', 'ณ', 'ร', 'ว', 'ม', 'ฬ', 'ล']);
 
 /**
- * Analyzes an individual Thai syllable into its exact grammatical tone rule components.
+ * Dynamically analyzes ANY Thai word or syllable into its exact grammatical tone rule components.
+ * Enables using the Tone Detective with both curated levels and the user's custom deck!
  */
-export function analyzeSingleThaiSyllable(
-  targetSyllable: string,
-  syllableIndex: number = 0,
-  totalSyllables: number = 1,
-  prevInitialClass?: ConsonantClass,
-  prevHasNoCoda?: boolean
-): ToneTrainerSyllableDetail {
+export function analyzeThaiWordForToneTrainer(
+  rawThai: string,
+  meaningHint?: string,
+  romHint?: string
+): ToneTrainerWord {
+  const clean = rawThai.trim();
+  const syllables = splitThaiIntoSyllables(clean);
+  const targetSyllable = syllables[0] || clean;
+
   const parsed = parseThaiSyllable(targetSyllable);
+  const tone = parsed.tone;
 
-  let initialLetter = parsed.initialChar || (parsed.initial ? parsed.initial : 'ก');
-  let initialClass: ConsonantClass = parsed.initialClass;
-  let isLeadingHoHip = false;
-  let isAksornNamPrefix = false;
+  // Extract tone mark
+  let toneMark: 'none' | 'mai_ek' | 'mai_tho' | 'mai_tri' | 'mai_chattawa' = 'none';
+  if (targetSyllable.includes('่')) toneMark = 'mai_ek';
+  else if (targetSyllable.includes('้')) toneMark = 'mai_tho';
+  else if (targetSyllable.includes('๊')) toneMark = 'mai_tri';
+  else if (targetSyllable.includes('๋')) toneMark = 'mai_chattawa';
 
-  const withoutLeadingVowel = targetSyllable.replace(/^[เแโใไ]/, '');
-  if (
-    withoutLeadingVowel.startsWith('หม') ||
-    withoutLeadingVowel.startsWith('หน') ||
-    withoutLeadingVowel.startsWith('หว') ||
-    withoutLeadingVowel.startsWith('หล') ||
-    withoutLeadingVowel.startsWith('หย') ||
-    withoutLeadingVowel.startsWith('หง') ||
-    withoutLeadingVowel.startsWith('หร') ||
-    withoutLeadingVowel.startsWith('หญ')
-  ) {
-    initialClass = 'high';
-    isLeadingHoHip = true;
-    initialLetter = withoutLeadingVowel.substring(0, 2);
-  } else if (
-    syllableIndex > 0 &&
-    prevInitialClass === 'high' &&
-    initialClass === 'low' &&
-    prevHasNoCoda &&
-    SINGLE_LOW_CONSONANTS.has(initialLetter[0])
-  ) {
-    // Leading consonant (อักษรนำ) influence from preceding open high consonant, e.g. ส-วัส-ดี (wàt), ส-นุก (nùk), ถ-นน (nŏn)
-    initialClass = 'high';
-    isAksornNamPrefix = true;
+  // Find initial consonant
+  let initialLetter = 'ก';
+  const cleanChars = Array.from(targetSyllable.replace(/^[เแโใไ]/, ''));
+  for (const c of cleanChars) {
+    if (/[ก-ฮ]/.test(c)) {
+      initialLetter = c;
+      break;
+    }
   }
 
-  // Tone Mark
-  const toneMark: 'none' | 'mai_ek' | 'mai_tho' | 'mai_tri' | 'mai_chattawa' =
-    parsed.toneMark || 'none';
+  // Handle leading Ho Hip (ห นำ)
+  let initialClass: ConsonantClass = 'mid';
+  let isLeadingHoHip = false;
+  if (targetSyllable.startsWith('หม') || targetSyllable.startsWith('หน') || targetSyllable.startsWith('หว') ||
+      targetSyllable.startsWith('หล') || targetSyllable.startsWith('หย') || targetSyllable.startsWith('หง') ||
+      targetSyllable.startsWith('หร') || targetSyllable.startsWith('หญ')) {
+    initialClass = 'high';
+    isLeadingHoHip = true;
+  } else if (HIGH_LETTERS.has(initialLetter)) {
+    initialClass = 'high';
+  } else if (MID_LETTERS.has(initialLetter)) {
+    initialClass = 'mid';
+  } else {
+    initialClass = 'low';
+  }
 
-  // Syllable type & vowel length directly from phonetic parse:
-  const syllableType: 'live' | 'dead' = parsed.isDead ? 'dead' : 'live';
-  const vowelLength: 'short' | 'long' = parsed.isLong ? 'long' : 'short';
+  // Determine syllable type & vowel length
+  // Dead endings: k (ก, ข, ค, ฆ), p (บ, ป, พ, ฟ, ภ), t (ด, ต, ถ, ท, ธ, จ, ช, ซ, ฎ, ฏ, ฐ, ฑ, ฒ, ศ, ษ, ส)
+  // or short open vowel without sonorant
+  const deadChars = new Set([
+    'ก', 'ข', 'ค', 'ฆ',
+    'บ', 'ป', 'พ', 'ฟ', 'ภ',
+    'ด', 'ต', 'ถ', 'ท', 'ธ', 'จ', 'ช', 'ซ', 'ฎ', 'ฏ', 'ฐ', 'ฑ', 'ฒ', 'ศ', 'ษ', 'ส',
+  ]);
 
-  // Strictly compute tone using standard Thai grammatical rules
-  const tone: ThaiTone = computeTone(
-    initialClass,
-    toneMark === 'none' ? null : toneMark,
-    syllableType === 'dead',
-    vowelLength === 'long'
-  );
+  let syllableType: 'live' | 'dead' = 'live';
+  let vowelLength: 'short' | 'long' = 'long';
 
-  let romanization = parsed.roman;
-  if (tone !== parsed.tone) {
-    const rawSyl = parsed.roman.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    romanization = applyToneToSyllable(rawSyl, tone);
+  const lastChar = cleanChars[cleanChars.length - 1];
+  const hasShortVowelMarker = /[ะั็ิึุ]/.test(targetSyllable) || targetSyllable.includes('าะ');
+  const hasLongVowelMarker = /[าีืู]/.test(targetSyllable) || targetSyllable.includes('ีย') || targetSyllable.includes('ือ');
+
+  if (hasShortVowelMarker) {
+    vowelLength = 'short';
+  } else if (hasLongVowelMarker) {
+    vowelLength = 'long';
+  }
+
+  // Check if final consonant is dead
+  if (cleanChars.length > 1 && deadChars.has(lastChar) && !/[ะาำใไ]/.test(lastChar)) {
+    syllableType = 'dead';
+  } else if (vowelLength === 'short' && !/[นมงยว]/.test(lastChar)) {
+    syllableType = 'dead';
   }
 
   const initialClassName =
@@ -843,74 +833,42 @@ export function analyzeSingleThaiSyllable(
       : initialClass === 'high'
       ? isLeadingHoHip
         ? 'Hochklasse (Führendes ห)'
-        : isAksornNamPrefix
-        ? 'Hochklasse (Prefix-Einfluss อักษรนำ)'
         : 'Hochklasse'
       : 'Tiefklasse';
 
   const toneMarkName = TONE_MARK_INFO[toneMark].germanName;
   const syllableTypeName = syllableType === 'live' ? 'Lebende Silbe' : 'Tote Silbe';
-  const vowelLengthName =
-    targetSyllable.length === 1 && !/[าีืูะัิึุ]/.test(targetSyllable)
-      ? 'Inhärentes kurzes a'
-      : vowelLength === 'long'
-      ? 'Langer Vokal'
-      : 'Kurzer Vokal';
+  const vowelLengthName = vowelLength === 'long' ? 'Langer Vokal' : 'Kurzer Vokal';
 
-  const toneData = THAI_TONES[tone];
-  const germanToneLabel =
-    tone === 'mid'
-      ? 'Mittlerer Ton'
-      : tone === 'low'
-      ? 'Tief-Ton'
-      : tone === 'falling'
-      ? 'Fallender Ton'
-      : tone === 'high'
-      ? 'Hoch-Ton'
-      : 'Steigender Ton';
+  // Build formula
   let ruleFormula = '';
+  const toneData = THAI_TONES[tone];
   if (toneMark !== 'none') {
-    ruleFormula = `${initialClassName} (${initialLetter}) + ${toneMarkName} ➔ ${germanToneLabel}`;
+    ruleFormula = `${initialClassName} (${initialLetter}) + ${toneMarkName} ➔ ${toneData.germanName}-Ton`;
   } else {
-    ruleFormula = `${initialClassName} (${initialLetter}) + ${syllableTypeName} (${vowelLengthName}) ➔ ${germanToneLabel}`;
+    ruleFormula = `${initialClassName} (${initialLetter}) + ${syllableTypeName} (${vowelLengthName}) ➔ ${toneData.germanName}-Ton`;
   }
 
+  // Build didactic tip
   let ruleTip = '';
   if (initialClass === 'mid') {
     if (toneMark === 'none') {
-      ruleTip =
-        syllableType === 'live'
-          ? 'Mittelklasse ohne Zeichen und lebend = immer Mittelton.'
-          : 'Mittelklasse und tote Silbe = immer Tiefton.';
+      ruleTip = syllableType === 'live' ? 'Mittelklasse ohne Zeichen und lebend = immer Mittelton.' : 'Mittelklasse und tote Silbe = immer Tiefton.';
     } else {
       ruleTip = `Bei Mittelklasse entspricht das Zeichen dem Ton: ${toneMarkName} ergibt ${toneData.germanName}-Ton.`;
     }
   } else if (initialClass === 'high') {
     if (toneMark === 'none') {
-      if (syllableType === 'live') {
-        ruleTip = isAksornNamPrefix
-          ? `${initialLetter} übernimmt durch den vorangestellten Hochklasse-Konsonanten (อักษรนำ) die Hochklasse-Regel für lebende Silben ➔ Steigton (${romanization}).`
-          : 'Hohe Konsonanten ohne Zeichen und lebend steigen nach oben (= Steigton).';
-      } else {
-        if (isAksornNamPrefix) {
-          ruleTip = `${initialLetter} ist eigentlich Tiefklasse, übernimmt aber durch das vorangestellte Hochklasse-Prefix (อักษรนำ) die Hochklasse-Regel für tote Silben ➔ regelkonform Tief-Ton (${romanization}).`;
-        } else if (targetSyllable.length === 1 && !/[าีืูะัิึุ]/.test(targetSyllable)) {
-          ruleTip = `${initialLetter} ist Hochklasse mit inhärentem kurzem 'a'. Kurzer Vokal ohne Endkonsonant = tote Silbe (คำตาย) ➔ regelkonform Tief-Ton (${romanization}).`;
-        } else {
-          ruleTip = 'Tote Silben bei Hochklasse (ob kurzes a oder Stopplaut) erzeugen immer einen tiefen Ton.';
-        }
-      }
+      ruleTip = syllableType === 'live' ? 'Hohe Konsonanten steigen von Natur aus nach oben (= Steigton).' : 'Tote Silben bei Hochklasse erzeugen immer einen tiefen Ton.';
     } else {
       ruleTip = `Hochklasse mit ${toneMarkName} wird als ${toneData.germanName}-Ton gesprochen.`;
     }
   } else {
     // Low class
     if (toneMark === 'mai_ek') {
-      ruleTip =
-        'Wichtige Tiefklassen-Regel: Mai Ek erzeugt keinen Tiefton, sondern schiebt den Ton auf Fallend!';
+      ruleTip = 'Wichtige Tiefklassen-Regel: Mai Ek erzeugt keinen Tiefton, sondern schiebt den Ton auf Fallend!';
     } else if (toneMark === 'mai_tho') {
-      ruleTip =
-        'Wichtige Tiefklassen-Regel: Mai Tho auf Tiefklasse erzeugt immer einen energischen Hochton!';
+      ruleTip = 'Wichtige Tiefklassen-Regel: Mai Tho auf Tiefklasse erzeugt immer einen energischen Hochton!';
     } else {
       if (syllableType === 'live') {
         ruleTip = 'Tiefklasse lebend ohne Zeichen klingt neutral und entspannt auf mittlerer Höhe.';
@@ -923,10 +881,10 @@ export function analyzeSingleThaiSyllable(
   }
 
   return {
-    syllableIndex,
-    totalSyllables,
-    syllable: targetSyllable,
-    romanization,
+    id: `dyn-${clean}`,
+    thai: clean,
+    meaning: meaningHint || 'Vokabel aus deinem Deck',
+    romanization: romHint || parsed.roman || 'phonetisch',
     initialLetter,
     initialClass,
     initialClassName,
@@ -939,70 +897,6 @@ export function analyzeSingleThaiSyllable(
     tone,
     ruleFormula,
     ruleTip,
-  };
-}
-
-/**
- * Dynamically analyzes ANY Thai word or syllable into its exact grammatical tone rule components.
- * Enables using the Tone Detective with both curated levels and the user's custom deck!
- */
-export function analyzeThaiWordForToneTrainer(
-  rawThai: string,
-  meaningHint?: string,
-  romHint?: string
-): ToneTrainerWord {
-  const clean = rawThai.trim();
-  const rawSyllables = splitThaiIntoSyllables(clean);
-  const syllablesList = rawSyllables.length > 0 ? rawSyllables : [clean];
-
-  // Analyze every syllable in sequence, tracking prefix consonant influence
-  const syllableDetails: ToneTrainerSyllableDetail[] = [];
-  let prevClass: ConsonantClass | undefined = undefined;
-  let prevHasNoCoda: boolean | undefined = undefined;
-
-  for (let idx = 0; idx < syllablesList.length; idx++) {
-    const syl = syllablesList[idx];
-    const detail = analyzeSingleThaiSyllable(syl, idx, syllablesList.length, prevClass, prevHasNoCoda);
-    syllableDetails.push(detail);
-    prevClass = detail.initialClass;
-    prevHasNoCoda = !parseThaiSyllable(syl).finalCons;
-  }
-
-  // Primary syllable to quiz
-  const primaryDetail = syllableDetails[0] || analyzeSingleThaiSyllable(clean);
-
-  // Multi-syllable summary formula if word has > 1 syllable
-  let combinedFormula = primaryDetail.ruleFormula;
-  let combinedTip = primaryDetail.ruleTip;
-
-  if (syllableDetails.length > 1) {
-    const syllableSummary = syllableDetails
-      .map((s, i) => `${i + 1}. ${s.syllable} (${s.romanization}): ${THAI_TONES[s.tone].germanName}`)
-      .join(' • ');
-    combinedFormula = `${syllableDetails.length} Silben: ${syllableSummary}`;
-    combinedTip = `Dieses Wort besteht aus ${syllableDetails.length} Silben. Jede Silbe folgt ihren eigenen Tonregeln:`;
-  }
-
-  return {
-    id: `dyn-${clean}`,
-    thai: clean,
-    meaning: meaningHint || 'Vokabel aus deinem Deck',
-    romanization: romHint || syllableDetails.map((s) => s.romanization).join('-') || 'phonetisch',
-    initialLetter: primaryDetail.initialLetter,
-    initialClass: primaryDetail.initialClass,
-    initialClassName: primaryDetail.initialClassName,
-    toneMark: primaryDetail.toneMark,
-    toneMarkName: primaryDetail.toneMarkName,
-    syllableType: primaryDetail.syllableType,
-    syllableTypeName: primaryDetail.syllableTypeName,
-    vowelLength: primaryDetail.vowelLength,
-    vowelLengthName: primaryDetail.vowelLengthName,
-    tone: primaryDetail.tone,
-    ruleFormula: combinedFormula,
-    ruleTip: combinedTip,
     level: 5,
-    syllables: syllableDetails,
-    targetSyllableText: primaryDetail.syllable,
-    targetSyllableRoman: primaryDetail.romanization,
   };
 }

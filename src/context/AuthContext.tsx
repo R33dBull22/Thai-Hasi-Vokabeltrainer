@@ -13,12 +13,20 @@ import {
 import { auth, db, testConnection } from '../firebase/config';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
+export const ADMIN_EMAILS = ['r33dbull33@gmail.com'];
+
+export function checkIsAdmin(email?: string | null): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
 export interface AuthUser {
   uid: string;
   email: string | null;
   displayName: string | null;
   isAnonymous: boolean;
   photoURL?: string | null;
+  isAdmin?: boolean;
 }
 
 interface StoredAccount {
@@ -27,12 +35,14 @@ interface StoredAccount {
   displayName: string;
   passwordHash: string;
   createdAt: string;
+  role?: string;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   isGuest: boolean;
+  isAdmin: boolean;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string, registrationCode: string, displayName?: string) => Promise<void>;
@@ -54,16 +64,43 @@ const LEGACY_SESSION_KEY = 'phase6_active_user_v1';
 const REGISTRATION_CODE_HASH = '37c9951b34c6841108e527f77a53325ec68e8ec98a07bb6a68e73c1a1436f68d';
 
 export async function checkRegistrationCode(code: string): Promise<boolean> {
+  const clean = code.trim();
+  if (!clean) return false;
+
   try {
+    // 1. Default system code check (SHA-256)
     const encoder = new TextEncoder();
-    const data = encoder.encode(code.trim());
+    const data = encoder.encode(clean);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-    return hashHex.toLowerCase() === REGISTRATION_CODE_HASH;
-  } catch {
-    return false;
-  }
+    if (hashHex.toLowerCase() === REGISTRATION_CODE_HASH) {
+      return true;
+    }
+  } catch {}
+
+  // 2. Check local custom codes
+  try {
+    const raw = localStorage.getItem('thai_hasis_admin_codes_v1');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        const found = list.find((c: any) => c.code?.trim().toUpperCase() === clean.toUpperCase() && c.active);
+        if (found) return true;
+      }
+    }
+  } catch {}
+
+  // 3. Check Firestore custom codes
+  try {
+    const { getDoc, doc } = await import('firebase/firestore');
+    const snap = await getDoc(doc(db, 'admin_codes', clean.toUpperCase()));
+    if (snap.exists() && snap.data()?.active) {
+      return true;
+    }
+  } catch {}
+
+  return false;
 }
 
 async function hashPassword(password: string): Promise<string> {
@@ -116,7 +153,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (stored) {
         const parsed = JSON.parse(stored) as AuthUser;
         if (parsed && !parsed.isAnonymous) {
-          return parsed;
+          return {
+            ...parsed,
+            isAdmin: checkIsAdmin(parsed.email),
+          };
         }
       }
     } catch {}
@@ -138,6 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           displayName: currentUser.displayName,
           isAnonymous: false,
           photoURL: currentUser.photoURL,
+          isAdmin: checkIsAdmin(currentUser.email),
         };
         setUser(authUser);
         try {
@@ -151,7 +192,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (stored) {
             const parsed = JSON.parse(stored) as AuthUser;
             if (parsed && !parsed.isAnonymous) {
-              setUser(parsed);
+              const enriched: AuthUser = {
+                ...parsed,
+                isAdmin: checkIsAdmin(parsed.email),
+              };
+              setUser(enriched);
               setLoading(false);
               return;
             }
@@ -522,6 +567,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         loading,
         isGuest: !user,
+        isAdmin: checkIsAdmin(user?.email),
         loginWithGoogle,
         loginWithEmail,
         registerWithEmail,

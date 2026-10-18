@@ -1,11 +1,64 @@
 @import "tailwindcss";
 
 @layer base {
+  html, body {
+    min-height: 100%;
+    background-color: #121214;
+    overscroll-behavior-y: none;
+  }
+
   body {
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     touch-action: manipulation;
+  }
+}
+
+/* iOS Safe Area & Standalone PWA adjustments */
+:root {
+  --sat: env(safe-area-inset-top, 54px);
+  --sab: env(safe-area-inset-bottom, 20px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+.pt-safe {
+  padding-top: 54px;
+  padding-top: max(calc(env(safe-area-inset-top) + 6px), 54px);
+}
+
+.pb-safe {
+  padding-bottom: 24px;
+  padding-bottom: max(calc(env(safe-area-inset-bottom) + 6px), 24px);
+}
+
+.pl-safe {
+  padding-left: max(env(safe-area-inset-left), 0px);
+}
+
+.pr-safe {
+  padding-right: max(env(safe-area-inset-right), 0px);
+}
+
+.top-safe {
+  top: 54px;
+  top: max(calc(env(safe-area-inset-top) + 6px), 54px);
+}
+
+/* Specific iOS WebKit rules */
+@supports (-webkit-touch-callout: none) {
+  .pt-safe {
+    padding-top: 56px;
+    padding-top: max(calc(env(safe-area-inset-top) + 8px), 56px);
+  }
+}
+
+/* Standalone PWA (Homescreen App on iPhone) */
+@media all and (display-mode: standalone) {
+  .pt-safe {
+    padding-top: 58px;
+    padding-top: max(calc(env(safe-area-inset-top) + 8px), 58px);
   }
 }
 

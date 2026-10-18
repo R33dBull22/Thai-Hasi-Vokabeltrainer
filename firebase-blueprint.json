@@ -62,6 +62,12 @@
     "/app_users/{userDocId}": {
       "schema": { "$ref": "#/entities/appUser" },
       "description": "Registered app accounts"
+    },
+    "/admin_settings/{settingId}": {
+      "description": "Admin configuration and global announcements"
+    },
+    "/admin_codes/{codeId}": {
+      "description": "Admin generated registration and invitation codes"
     }
   }
 }
