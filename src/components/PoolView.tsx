@@ -39,6 +39,8 @@ interface PoolViewProps {
   onUpdateVocab?: (id: string, updatedData: Partial<Omit<Vocabulary, 'id' | 'createdAt'>>) => Promise<void>;
   onDeleteVocab?: (id: string) => Promise<void>;
   onBatchDeleteVocabs?: (vocabIds: string[]) => Promise<number>;
+  onBatchPermanentlyDelete?: (vocabIds: string[]) => Promise<number>;
+  onPermanentlyDeleteVocab?: (id: string) => Promise<void>;
   onRenameLesson?: (oldName: string, newName: string) => Promise<void>;
   onDeleteLesson?: (lessonName: string, deleteVocabs: boolean, moveToLesson?: string) => Promise<void>;
   onMoveVocabs?: (vocabIds: string[], targetLesson: string) => Promise<void>;
@@ -60,6 +62,8 @@ export const PoolView: React.FC<PoolViewProps> = ({
   onUpdateVocab,
   onDeleteVocab,
   onBatchDeleteVocabs,
+  onBatchPermanentlyDelete,
+  onPermanentlyDeleteVocab,
   onRenameLesson,
   onDeleteLesson,
   onMoveVocabs,
@@ -382,6 +386,7 @@ export const PoolView: React.FC<PoolViewProps> = ({
   // Handle Batch Delete Selected Cards
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+  const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false);
 
   const handleConfirmBatchDelete = async () => {
     if (!selectedIds.size) return;
@@ -398,13 +403,41 @@ export const PoolView: React.FC<PoolViewProps> = ({
       setSelectedIds(new Set());
       setShowBatchDeleteConfirm(false);
       setToastMessage(
-        `✓ ${idsToDelete.length} Vokabelkarte(n) gelöscht (im Papierkorb unter Einstellungen wiederherstellbar)`
+        `✓ ${idsToDelete.length} Vokabelkarte(n) in den Papierkorb verschoben (in Einstellungen wiederherstellbar)`
       );
       setTimeout(() => setToastMessage(null), 4000);
     } catch (err: any) {
       setToastMessage(`Fehler: ${err?.message || 'Konnte Vokabeln nicht löschen'}`);
     } finally {
       setIsBatchDeleting(false);
+    }
+  };
+
+  const handleConfirmPermanentBatchDelete = async () => {
+    if (!selectedIds.size) return;
+    setIsPermanentlyDeleting(true);
+    try {
+      const idsToDelete = Array.from(selectedIds);
+      let count = idsToDelete.length;
+      if (onBatchPermanentlyDelete) {
+        count = await onBatchPermanentlyDelete(idsToDelete);
+      } else if (onPermanentlyDeleteVocab) {
+        for (const id of idsToDelete) {
+          await onPermanentlyDeleteVocab(id);
+        }
+      } else if (onBatchDeleteVocabs) {
+        count = await onBatchDeleteVocabs(idsToDelete);
+      }
+      setSelectedIds(new Set());
+      setShowBatchDeleteConfirm(false);
+      setToastMessage(
+        `✓ ${count} Vokabelkarte(n) endgültig und unwiderruflich aus der Datenbank gelöscht.`
+      );
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      setToastMessage(`Fehler beim endgültigen Löschen: ${err?.message || 'Fehler'}`);
+    } finally {
+      setIsPermanentlyDeleting(false);
     }
   };
 
@@ -1151,7 +1184,25 @@ export const PoolView: React.FC<PoolViewProps> = ({
                     next.delete(id);
                     return next;
                   });
-                  setToastMessage('✓ Vokabel gelöscht.');
+                  setToastMessage('✓ Vokabel in den Papierkorb verschoben.');
+                  setTimeout(() => setToastMessage(null), 3500);
+                }
+              : undefined
+          }
+          onPermanentlyDelete={
+            onPermanentlyDeleteVocab || onBatchPermanentlyDelete
+              ? async (id) => {
+                  if (onPermanentlyDeleteVocab) {
+                    await onPermanentlyDeleteVocab(id);
+                  } else if (onBatchPermanentlyDelete) {
+                    await onBatchPermanentlyDelete([id]);
+                  }
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                  });
+                  setToastMessage('✓ Vokabel endgültig vernichtet.');
                   setTimeout(() => setToastMessage(null), 3500);
                 }
               : undefined
@@ -1279,30 +1330,59 @@ export const PoolView: React.FC<PoolViewProps> = ({
             </div>
 
             <p className="text-xs text-[#D1D1D6] mb-3 leading-relaxed">
-              Möchtest du die <strong className="text-rose-400">{selectedIds.size}</strong> ausgewählten {selectedIds.size === 1 ? 'Vokabelkarte' : 'Vokabelkarten'} wirklich löschen?
+              Möchtest du die <strong className="text-rose-400">{selectedIds.size}</strong> ausgewählten {selectedIds.size === 1 ? 'Vokabelkarte' : 'Vokabelkarten'} löschen? Wähle deine gewünschte Option:
             </p>
 
-            <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl text-[11px] text-[#D1D1D6] mb-4 leading-relaxed">
-              Die Vokabeln werden in den Papierkorb verschoben und können in den <strong className="text-white">Einstellungen</strong> jederzeit wiederhergestellt werden.
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowBatchDeleteConfirm(false)}
-                disabled={isBatchDeleting}
-                className="flex-1 py-2.5 rounded-full bg-[#2C2C2E] text-white text-xs font-semibold hover:bg-[#3A3A3D] cursor-pointer"
-              >
-                Abbrechen
-              </button>
+            <div className="space-y-2 mb-4">
               <button
                 type="button"
                 onClick={handleConfirmBatchDelete}
-                disabled={isBatchDeleting}
-                className="flex-1 py-2.5 rounded-full bg-rose-600 text-white text-xs font-semibold hover:bg-rose-500 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                disabled={isBatchDeleting || isPermanentlyDeleting}
+                className="w-full p-3 bg-[#242426] hover:bg-[#2C2C2E] border border-[#3E3E42] rounded-2xl text-left transition cursor-pointer flex items-center justify-between group disabled:opacity-50"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{isBatchDeleting ? 'Löschen...' : `Löschen (${selectedIds.size})`}</span>
+                <div>
+                  <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <span>🗑️</span>
+                    <span>In den Papierkorb verschieben</span>
+                  </div>
+                  <div className="text-[10px] text-[#8E8E93] mt-0.5">
+                    Kann in den Einstellungen jederzeit wiederhergestellt werden.
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-amber-400 group-hover:underline shrink-0 ml-2">
+                  {isBatchDeleting ? 'Löschen...' : 'Papierkorb'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmPermanentBatchDelete}
+                disabled={isBatchDeleting || isPermanentlyDeleting}
+                className="w-full p-3 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/40 rounded-2xl text-left transition cursor-pointer flex items-center justify-between group disabled:opacity-50"
+              >
+                <div>
+                  <div className="text-xs font-semibold text-rose-300 flex items-center gap-1.5">
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span>Endgültig vernichten</span>
+                  </div>
+                  <div className="text-[10px] text-rose-300/70 mt-0.5">
+                    Unwiderruflich aus Cloud-Datenbank & allen Geräten löschen.
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-rose-400 group-hover:text-rose-200 shrink-0 ml-2">
+                  {isPermanentlyDeleting ? 'Vernichte...' : 'Endgültig'}
+                </span>
+              </button>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowBatchDeleteConfirm(false)}
+                disabled={isBatchDeleting || isPermanentlyDeleting}
+                className="w-full py-2.5 rounded-full bg-[#2C2C2E] text-white text-xs font-semibold hover:bg-[#3A3A3D] cursor-pointer"
+              >
+                Abbrechen
               </button>
             </div>
           </div>

@@ -7,6 +7,7 @@ import {
   addVocabulary,
   updateVocabulary,
   deleteVocabulary,
+  permanentlyDeleteVocabularies,
   restoreVocabulary,
   addBatchToUserDeck,
   recordReviewResult,
@@ -431,6 +432,20 @@ function AppContent() {
     return vocabIds.length;
   };
 
+  // Permanently delete vocabulary items handler (cannot be restored)
+  const handlePermanentlyDeleteVocabs = async (vocabIds: string[]): Promise<number> => {
+    if (!vocabIds.length) return 0;
+    const count = await permanentlyDeleteVocabularies(vocabIds, user?.uid);
+    const idSet = new Set(vocabIds);
+    setVocabularies((prev) => prev.filter((v) => !idSet.has(v.id)));
+    setProgressMap((prev) => {
+      const next = { ...prev };
+      vocabIds.forEach((id) => delete next[id]);
+      return next;
+    });
+    return count;
+  };
+
   // Restore vocabulary handler
   const handleRestoreVocab = async (id: string) => {
     if (!user) return;
@@ -688,6 +703,10 @@ function AppContent() {
                 onUpdateVocab={handleUpdateVocab}
                 onDeleteVocab={handleDeleteVocab}
                 onBatchDeleteVocabs={handleBatchDeleteVocabs}
+                onBatchPermanentlyDelete={handlePermanentlyDeleteVocabs}
+                onPermanentlyDeleteVocab={async (id) => {
+                  await handlePermanentlyDeleteVocabs([id]);
+                }}
                 onRenameLesson={handleRenameLesson}
                 onDeleteLesson={handleDeleteLesson}
                 onMoveVocabs={handleMoveVocabs}
@@ -713,6 +732,7 @@ function AppContent() {
                 progressMap={progressMap}
                 onImportVocabs={handleImportVocabs}
                 onRestoreVocab={handleRestoreVocab}
+                onPermanentlyDeleteVocabs={handlePermanentlyDeleteVocabs}
                 onBatchUpdateRomanization={handleBatchUpdateRomanization}
                 defaultHideRomanization={defaultHideRomanization}
                 onToggleDefaultHideRomanization={handleToggleHideRomanization}
@@ -738,6 +758,7 @@ function AppContent() {
                 progressMap={progressMap}
                 onBatchUpdateRomanization={handleBatchUpdateRomanization}
                 onRenameLesson={handleRenameLesson}
+                onBatchPermanentlyDelete={handlePermanentlyDeleteVocabs}
                 onNavigateHome={() => setActiveTab('learn')}
               />
             )}

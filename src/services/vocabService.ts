@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   updateDoc,
@@ -48,6 +49,60 @@ const LOCAL_PROGRESS_KEY = 'thai_hasis_progress_v1';
 const LEGACY_PROGRESS_KEY = 'phase6_thai_progress_v1';
 const LOCAL_DELETED_VOCABS_KEY = 'thai_hasis_deleted_vocabs_v1';
 const LOCAL_DELETED_LESSONS_KEY = 'thai_hasis_deleted_lessons_v1';
+const LOCAL_PERMANENT_TOMBSTONES_KEY = 'thai_hasis_tombstones_v1';
+
+export function getPermanentTombstones(): string[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_PERMANENT_TOMBSTONES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchPermanentTombstones(): Promise<string[]> {
+  const localList = getPermanentTombstones();
+  try {
+    const snap = await getDoc(doc(db, 'admin_settings', 'tombstones'));
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data?.ids)) {
+        const merged = new Set([...localList, ...data.ids]);
+        const arr = Array.from(merged);
+        localStorage.setItem(LOCAL_PERMANENT_TOMBSTONES_KEY, JSON.stringify(arr));
+        return arr;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch cloud tombstones:', err);
+  }
+  return localList;
+}
+
+export async function addPermanentTombstones(ids: string[]): Promise<string[]> {
+  if (!ids.length) return getPermanentTombstones();
+  const existing = new Set(getPermanentTombstones());
+  ids.forEach((id) => existing.add(id));
+  const arr = Array.from(existing);
+  try {
+    localStorage.setItem(LOCAL_PERMANENT_TOMBSTONES_KEY, JSON.stringify(arr));
+  } catch {}
+
+  // Sync with Firestore admin_settings/tombstones so all devices & users immediately respect permanent deletion
+  try {
+    const docRef = doc(db, 'admin_settings', 'tombstones');
+    const snap = await getDoc(docRef);
+    let remoteIds: string[] = [];
+    if (snap.exists() && Array.isArray(snap.data()?.ids)) {
+      remoteIds = snap.data()?.ids;
+    }
+    const combined = Array.from(new Set([...remoteIds, ...ids]));
+    await setDoc(docRef, { ids: combined, updatedAt: new Date().toISOString() });
+  } catch (err) {
+    console.warn('Could not sync tombstones to Firestore:', err);
+  }
+  return arr;
+}
 
 export function getDeletedVocabs(userId?: string): DeletedVocabEntry[] {
   try {
@@ -89,9 +144,11 @@ export function saveDeletedLessons(lessons: string[], userId?: string) {
 export function filterOutUserDeletedVocabs(list: Vocabulary[], userId?: string): Vocabulary[] {
   const deletedEntries = getDeletedVocabs(userId);
   const deletedIds = new Set(deletedEntries.map((e) => e.vocab.id));
+  const tombstones = new Set(getPermanentTombstones());
   const deletedLessons = new Set(getDeletedLessons(userId).map((l) => l.trim().toLowerCase()));
 
   return list.filter((v) => {
+    if (tombstones.has(v.id)) return false;
     if (deletedIds.has(v.id)) return false;
     if (v.lesson && deletedLessons.has(v.lesson.trim().toLowerCase())) return false;
     return true;
@@ -119,9 +176,13 @@ function saveCachedVocabs(list: Vocabulary[]) {
 export async function seedInitialVocabularies(creatorId = 'system_starter'): Promise<Vocabulary[]> {
   const seededList: Vocabulary[] = [];
 
+  const tombstones = new Set(getPermanentTombstones());
+
   for (let i = 0; i < STARTER_VOCABULARY.length; i++) {
     const item = STARTER_VOCABULARY[i];
     const id = `thai_init_${i + 1}`;
+    if (tombstones.has(id)) continue;
+
     const vocabData: Vocabulary = {
       id,
       ...item,
@@ -168,12 +229,14 @@ export async function syncLocalVocabulariesToCloud(userId?: string): Promise<num
   const activeLocal = filterOutUserDeletedVocabs(localList, userId);
   if (!Array.isArray(activeLocal) || activeLocal.length === 0) return 0;
 
+  const tombstones = new Set(getPermanentTombstones());
+
   try {
     const snap = await getDocs(collection(db, VOCAB_COLLECTION));
     const remoteIds = new Set<string>();
     snap.forEach((d) => remoteIds.add(d.id));
 
-    const missingInCloud = activeLocal.filter((v) => !remoteIds.has(v.id));
+    const missingInCloud = activeLocal.filter((v) => !remoteIds.has(v.id) && !tombstones.has(v.id));
     if (missingInCloud.length === 0) return 0;
 
     const batch = writeBatch(db);
@@ -230,6 +293,9 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
  * Fetch all community vocabularies from Firestore
  */
 export async function fetchCommunityVocabularies(userId?: string): Promise<Vocabulary[]> {
+  // Always synchronize cloud tombstones so deleted items never show up
+  await fetchPermanentTombstones().catch(() => {});
+
   try {
     const snap = await getDocs(collection(db, VOCAB_COLLECTION));
     if (!snap.empty) {
@@ -238,7 +304,7 @@ export async function fetchCommunityVocabularies(userId?: string): Promise<Vocab
         list.push({ id: d.id, ...(d.data() as Omit<Vocabulary, 'id'>) });
       });
 
-      // Filter out vocabs or lessons that this user deleted
+      // Filter out vocabs or lessons that this user deleted or are tombstoned
       const activeList = filterOutUserDeletedVocabs(list, userId);
       const { cleaned, needsCloudSync } = autoCorrectKnownVocabErrors(activeList);
       if (needsCloudSync.length > 0) {
@@ -638,19 +704,80 @@ export async function restoreVocabulary(
 }
 
 /**
- * Permanently delete from trash (cannot be restored)
+ * Permanently deletes vocabulary items completely:
+ * - Deletes from Firestore 'vocabularies'
+ * - Deletes associated user progress from Firestore 'user_progress'
+ * - Deletes from local cached vocabs and progress
+ * - Adds to permanent tombstones so it NEVER resurrects from starter seed or sync
+ * - Removes from the trash bin
  */
-export function permanentlyDeleteFromTrash(vocabId: string, userId?: string) {
+export async function permanentlyDeleteVocabularies(
+  vocabIds: string[],
+  userId?: string
+): Promise<number> {
+  if (!Array.isArray(vocabIds) || vocabIds.length === 0) return 0;
+
+  const idSet = new Set(vocabIds);
+
+  // 1. Permanently tombstone IDs in local storage & Firestore so seeds/sync never bring them back
+  await addPermanentTombstones(vocabIds);
+
+  // 2. Remove from trash (deleted vocabs list)
   const deletedList = getDeletedVocabs(userId);
-  const filtered = deletedList.filter((e) => e.vocab.id !== vocabId);
-  saveDeletedVocabs(filtered, userId);
+  const remainingTrash = deletedList.filter((e) => !idSet.has(e.vocab.id));
+  saveDeletedVocabs(remainingTrash, userId);
+
+  // 3. Remove from local vocab cache
+  try {
+    const cached = getCachedVocabs();
+    const remaining = cached.filter((v) => !idSet.has(v.id));
+    saveCachedVocabs(remaining);
+  } catch {}
+
+  // 4. Remove from local progress
+  if (userId) {
+    try {
+      const key = `${LOCAL_PROGRESS_KEY}_${userId}`;
+      const cached = localStorage.getItem(key);
+      if (cached) {
+        const map = JSON.parse(cached);
+        vocabIds.forEach((id) => delete map[id]);
+        localStorage.setItem(key, JSON.stringify(map));
+      }
+    } catch {}
+  }
+
+  // 5. Delete from Firestore permanently
+  for (const id of vocabIds) {
+    try {
+      await deleteDoc(doc(db, VOCAB_COLLECTION, id));
+    } catch (err) {
+      console.warn('Firestore delete error for', id, err);
+    }
+    if (userId) {
+      try {
+        await deleteDoc(doc(db, PROGRESS_COLLECTION, `${userId}_${id}`));
+      } catch {}
+    }
+  }
+
+  return vocabIds.length;
 }
 
 /**
- * Empty entire deleted trash
+ * Permanently delete single item from trash (cannot be restored)
  */
-export function clearAllDeletedVocabs(userId?: string) {
-  saveDeletedVocabs([], userId);
+export async function permanentlyDeleteFromTrash(vocabId: string, userId?: string): Promise<void> {
+  await permanentlyDeleteVocabularies([vocabId], userId);
+}
+
+/**
+ * Empty entire deleted trash permanently
+ */
+export async function clearAllDeletedVocabs(userId?: string): Promise<void> {
+  const deletedList = getDeletedVocabs(userId);
+  const ids = deletedList.map((e) => e.vocab.id);
+  await permanentlyDeleteVocabularies(ids, userId);
 }
 
 /**

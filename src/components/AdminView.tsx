@@ -48,6 +48,7 @@ interface AdminViewProps {
   progressMap: Record<string, UserProgress>;
   onBatchUpdateRomanization?: (updates: { id: string; romanization: string }[]) => Promise<number>;
   onRenameLesson?: (oldName: string, newName: string) => Promise<void>;
+  onBatchPermanentlyDelete?: (vocabIds: string[]) => Promise<number>;
   onNavigateHome: () => void;
 }
 
@@ -56,6 +57,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   progressMap,
   onBatchUpdateRomanization,
   onRenameLesson,
+  onBatchPermanentlyDelete,
   onNavigateHome,
 }) => {
   const { user, isAdmin } = useAuth();
@@ -90,6 +92,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [renameOldLesson, setRenameOldLesson] = useState('');
   const [renameNewLesson, setRenameNewLesson] = useState('');
   const [isRenamingLesson, setIsRenamingLesson] = useState(false);
+
+  // Permanent Delete tool state
+  const [deleteSearchTerm, setDeleteSearchTerm] = useState('');
+  const [selectedDeleteLesson, setSelectedDeleteLesson] = useState<string>('all');
+  const [isDeletingPermanently, setIsDeletingPermanently] = useState(false);
+  const [selectedDeleteIds, setSelectedDeleteIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState<{
+    isOpen: boolean;
+    ids: string[];
+    samples: { german: string; thai: string }[];
+  } | null>(null);
+  const [confirmDeleteCodeItem, setConfirmDeleteCodeItem] = useState<AdminInviteCode | null>(null);
 
   // Loading states
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -168,18 +182,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
-  // Handle Delete Code
-  const handleDeleteCode = async (codeItem: AdminInviteCode) => {
-    if (codeItem.id === 'PHASE6') {
+  // Handle Delete Code Execution
+  const handleExecuteDeleteCode = async () => {
+    if (!confirmDeleteCodeItem) return;
+    if (confirmDeleteCodeItem.id === 'PHASE6') {
       showToast('Der Standard-Code PHASE6 kann nicht gelöscht werden.');
+      setConfirmDeleteCodeItem(null);
       return;
     }
-    if (!window.confirm(`Möchtest du den Code „${codeItem.code}“ wirklich löschen?`)) return;
 
     try {
-      await deleteAdminCode(codeItem.id);
-      setCodes((prev) => prev.filter((c) => c.id !== codeItem.id));
-      showToast(`✓ Code „${codeItem.code}“ gelöscht`);
+      await deleteAdminCode(confirmDeleteCodeItem.id);
+      setCodes((prev) => prev.filter((c) => c.id !== confirmDeleteCodeItem.id));
+      showToast(`✓ Code „${confirmDeleteCodeItem.code}“ gelöscht`);
+      setConfirmDeleteCodeItem(null);
     } catch (err: any) {
       showToast(`Fehler: ${err.message}`);
     }
@@ -277,6 +293,89 @@ export const AdminView: React.FC<AdminViewProps> = ({
     } finally {
       setIsRenamingLesson(false);
     }
+  };
+
+  // Handle Permanent Delete Modal Trigger
+  const handleOpenPermanentDeleteModal = (ids: string[]) => {
+    if (!ids.length || !onBatchPermanentlyDelete) return;
+    const samples = vocabularies
+      .filter((v) => ids.includes(v.id))
+      .slice(0, 5)
+      .map((v) => ({ german: v.german, thai: v.thai }));
+
+    setConfirmDeleteModal({
+      isOpen: true,
+      ids,
+      samples,
+    });
+  };
+
+  const handleExecutePermanentDelete = async () => {
+    if (!confirmDeleteModal || !confirmDeleteModal.ids.length || !onBatchPermanentlyDelete) return;
+    setIsDeletingPermanently(true);
+    try {
+      const count = await onBatchPermanentlyDelete(confirmDeleteModal.ids);
+      setSelectedDeleteIds((prev) => {
+        const next = new Set(prev);
+        confirmDeleteModal.ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      setConfirmDeleteModal(null);
+      showToast(`✓ ${count} Vokabel(n) endgültig vernichtet und aus der Cloud gelöscht!`);
+    } catch (err: any) {
+      showToast(`Fehler beim endgültigen Löschen: ${err.message}`);
+    } finally {
+      setIsDeletingPermanently(false);
+    }
+  };
+
+  const allLessons = useMemo(() => {
+    const set = new Set<string>();
+    vocabularies.forEach((v) => {
+      set.add(v.lesson || 'Allgemein');
+    });
+    return Array.from(set).sort();
+  }, [vocabularies]);
+
+  const filteredVocabsForDeletion = useMemo(() => {
+    let list = vocabularies;
+    if (selectedDeleteLesson !== 'all') {
+      list = list.filter((v) => (v.lesson || 'Allgemein') === selectedDeleteLesson);
+    }
+    if (deleteSearchTerm.trim()) {
+      const q = deleteSearchTerm.trim().toLowerCase();
+      list = list.filter(
+        (v) =>
+          v.german.toLowerCase().includes(q) ||
+          v.thai.includes(q) ||
+          (v.romanization && v.romanization.toLowerCase().includes(q)) ||
+          (v.lesson && v.lesson.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [vocabularies, selectedDeleteLesson, deleteSearchTerm]);
+
+  const toggleSelectDeleteId = (id: string) => {
+    setSelectedDeleteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllFiltered = () => {
+    const filteredIds = filteredVocabsForDeletion.map((v) => v.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedDeleteIds.has(id));
+    setSelectedDeleteIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        filteredIds.forEach((id) => next.delete(id));
+      } else {
+        filteredIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
   };
 
   // Protection Guard: If non-admin somehow reaches this page
@@ -485,7 +584,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   {c.id !== 'PHASE6' && (
                     <button
                       type="button"
-                      onClick={() => handleDeleteCode(c)}
+                      onClick={() => setConfirmDeleteCodeItem(c)}
                       className="p-1.5 rounded-xl text-[#8E8E93] hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
                       title="Code löschen"
                     >
@@ -721,6 +820,164 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </form>
             </div>
           )}
+
+          {/* Permanent Delete Station (Cloud Vaporizer) */}
+          {onBatchPermanentlyDelete && (
+            <div className="bg-[#242426] p-4 rounded-2xl border border-rose-500/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                  <span>Vokabeln endgültig löschen</span>
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold">
+                  Unwiderruflich
+                </span>
+              </div>
+              <p className="text-[11px] text-[#8E8E93] leading-relaxed">
+                Wähle eine Lektion oder suche gezielt nach Wörtern, um sie endgültig und dauerhaft aus der Cloud-Datenbank und von allen Geräten zu vernichten.
+              </p>
+
+              {/* Filter Row: Lesson selector & Search Input */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <select
+                    value={selectedDeleteLesson}
+                    onChange={(e) => setSelectedDeleteLesson(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl text-xs text-white focus:outline-none focus:border-rose-400"
+                  >
+                    <option value="all">Alle Lektionen ({vocabularies.length})</option>
+                    {allLessons.map((l) => {
+                      const count = vocabularies.filter((v) => (v.lesson || 'Allgemein') === l).length;
+                      return (
+                        <option key={l} value={l}>
+                          {l} ({count})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div className="relative">
+                  <Search className="w-4 h-4 text-[#8E8E93] absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={deleteSearchTerm}
+                    onChange={(e) => setDeleteSearchTerm(e.target.value)}
+                    placeholder="Suchen (z. B. Hallo, สวัสดี)..."
+                    className="w-full pl-9 pr-3.5 py-2 bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl text-xs text-white focus:outline-none focus:border-rose-400"
+                  />
+                  {deleteSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteSearchTerm('')}
+                      className="absolute right-2.5 top-2.5 text-[#8E8E93] hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Toolbar for Selection */}
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={handleToggleSelectAllFiltered}
+                  className="text-[11px] text-[#8E8E93] hover:text-white flex items-center gap-1.5 cursor-pointer font-medium"
+                >
+                  <input
+                    type="checkbox"
+                    checked={
+                      filteredVocabsForDeletion.length > 0 &&
+                      filteredVocabsForDeletion.every((v) => selectedDeleteIds.has(v.id))
+                    }
+                    onChange={() => {}}
+                    className="rounded accent-rose-500 cursor-pointer"
+                  />
+                  <span>
+                    Alle markieren ({filteredVocabsForDeletion.length})
+                  </span>
+                </button>
+
+                {selectedDeleteIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPermanentDeleteModal(Array.from(selectedDeleteIds))}
+                    disabled={isDeletingPermanently}
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 transition shadow cursor-pointer disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{selectedDeleteIds.size} Ausgewählte löschen</span>
+                  </button>
+                )}
+              </div>
+
+              {/* List of Vocabs */}
+              <div className="space-y-1.5 max-h-72 overflow-y-auto divide-y divide-[#2C2C2E] border border-[#3A3A3D]/70 rounded-xl p-2 bg-[#1C1C1E]">
+                {filteredVocabsForDeletion.length === 0 ? (
+                  <p className="text-center py-6 text-xs text-[#8E8E93]">
+                    Keine passenden Vokabeln gefunden.
+                  </p>
+                ) : (
+                  filteredVocabsForDeletion.slice(0, 100).map((v) => {
+                    const isSelected = selectedDeleteIds.has(v.id);
+                    return (
+                      <div
+                        key={v.id}
+                        className={`pt-2 pb-1 flex items-center justify-between gap-2 transition-colors rounded-lg px-1.5 ${
+                          isSelected ? 'bg-rose-500/10' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectDeleteId(v.id)}
+                            className="rounded accent-rose-500 cursor-pointer shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-white truncate text-xs">
+                                {v.german}
+                              </span>
+                              <span className="text-[#8E8E93]">→</span>
+                              <span className="font-thai text-[#FF7A00] truncate text-xs">
+                                {v.thai}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-[#8E8E93]">
+                              <span className="truncate max-w-[120px]">{v.lesson || 'Allgemein'}</span>
+                              {v.romanization && (
+                                <span className="italic truncate text-[#A1A1AA]">
+                                  ({v.romanization})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPermanentDeleteModal([v.id])}
+                          disabled={isDeletingPermanently}
+                          className="px-2.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1 shrink-0"
+                          title="Diese Vokabel endgültig vernichten"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Löschen</span>
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+                {filteredVocabsForDeletion.length > 100 && (
+                  <p className="text-center py-2 text-[10px] text-[#8E8E93]">
+                    Zeigt die ersten 100 von {filteredVocabsForDeletion.length} Vokabeln. Nutze die Suche für spezifische Wörter.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -812,6 +1069,116 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <Download className="w-4 h-4" />
               <span>Vollständiges Backup jetzt herunterladen (.json)</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirm Permanent Vocabs Deletion */}
+      {confirmDeleteModal && confirmDeleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#1C1C1E] border border-rose-500/50 rounded-3xl w-full max-w-sm p-5 text-white shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#2C2C2E] mb-3">
+              <div className="flex items-center gap-2 text-rose-400">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                <h3 className="text-base font-bold text-white">Endgültig vernichten?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteModal(null)}
+                className="w-7 h-7 rounded-full bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93] hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[#D1D1D6] mb-3 leading-relaxed">
+              Möchtest du <strong className="text-rose-400">{confirmDeleteModal.ids.length}</strong> Vokabelkarte(n) wirklich <strong className="text-white">unwiderruflich</strong> aus der Firebase Cloud-Datenbank und von allen Geräten löschen?
+            </p>
+
+            {confirmDeleteModal.samples.length > 0 && (
+              <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-2.5 mb-3 space-y-1">
+                <p className="text-[10px] uppercase font-bold text-rose-300">Betroffene Vokabeln (Auszug):</p>
+                {confirmDeleteModal.samples.map((s, idx) => (
+                  <div key={idx} className="text-xs text-[#E4E4E7] flex items-center gap-1.5 truncate">
+                    <span className="font-semibold">{s.german}</span>
+                    <span className="text-[#8E8E93]">→</span>
+                    <span className="font-thai text-[#FF7A00]">{s.thai}</span>
+                  </div>
+                ))}
+                {confirmDeleteModal.ids.length > confirmDeleteModal.samples.length && (
+                  <p className="text-[10px] text-[#8E8E93] italic">
+                    ... und {confirmDeleteModal.ids.length - confirmDeleteModal.samples.length} weitere
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="text-[11px] text-[#A1A1AA] bg-[#242426] p-2.5 rounded-xl border border-[#3E3E42] mb-4">
+              ⚠️ Diese Aktion kann <strong className="text-white">nicht</strong> rückgängig gemacht werden. Die Karten werden dauerhaft vernichtet.
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteModal(null)}
+                disabled={isDeletingPermanently}
+                className="flex-1 py-2.5 rounded-full bg-[#2C2C2E] text-white text-xs font-semibold hover:bg-[#3A3A3D] cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleExecutePermanentDelete}
+                disabled={isDeletingPermanently}
+                className="flex-1 py-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingPermanently ? 'Wird vernichtet...' : 'Unwiderruflich löschen'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirm Delete Code */}
+      {confirmDeleteCodeItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#1C1C1E] border border-rose-500/50 rounded-3xl w-full max-w-sm p-5 text-white shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#2C2C2E] mb-3">
+              <div className="flex items-center gap-2 text-rose-400">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                <h3 className="text-base font-bold text-white">Code löschen?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteCodeItem(null)}
+                className="w-7 h-7 rounded-full bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93] hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[#D1D1D6] mb-4 leading-relaxed">
+              Möchtest du den Registrierungscode <strong className="text-white font-mono bg-[#2C2C2E] px-1.5 py-0.5 rounded">„{confirmDeleteCodeItem.code}“</strong> ({confirmDeleteCodeItem.label}) wirklich löschen?
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteCodeItem(null)}
+                className="flex-1 py-2.5 rounded-full bg-[#2C2C2E] text-white text-xs font-semibold hover:bg-[#3A3A3D] cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteDeleteCode}
+                className="flex-1 py-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Code löschen</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

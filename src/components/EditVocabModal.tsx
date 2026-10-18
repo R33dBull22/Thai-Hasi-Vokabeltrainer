@@ -22,6 +22,7 @@ interface EditVocabModalProps {
   onClose: () => void;
   onSave: (id: string, updatedData: Partial<Omit<Vocabulary, 'id' | 'createdAt'>>) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onPermanentlyDelete?: (id: string) => Promise<void>;
   onUpdatePhase?: (vocabId: string, newPhase: number, targetDirection?: 'de_to_th' | 'th_to_de' | 'both') => Promise<void>;
   existingLessons: string[];
 }
@@ -35,6 +36,7 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
   onClose,
   onSave,
   onDelete,
+  onPermanentlyDelete,
   onUpdatePhase,
   existingLessons,
 }) => {
@@ -52,6 +54,7 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
 
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -148,6 +151,19 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
       setErrorMessage(err.message || 'Fehler beim Löschen der Vokabel.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!onPermanentlyDelete) return;
+    setIsPermanentlyDeleting(true);
+    try {
+      await onPermanentlyDelete(vocab.id);
+      onClose();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Fehler beim endgültigen Löschen der Vokabel.');
+    } finally {
+      setIsPermanentlyDeleting(false);
     }
   };
 
@@ -430,35 +446,66 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
               <span>{isSaving ? 'Wird gespeichert...' : 'Änderungen speichern'}</span>
             </button>
 
-            {onDelete && (
+            {(onDelete || onPermanentlyDelete) && (
               <div>
                 {!showDeleteConfirm ? (
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="w-full py-2.5 rounded-full text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 rounded-full text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Vokabel löschen</span>
+                    <span>Vokabel löschen...</span>
                   </button>
                 ) : (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-center space-y-2">
-                    <p className="text-xs text-rose-300 font-medium">
-                      Möchtest du diese Vokabel wirklich dauerhaft löschen?
-                    </p>
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleDelete}
-                        disabled={isDeleting}
-                        className="px-4 py-1.5 bg-rose-600 text-white rounded-full text-xs font-semibold hover:bg-rose-500 transition-colors"
-                      >
-                        {isDeleting ? 'Löschen...' : 'Ja, löschen'}
-                      </button>
+                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl space-y-3">
+                    <div className="text-center">
+                      <p className="text-xs text-rose-200 font-semibold">
+                        Wie möchtest du „{vocab.german}“ löschen?
+                      </p>
+                      <p className="text-[11px] text-[#A1A1AA] mt-1">
+                        Wähle, ob die Vokabel in den Papierkorb wandern oder unwiderruflich aus der Datenbank gelöscht werden soll.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      {onDelete && (
+                        <button
+                          type="button"
+                          onClick={handleDelete}
+                          disabled={isDeleting || isPermanentlyDeleting}
+                          className="w-full py-2 px-3 bg-[#2C2C2E] hover:bg-[#38383B] text-white border border-[#3E3E42] rounded-xl text-xs font-medium transition-colors flex items-center justify-between cursor-pointer disabled:opacity-50"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-amber-400">🗑️</span>
+                            <span>In den Papierkorb</span>
+                          </span>
+                          <span className="text-[10px] text-[#8E8E93]">wiederherstellbar</span>
+                        </button>
+                      )}
+
+                      {onPermanentlyDelete && (
+                        <button
+                          type="button"
+                          onClick={handlePermanentDelete}
+                          disabled={isDeleting || isPermanentlyDeleting}
+                          className="w-full py-2 px-3 bg-rose-600/25 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/40 rounded-xl text-xs font-semibold transition-colors flex items-center justify-between cursor-pointer disabled:opacity-50"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Endgültig vernichten</span>
+                          </span>
+                          <span className="text-[10px] text-rose-300 font-bold">unwiderruflich</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="pt-1 text-center">
                       <button
                         type="button"
                         onClick={() => setShowDeleteConfirm(false)}
-                        className="px-4 py-1.5 bg-[#2C2C2E] text-[#8E8E93] rounded-full text-xs font-medium hover:text-white transition-colors"
+                        disabled={isDeleting || isPermanentlyDeleting}
+                        className="text-xs text-[#8E8E93] hover:text-white transition-colors cursor-pointer"
                       >
                         Abbrechen
                       </button>

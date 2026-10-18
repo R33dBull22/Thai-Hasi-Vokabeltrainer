@@ -53,6 +53,7 @@ interface SettingsViewProps {
     newVocabs: (Omit<Vocabulary, 'id' | 'createdAt'> & { phase?: number })[]
   ) => Promise<number>;
   onRestoreVocab?: (id: string) => Promise<void>;
+  onPermanentlyDeleteVocabs?: (vocabIds: string[]) => Promise<number>;
   onBatchUpdateRomanization?: (updates: { id: string; romanization: string }[]) => Promise<number>;
   defaultHideRomanization: boolean;
   onToggleDefaultHideRomanization: (val: boolean) => void;
@@ -76,6 +77,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   progressMap,
   onImportVocabs,
   onRestoreVocab,
+  onPermanentlyDeleteVocabs,
   onBatchUpdateRomanization,
   defaultHideRomanization,
   onToggleDefaultHideRomanization,
@@ -106,6 +108,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showDeletedTrash, setShowDeletedTrash] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [trashToast, setTrashToast] = useState<string | null>(null);
+  const [confirmDeleteTrashId, setConfirmDeleteTrashId] = useState<string | null>(null);
+  const [confirmClearTrash, setConfirmClearTrash] = useState(false);
+  const [isDeletingTrash, setIsDeletingTrash] = useState(false);
 
   const refreshDeletedList = () => {
     setDeletedList(getDeletedVocabs(user?.uid));
@@ -126,18 +131,43 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handlePermanentDelete = (id: string) => {
-    permanentlyDeleteFromTrash(id, user?.uid);
-    refreshDeletedList();
-    setTrashToast('Eintrag endgültig aus dem Papierkorb gelöscht.');
-    setTimeout(() => setTrashToast(null), 3000);
+  const handlePermanentDelete = async (id: string) => {
+    setIsDeletingTrash(true);
+    try {
+      if (onPermanentlyDeleteVocabs) {
+        await onPermanentlyDeleteVocabs([id]);
+      } else {
+        await permanentlyDeleteFromTrash(id, user?.uid);
+      }
+      refreshDeletedList();
+      setConfirmDeleteTrashId(null);
+      setTrashToast('Eintrag endgültig und unwiderruflich aus dem Papierkorb gelöscht.');
+      setTimeout(() => setTrashToast(null), 3000);
+    } catch (err: any) {
+      setTrashToast(`Fehler: ${err?.message || 'Löschen fehlgeschlagen'}`);
+    } finally {
+      setIsDeletingTrash(false);
+    }
   };
 
-  const handleClearTrash = () => {
-    clearAllDeletedVocabs(user?.uid);
-    refreshDeletedList();
-    setTrashToast('Papierkorb vollständig geleert.');
-    setTimeout(() => setTrashToast(null), 3000);
+  const handleClearTrash = async () => {
+    setIsDeletingTrash(true);
+    try {
+      const ids = deletedList.map((e) => e.vocab.id);
+      if (onPermanentlyDeleteVocabs && ids.length > 0) {
+        await onPermanentlyDeleteVocabs(ids);
+      } else {
+        await clearAllDeletedVocabs(user?.uid);
+      }
+      refreshDeletedList();
+      setConfirmClearTrash(false);
+      setTrashToast('Papierkorb vollständig und unwiderruflich geleert.');
+      setTimeout(() => setTrashToast(null), 3000);
+    } catch (err: any) {
+      setTrashToast(`Fehler: ${err?.message || 'Leeren fehlgeschlagen'}`);
+    } finally {
+      setIsDeletingTrash(false);
+    }
   };
 
   // Import State (CSV or JSON)
@@ -477,13 +507,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               <div className="flex items-center gap-2">
                 {deletedList.length > 0 && showDeletedTrash && (
-                  <button
-                    type="button"
-                    onClick={handleClearTrash}
-                    className="text-[10px] text-rose-400 hover:text-rose-300 px-2 py-1 rounded bg-[#2C2C2E] hover:bg-[#38383B] transition-colors cursor-pointer"
-                  >
-                    Alle leeren
-                  </button>
+                  confirmClearTrash ? (
+                    <div className="flex items-center gap-1.5 bg-rose-500/15 border border-rose-500/30 px-2 py-1 rounded-lg">
+                      <span className="text-[10px] text-rose-200">Alle vernichten?</span>
+                      <button
+                        type="button"
+                        onClick={handleClearTrash}
+                        disabled={isDeletingTrash}
+                        className="text-[10px] bg-rose-600 text-white px-2 py-0.5 rounded font-bold hover:bg-rose-500 cursor-pointer"
+                      >
+                        {isDeletingTrash ? '...' : 'Ja, alle'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmClearTrash(false)}
+                        className="text-[10px] text-[#8E8E93] hover:text-white px-1 cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClearTrash(true)}
+                      className="text-[10px] text-rose-400 hover:text-rose-300 px-2 py-1 rounded bg-[#2C2C2E] hover:bg-[#38383B] transition-colors cursor-pointer"
+                    >
+                      Alle leeren
+                    </button>
+                  )
                 )}
                 <button
                   type="button"
@@ -514,6 +565,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     {deletedList.map((entry) => {
                       const v = entry.vocab;
                       const isRestoring = restoringId === v.id;
+                      const isConfirming = confirmDeleteTrashId === v.id;
+
                       return (
                         <div
                           key={v.id}
@@ -551,7 +604,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleRestoreItem(v.id, v.german)}
-                              disabled={isRestoring}
+                              disabled={isRestoring || isDeletingTrash}
                               className="px-2.5 py-1 rounded-lg bg-[#FF7A00] hover:bg-[#FF881A] text-black font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
                               title="Vokabel wiederherstellen"
                             >
@@ -559,15 +612,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               <span>{isRestoring ? '...' : 'Wiederherstellen'}</span>
                             </button>
 
-                            {/* Endgültig löschen Button */}
-                            <button
-                              type="button"
-                              onClick={() => handlePermanentDelete(v.id)}
-                              className="p-1 rounded-md text-[#71717A] hover:text-rose-400 hover:bg-[#2C2C2E] transition-colors cursor-pointer"
-                              title="Endgültig vernichten"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {/* Endgültig löschen Button with confirmation */}
+                            {isConfirming ? (
+                              <div className="flex items-center gap-1 bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 rounded-lg">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePermanentDelete(v.id)}
+                                  disabled={isDeletingTrash}
+                                  className="text-[10px] bg-rose-600 hover:bg-rose-500 text-white px-1.5 py-0.5 rounded font-bold transition cursor-pointer"
+                                >
+                                  {isDeletingTrash ? '...' : 'Löschen'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteTrashId(null)}
+                                  className="text-[10px] text-[#8E8E93] hover:text-white px-1 cursor-pointer"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteTrashId(v.id)}
+                                disabled={isDeletingTrash}
+                                className="p-1 rounded-md text-[#71717A] hover:text-rose-400 hover:bg-[#2C2C2E] transition-colors cursor-pointer"
+                                title="Endgültig vernichten"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
