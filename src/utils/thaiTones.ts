@@ -664,48 +664,125 @@ export function computeTone(
   return initialClass === 'high' ? 'rising' : 'mid';
 }
 
+export const CLUSTER_PAIRS = new Set([
+  'กร', 'กล', 'กว', 'ขร', 'ขล', 'ขว', 'คร', 'คล', 'คว', 'ตร', 'ปร', 'ปล', 'ผล', 'พร', 'พล', 'ฟร', 'บล', 'บร', 'ดร', 'ฝร',
+  'กฤ', 'พฤ', 'หม', 'หน', 'หว', 'หล', 'หย', 'หง', 'หร', 'หญ', 'อย', 'ทร', 'ศร', 'สร', 'จร',
+]);
+
 /**
- * Canonicalizes Thai text for robust equality comparison.
- * Handles:
- * - Keystroke ordering differences on iOS / Android keyboards:
- *   e.g. Sara Am (\u0E33) typed before Mai Tho (\u0E49) vs Mai Tho typed before Sara Am
- * - Decomposed Sara Am: Nikhahit (\u0E4D) + Sara Aa (\u0E32)
- * - Tone mark before upper/lower vowels
- * - Invisible characters: Zero-Width Space (\u200B), ZWNJ (\u200C), ZWJ (\u200D), BOM (\uFEFF), NBSP (\u00A0)
- * - Whitespace, hyphens, and punctuation
+ * Normalizes Thai script characters and keystroke order:
+ * - Decomposed characters (Sara Am, Sara Ue)
+ * - Double Sara E (เเ) -> Sara Ae (แ)
+ * - Inverted vowels and tone marks (above, below, right-hand vowels, compound vowels)
+ * - Known consonant clusters and Aksorn Nam tone marks
+ * - Deduplicates consecutive identical combining marks
  */
-export function canonicalizeThaiString(str: string): string {
+export function canonicalizeThaiScript(str: string, keepSpaces = true): string {
   if (!str) return '';
   let s = str
-    .replace(/[\u200B-\u200D\uFEFF\u00A0\u202A-\u202E\u00AD]/g, '')
-    .replace(/[\s\-_.,;!?]+/g, '')
+    // 0. Remove zero-width spaces, directional marks, formatting, BOM, soft hyphens
+    .replace(/[\u200B-\u200D\uFEFF\u00A0\u202A-\u202E\u00AD\u2060\u2000-\u200A\u202F\u205F\u3000]/g, '')
     .normalize('NFC');
 
-  // Decomposed Sara Am with tone mark in any position:
+  if (!keepSpaces) {
+    // Strip parenthetical clarifications and brackets (including fullwidth Asian parentheses)
+    s = s.replace(/[\(\[\{（【][^\)\]\}）】]*[\)\]\}）】]/g, ' ');
+    // Strip punctuation, hyphens, quotes, fullwidth symbols
+    s = s.replace(/[\s\-_.,;!?/\\()\[\]{}'"`~^«»“”‘’、。・！？（）【】《》…|:]+/g, '');
+  }
+
+  // 1. Double Sara E (เเ \u0E40\u0E40) -> Sara Ae (แ \u0E41)
+  s = s.replace(/\u0E40\u0E40/g, '\u0E41');
+
+  // 2. Deduplicate consecutive identical combining marks (accidental double taps on mobile keyboard)
+  s = s.replace(/([\u0E31\u0E34-\u0E3A\u0E47-\u0E4E])\1+/g, '$1');
+
+  // 3. Decomposed Sara Ue: Sara I (\u0E34) + Nikhahit (\u0E4D) -> Sara Ue (\u0E36)
+  s = s.replace(/\u0E34([\u0E48-\u0E4B])?\u0E4D/g, (_m, tone) => '\u0E36' + (tone || ''));
+  s = s.replace(/\u0E34\u0E4D/g, '\u0E36');
+
+  // 4. Decomposed Sara Am with tone mark in any position -> Tone Mark + Sara Am
   s = s.replace(/([\u0E48-\u0E4B])\u0E4D\u0E32/g, '$1\u0E33');
   s = s.replace(/\u0E4D([\u0E48-\u0E4B])\u0E32/g, '$1\u0E33');
+  s = s.replace(/\u0E4D\u0E32([\u0E48-\u0E4B])/g, '$1\u0E33');
   s = s.replace(/\u0E4D\u0E32/g, '\u0E33');
-
-  // Reorder Sara Am + Tone mark -> Tone mark + Sara Am
   s = s.replace(/\u0E33([\u0E48-\u0E4B])/g, '$1\u0E33');
 
-  // Reorder Tone Mark before vowel -> Vowel + Tone Mark
-  s = s.replace(/([\u0E48-\u0E4B])([\u0E31\u0E34-\u0E39\u0E47])/g, '$2$1');
+  // 5. Tone mark typed after right-hand vowels: า (\u0E32), ะ (\u0E30), ๅ (\u0E45)
+  // In Thai orthography, tone marks always sit on the preceding consonant/cluster!
+  // e.g. ปา่ -> ป่า, มา้ -> ม้า, เกา้ -> เก้า, เขา้ -> เข้า, กะ่ -> ก่ะ, โตะ๊ -> โต๊ะ
+  s = s.replace(/([ก-ฮ])([\u0E30\u0E32\u0E45])([\u0E48-\u0E4B])/g, '$1$3$2');
+
+  // 6. Tone mark typed after compound vowel endings:
+  // - Sara Ua: ั + ว + Tone -> ั + Tone + ว (e.g. ตัว๋ -> ตั๋ว, รัว้ -> รั้ว)
+  s = s.replace(/\u0E31\u0E27([\u0E48-\u0E4B])/g, '\u0E31$1\u0E27');
+  // - Sara Ia: ี + ย + Tone -> ี + Tone + ย (e.g. เบีย้ -> เบี้ย, เตีย้ -> เตี้ย)
+  s = s.replace(/\u0E35\u0E22([\u0E48-\u0E4B])/g, '\u0E35$1\u0E22');
+  // - Sara Uea: ื + อ + Tone -> ื + Tone + อ (e.g. เสือ้ -> เสื้อ, เพือ่ -> เพื่อ)
+  s = s.replace(/\u0E37\u0E2D([\u0E48-\u0E4B])/g, '\u0E37$1\u0E2D');
+
+  // 7. Trailing tone mark on closed syllables (typed mistakenly after the final consonant):
+  // NOTE: Must ensure the tone mark is not followed by a vowel diacritic (e.g. ค่ะ has ะ after ่),
+  // which indicates the consonant is an onset of the subsequent syllable!
+  // - Sara Uea with coda: ื + อ + Coda + Tone -> ื + Tone + อ + Coda (e.g. เรือง่ -> เรื่อง, เพือน่ -> เพื่อน)
+  s = s.replace(/\u0E37\u0E2D([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '\u0E37$2\u0E2D$1');
+  // - Sara Ia with coda: ี + ย + Coda + Tone -> ี + Tone + ย + Coda (e.g. เทียว่ -> เที่ยว)
+  s = s.replace(/\u0E35\u0E22([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '\u0E35$2\u0E22$1');
+  // - Sara Ua with coda: ั + ว + Coda + Tone -> ั + Tone + ว + Coda
+  s = s.replace(/\u0E31\u0E27([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '\u0E31$2\u0E27$1');
+  // - Sara Ua without Mai Han-Akat (e.g. ชวย่ -> ช่วย, ดวย้ -> ด้วย)
+  s = s.replace(/([ก-ฮ])\u0E27([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3\u0E27$2');
+  // - Above vowel + Coda + Tone -> Above vowel + Tone + Coda (e.g. ปิง้ -> ปิ้ง, วิง่ -> วิ่ง, ดืม่ -> ดื่ม)
+  s = s.replace(/([\u0E31\u0E34-\u0E37\u0E47])([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3$2');
+  // - Below vowel + Coda + Tone -> Below vowel + Tone + Coda (e.g. กุง้ -> กุ้ง)
+  s = s.replace(/([\u0E38\u0E39])([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3$2');
+  // - Sara Aa + Coda + Tone -> Tone + Sara Aa + Coda (e.g. บาน้ -> บ้าน, ขาว้ -> ข้าว, ชาง้ -> ช้าง, หอง้ -> ห้อง)
+  s = s.replace(/([ก-ฮ])\u0E32([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3\u0E32$2');
+  // - Sara O (อ) + Coda + Tone -> Tone + Sara O + Coda (e.g. หอง้ -> ห้อง, รอน้ -> ร้อน, นอย้ -> น้อย, ตอง้ -> ต้อง)
+  s = s.replace(/([ก-ฮ])\u0E2D([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3\u0E2D$2');
+  // - Leading vowel (เ, แ, โ) + Initial + Coda + Tone -> Leading vowel + Initial + Tone + Coda (e.g. เลน่ -> เล่น, เชน่ -> เช่น)
+  s = s.replace(/([\u0E40\u0E41\u0E42])([ก-ฮ])([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$2$4$3');
+
+  // 8. Reorder tone mark between consonants in known consonant cluster / Aksorn Nam
+  // e.g. ก + ้ + ล + ว + ย -> ก + ล + ้ + ว + ย (กล้วย)
+  // e.g. ใ + ห + ่ + ม -> ใ + ห + ม + ่ (ใหม่)
+  s = s.replace(/([ก-ฮ])([\u0E48-\u0E4B])([ก-ฮ])/g, (match, c1, tone, c2) => {
+    if (CLUSTER_PAIRS.has(c1 + c2)) {
+      return c1 + c2 + tone;
+    }
+    return match;
+  });
+
+  // 9. Tone mark before upper/lower vowels: Tone Mark + Vowel -> Vowel + Tone Mark
+  // e.g. ผู้ -> ผู้, ป้ี -> ปี้, ปุ่ม -> ปุ่ม
+  s = s.replace(/([\u0E48-\u0E4B])([\u0E31\u0E34-\u0E3A\u0E47])/g, '$2$1');
+
+  // 10. Karan (\u0E4C) after upper/lower vowels: Karan + Vowel -> Vowel + Karan
+  // e.g. ธิ์ vs ธ์ิ, ธุ์ vs ธ์ุ
+  s = s.replace(/\u0E4C([\u0E31\u0E34-\u0E3A])/g, '$1\u0E4C');
+
+  // 11. Reorder Tone Mark and Karan: Karan + Tone Mark -> Tone Mark + Karan
+  s = s.replace(/\u0E4C([\u0E48-\u0E4B])/g, '$1\u0E4C');
 
   return s.trim();
 }
 
-const CLUSTER_PAIRS = new Set([
-  'กร', 'กล', 'กว', 'ขร', 'ขล', 'ขว', 'คร', 'คล', 'คว', 'ตร', 'ปร', 'ปล', 'ผล', 'พร', 'พล', 'ฟร', 'บล', 'บร', 'ดร', 'ฝร',
-  'กฤ', 'พฤ', 'หม', 'หน', 'หว', 'หล', 'หย', 'หง', 'หร', 'หญ', 'อย', 'ทร', 'ศร', 'สร', 'จร',
-]);
+/**
+ * Canonicalizes Thai text for robust equality comparison.
+ * Strips whitespace, hyphens, punctuation, and applies full Thai keystroke canonicalization.
+ */
+export function canonicalizeThaiString(str: string): string {
+  if (!str) return '';
+  return canonicalizeThaiScript(str, false);
+}
 
 /**
  * Splits arbitrary Thai text into phonetic syllable chunks
  */
 export function splitThaiIntoSyllables(text: string): string[] {
   const syllables: string[] = [];
-  const chars = Array.from(text);
+  const normalizedText = canonicalizeThaiScript(text, true);
+  const chars = Array.from(normalizedText);
   let i = 0;
 
   const isLeadingVowel = (c: string) => /[เแโใไ]/.test(c);
@@ -786,8 +863,15 @@ export function splitThaiIntoSyllables(text: string): string[] {
     }
 
     // In Thai, syllables with open vowels (ะ, เ-ะ, แ-ะ, โ-ะ, เ-าะ, ไ-, ใ-, -ำ, เ-า) CANNOT have a coda!
+    // Exception: Thai words like "ไทย" (thai) where final 'ย' is written after 'ไ'.
+    const hasSaraAi = chars.slice(start, end).some((c) => c === 'ไ');
+    if (hasSaraAi && end < chars.length && chars[end] === 'ย') {
+      end++; // consume 'ย' as part of syllable "ไทย"
+    }
+
     const cannotHaveCoda =
-      chars.slice(start, end).some((c) => /[ไใำะ]/.test(c)) ||
+      chars.slice(start, end).some((c) => /[ใำะ]/.test(c)) ||
+      (chars.slice(start, end).some((c) => c === 'ไ') && (!chars[end] || chars[end] !== 'ย')) ||
       (hasLeadingE && chars.slice(start, end).some((c) => c === 'า'));
 
     if (cannotHaveCoda) {
@@ -853,6 +937,10 @@ export function splitThaiIntoSyllables(text: string): string[] {
         if (!isConsonant(nextChar) || !isConsonant(afterNext)) return false;
         if (!FINAL_CONSONANTS[afterNext]) return false;
         if (CLUSTER_PAIRS.has(nextChar + afterNext)) return false;
+        // In native Thai 2C inherent /o/ words, codas must be from standard stops/nasals [งนมดบกยวลร]
+        if (!/^[งนมดบกยวลร]$/.test(afterNext)) return false;
+        // Initial consonant 'ง' is never followed by another stop without written vowel
+        if (nextChar === 'ง') return false;
         if (end + 2 >= chars.length) return true;
         const thirdChar = chars[end + 2];
         if (CLUSTER_PAIRS.has(afterNext + thirdChar)) return false;
@@ -1140,6 +1228,10 @@ export function parseThaiSyllable(raw: string): ParsedThaiSyllable {
     vowel = 'ai';
     isLong = true;
     isDead = false;
+    // In Thai words like "ไทย" (thai) or "ไชย" (chai), final 'ย' is silent:
+    if (s.endsWith('ย')) {
+      s = s.slice(0, -1);
+    }
   } else if (s.includes('ัว')) {
     vowel = 'ua';
     isLong = true;

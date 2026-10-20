@@ -52,6 +52,8 @@ export interface DeletedVocabEntry {
 
 export type ActiveTab = 'learn' | 'pool' | 'reference' | 'stats' | 'create' | 'settings' | 'admin';
 
+export type ThaiFontStyle = 'classic' | 'modern' | 'mixed';
+
 export interface PhaseConfig {
   phase: number;
   name: string;

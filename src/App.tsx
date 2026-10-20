@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ActiveTab, Vocabulary, UserProgress, QueryDirection } from './types/vocab';
+import { ActiveTab, Vocabulary, UserProgress, QueryDirection, ThaiFontStyle } from './types/vocab';
 import {
   fetchCommunityVocabularies,
   fetchUserProgress,
@@ -33,6 +33,7 @@ import { StudySession, StudyMode, StudyDirection, StudyInputMethod } from './com
 import { ListeningSession } from './components/ListeningSession';
 import { AuthModal } from './components/AuthModal';
 import { ToneRuleTrainerModal } from './components/ToneRuleTrainerModal';
+import { ThaiFontTrainerModal } from './components/ThaiFontTrainerModal';
 import { AdminView } from './components/AdminView';
 import { fetchAnnouncement, AdminAnnouncement } from './services/adminService';
 import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner';
@@ -45,6 +46,7 @@ function AppContent() {
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [toneTrainerOpen, setToneTrainerOpen] = useState<boolean>(false);
+  const [fontTrainerOpen, setFontTrainerOpen] = useState<boolean>(false);
   const [announcement, setAnnouncement] = useState<AdminAnnouncement | null>(null);
 
   // Deck vocabularies
@@ -124,6 +126,22 @@ function AppContent() {
       return true;
     }
   });
+
+  const [thaiFontStyle, setThaiFontStyle] = useState<ThaiFontStyle>(() => {
+    try {
+      const stored = localStorage.getItem('thai_hasis_font_style');
+      return (stored as ThaiFontStyle) || 'classic';
+    } catch {
+      return 'classic';
+    }
+  });
+
+  const handleToggleThaiFontStyle = (style: ThaiFontStyle) => {
+    setThaiFontStyle(style);
+    try {
+      localStorage.setItem('thai_hasis_font_style', style);
+    } catch {}
+  };
 
   const handleToggleColorCoding = (enabled: boolean) => {
     setColorCodingEnabled(enabled);
@@ -571,6 +589,7 @@ function AppContent() {
         onUpdateVocab={handleUpdateVocab}
         existingLessons={existingLessons}
         colorCodingEnabled={colorCodingEnabled}
+        fontStyle={thaiFontStyle}
       />
     );
   }
@@ -668,6 +687,7 @@ function AppContent() {
                 onNavigateCreate={() => setActiveTab('create')}
                 onNavigateStats={() => setActiveTab('stats')}
                 onOpenToneTrainer={() => setToneTrainerOpen(true)}
+                onOpenFontTrainer={() => setFontTrainerOpen(true)}
               />
             )}
 
@@ -677,6 +697,7 @@ function AppContent() {
                 onToggleColorCoding={handleToggleColorCoding}
                 onNavigateLearn={() => setActiveTab('learn')}
                 onOpenToneTrainer={() => setToneTrainerOpen(true)}
+                onOpenFontTrainer={() => setFontTrainerOpen(true)}
               />
             )}
 
@@ -742,6 +763,8 @@ function AppContent() {
                 onToggleAcceptRomanizationTyping={handleToggleAcceptRomanizationTyping}
                 colorCodingEnabled={colorCodingEnabled}
                 onToggleColorCoding={handleToggleColorCoding}
+                thaiFontStyle={thaiFontStyle}
+                onToggleThaiFontStyle={handleToggleThaiFontStyle}
                 studyMode={studyMode}
                 onToggleStudyMode={handleToggleStudyMode}
                 studyDirection={studyDirection}
@@ -785,6 +808,13 @@ function AppContent() {
         isOpen={toneTrainerOpen}
         onClose={() => setToneTrainerOpen(false)}
         deckVocabs={deckVocabs}
+      />
+
+      {/* Interactive Thai Font Trainer (Klassisch vs. Modern / Loopless) */}
+      <ThaiFontTrainerModal
+        isOpen={fontTrainerOpen}
+        onClose={() => setFontTrainerOpen(false)}
+        colorCodingEnabled={colorCodingEnabled}
       />
     </div>
   );
