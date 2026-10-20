@@ -1177,6 +1177,23 @@ Lecker;อร่อย;a-roi;Essen & Trinken;อาหารนี้อร่�
             </span>
           </div>
 
+          {/* Intelligente Äquivalenzprüfung (Pronomen & Höflichkeit) */}
+          <div className="flex items-start justify-between py-2.5 border-b border-[#323236]/60 text-xs">
+            <div>
+              <p className="text-sm font-medium text-white flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Gleichwertige Formen (Pronomen & Höflichkeit)</span>
+              </p>
+              <p className="text-xs text-[#8E8E93] mt-0.5 leading-relaxed">
+                <span className="text-white font-semibold">ผม / ฉัน / ดิฉัน</span> (ich m/w) sowie{' '}
+                <span className="text-white font-semibold">ครับ / ค่ะ</span> (Höflichkeitspartikel) werden bei allen Abfragen automatisch als vollwertig und gleichwertig anerkannt.
+              </p>
+            </div>
+            <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30 shrink-0 ml-2">
+              Aktiv
+            </span>
+          </div>
+
           {/* Romanization Toggle */}
           <div className="flex items-center justify-between py-2.5 border-b border-[#323236]/60">
             <div>

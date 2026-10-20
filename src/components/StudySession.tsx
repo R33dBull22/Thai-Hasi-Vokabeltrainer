@@ -123,30 +123,133 @@ function simplifyRoman(col: string): string {
     .replace(/ae/g, 'e');
 }
 
-function isThaiPoliteMatch(userStr: string, targetStr: string): boolean {
+// 1st-person Thai pronouns ("ich"):
+// ผม (phom - male), ฉัน (chan - female/informal), ดิฉัน (dichan - formal female), หนู (nuu - junior/female)
+const THAI_FIRST_PERSON_PRONOUNS_REGEX = /^(?:ผม|ฉัน|ดิฉัน|หนู)$/;
+const ROMAN_FIRST_PERSON_PRONOUNS = new Set([
+  'phom',
+  'pom',
+  'chan',
+  'chun',
+  'dichan',
+  'dichun',
+  'nu',
+  'nuu',
+]);
+
+function isThaiFirstPersonPronounOnly(str: string): boolean {
+  return THAI_FIRST_PERSON_PRONOUNS_REGEX.test(str.trim());
+}
+
+function isRomanFirstPersonPronounOnly(col: string): boolean {
+  return ROMAN_FIRST_PERSON_PRONOUNS.has(col.trim().toLowerCase());
+}
+
+/**
+ * Normalizes 1st person pronouns in Thai script to a canonical placeholder '@@PRON_1ST@@'
+ * Handles standalone occurrences or within compound phrases (e.g. "ผมชื่อ" -> "@@PRON_1ST@@ชื่อ", "ของผม" -> "ของ@@PRON_1ST@@")
+ */
+function normalizeThaiPronouns(str: string): string {
+  if (!str) return '';
+  return str.replace(/(?:ดิฉัน|ฉัน|ผม|หนู)/g, '@@PRON_1ST@@');
+}
+
+/**
+ * Normalizes 1st person pronouns in Romanization to '@@PRON_1ST@@'
+ */
+function normalizeRomanPronouns(col: string): string {
+  if (!col) return '';
+  return col.replace(/(?:di[- ]?chan|di[- ]?chun|dichan|dichun|phom|pom|chan|chun)/gi, '@@PRON_1ST@@');
+}
+
+function isThaiEquivalentMatch(userStr: string, targetStr: string): boolean {
   if (!userStr || !targetStr) return false;
-  // If both are polite particles alone (ครับ vs ค่ะ / คะ / etc.), they are always equivalent!
-  if (isThaiPoliteOnly(userStr) && isThaiPoliteOnly(targetStr)) return true;
+
+  // 1. Both are 1st person pronouns alone (ผม vs ฉัน vs ดิฉัน)
+  if (isThaiFirstPersonPronounOnly(userStr) && isThaiFirstPersonPronounOnly(targetStr)) {
+    return true;
+  }
+
+  // 2. Both are polite particles alone (ครับ vs ค่ะ / คะ / etc.)
+  if (isThaiPoliteOnly(userStr) && isThaiPoliteOnly(targetStr)) {
+    return true;
+  }
+
+  // 3. Pronoun + polite particle combo alone (e.g. ผมครับ vs ฉันค่ะ)
   const uCore = stripThaiPolite(userStr);
   const tCore = stripThaiPolite(targetStr);
+
+  if (
+    isThaiFirstPersonPronounOnly(uCore || userStr) &&
+    isThaiFirstPersonPronounOnly(tCore || targetStr)
+  ) {
+    return true;
+  }
+
+  // 4. Exact core match after stripping polite particles
   if (uCore && tCore && uCore === tCore) return true;
   if (uCore && uCore === targetStr) return true;
   if (tCore && userStr === tCore) return true;
+
+  // 5. Full sentence / phrase match with both pronoun canonicalization and polite stripping
+  // e.g. "ผมชื่อ..." vs "ฉันชื่อ...", "ของผม" vs "ของฉัน"
+  const uNorm = normalizeThaiPronouns(uCore || userStr);
+  const tNorm = normalizeThaiPronouns(tCore || targetStr);
+  if (uNorm && tNorm && uNorm === tNorm) return true;
+
+  const uRawNorm = normalizeThaiPronouns(userStr);
+  const tRawNorm = normalizeThaiPronouns(targetStr);
+  if (uRawNorm && tRawNorm && uRawNorm === tRawNorm) return true;
+
   return false;
 }
 
-function isRomanPoliteMatch(userCol: string, targetCol: string): boolean {
+function isRomanEquivalentMatch(userCol: string, targetCol: string): boolean {
   if (!userCol || !targetCol) return false;
-  // If both are polite particles alone (kha vs khrab, ka vs krub, etc.), always valid!
-  if (isRomanPoliteOnly(userCol) && isRomanPoliteOnly(targetCol)) return true;
+
+  // 1. Both are 1st person pronouns alone (phom vs chan vs dichan)
+  if (isRomanFirstPersonPronounOnly(userCol) && isRomanFirstPersonPronounOnly(targetCol)) {
+    return true;
+  }
+
+  // 2. Both are polite particles alone (khrab vs kha)
+  if (isRomanPoliteOnly(userCol) && isRomanPoliteOnly(targetCol)) {
+    return true;
+  }
+
+  // 3. Pronoun + polite particle alone
   const uCore = stripRomanPolite(userCol);
   const tCore = stripRomanPolite(targetCol);
+
+  if (
+    isRomanFirstPersonPronounOnly(uCore || userCol) &&
+    isRomanFirstPersonPronounOnly(tCore || targetCol)
+  ) {
+    return true;
+  }
+
   if (uCore && tCore) {
     if (uCore === tCore) return true;
     if (simplifyRoman(uCore) === simplifyRoman(tCore)) return true;
   }
   if (uCore && (uCore === targetCol || simplifyRoman(uCore) === simplifyRoman(targetCol))) return true;
   if (tCore && (userCol === tCore || simplifyRoman(userCol) === simplifyRoman(tCore))) return true;
+
+  // 4. Full sentence / phrase match with both pronoun canonicalization and polite stripping
+  const uNorm = normalizeRomanPronouns(uCore || userCol);
+  const tNorm = normalizeRomanPronouns(tCore || targetCol);
+  if (uNorm && tNorm) {
+    if (uNorm === tNorm) return true;
+    if (simplifyRoman(uNorm) === simplifyRoman(tNorm)) return true;
+  }
+
+  const uRawNorm = normalizeRomanPronouns(userCol);
+  const tRawNorm = normalizeRomanPronouns(targetCol);
+  if (uRawNorm && tRawNorm) {
+    if (uRawNorm === tRawNorm) return true;
+    if (simplifyRoman(uRawNorm) === simplifyRoman(tRawNorm)) return true;
+  }
+
   return false;
 }
 
@@ -164,11 +267,17 @@ function evaluateInput(
     const userRom = normalizeRomanization(trimmed);
     const targetThai = canonicalizeThaiString(v.thai);
 
-    // 0. Polite particle interchangeability (both kha and khrab are ALWAYS valid)
-    // If user entered a polite particle alone (Roman or Thai) and target is a polite particle alone
+    // 0. Polite particle & 1st-person pronoun interchangeability (ผม ↔ ฉัน ↔ ดิฉัน and ครับ ↔ ค่ะ)
     if (
       (isThaiPoliteOnly(userThai) || isRomanPoliteOnly(userRom.collapsed)) &&
       (isThaiPoliteOnly(targetThai) || (v.romanization && isRomanPoliteOnly(normalizeRomanization(v.romanization).collapsed)))
+    ) {
+      return true;
+    }
+
+    if (
+      (isThaiFirstPersonPronounOnly(userThai) || isRomanFirstPersonPronounOnly(userRom.collapsed)) &&
+      (isThaiFirstPersonPronounOnly(targetThai) || (v.romanization && isRomanFirstPersonPronounOnly(normalizeRomanization(v.romanization).collapsed)))
     ) {
       return true;
     }
@@ -182,8 +291,8 @@ function evaluateInput(
     if (
       userThai === targetThai ||
       thaiAlternatives.includes(userThai) ||
-      isThaiPoliteMatch(userThai, targetThai) ||
-      thaiAlternatives.some((alt) => isThaiPoliteMatch(userThai, alt))
+      isThaiEquivalentMatch(userThai, targetThai) ||
+      thaiAlternatives.some((alt) => isThaiEquivalentMatch(userThai, alt))
     ) {
       return true;
     }
@@ -201,8 +310,8 @@ function evaluateInput(
       if (
         userThai === canonWithoutParen ||
         parenAlternatives.includes(userThai) ||
-        isThaiPoliteMatch(userThai, canonWithoutParen) ||
-        parenAlternatives.some((alt) => isThaiPoliteMatch(userThai, alt))
+        isThaiEquivalentMatch(userThai, canonWithoutParen) ||
+        parenAlternatives.some((alt) => isThaiEquivalentMatch(userThai, alt))
       ) {
         return true;
       }
@@ -235,7 +344,7 @@ function evaluateInput(
         ...cleanAlternatives.map((a) => a.collapsed),
       ].filter(Boolean);
 
-      // Match either spaced ("sa wat dee") or collapsed ("sawatdee") or with polite particle interchangeability
+      // Match either spaced ("sa wat dee") or collapsed ("sawatdee") or with pronoun / polite particle interchangeability
       if (
         userRom.collapsed === fullRom.collapsed ||
         userRom.spaced === fullRom.spaced ||
@@ -247,7 +356,7 @@ function evaluateInput(
         cleanAlternatives.some(
           (alt) => alt.collapsed === userRom.collapsed || alt.spaced === userRom.spaced
         ) ||
-        allTargetCols.some((tc) => isRomanPoliteMatch(userRom.collapsed, tc))
+        allTargetCols.some((tc) => isRomanEquivalentMatch(userRom.collapsed, tc))
       ) {
         return true;
       }
@@ -296,6 +405,35 @@ function evaluateInput(
       candidateVariants.add('ja');
       candidateVariants.add('hoflichkeitspartikel');
       candidateVariants.add('hoflichkeitsform');
+    }
+
+    // For 1st-person pronoun vocabulary (e.g. ผม / ฉัน / ดิฉัน), also accept general and gendered German forms
+    if (
+      isThaiFirstPersonPronounOnly(canonicalizeThaiString(v.thai)) ||
+      (v.romanization && isRomanFirstPersonPronounOnly(normalizeRomanization(v.romanization).collapsed)) ||
+      /\bich\b/i.test(v.german)
+    ) {
+      candidateVariants.add('ich');
+      candidateVariants.add('ich mannlich');
+      candidateVariants.add('ich weiblich');
+      candidateVariants.add('ich mann');
+      candidateVariants.add('ich frau');
+      candidateVariants.add('ich mannlich gesprochen');
+      candidateVariants.add('ich weiblich gesprochen');
+    }
+
+    // For 1st-person possessives (e.g. ของผม / ของฉัน)
+    if (
+      v.thai.includes('ของผม') ||
+      v.thai.includes('ของฉัน') ||
+      /\bmein\b|\bmeine\b/i.test(v.german)
+    ) {
+      candidateVariants.add('mein');
+      candidateVariants.add('meine');
+      candidateVariants.add('meiner');
+      candidateVariants.add('meines');
+      candidateVariants.add('mein mannlich');
+      candidateVariants.add('mein weiblich');
     }
 
     const userWithoutArticle = userGerman.replace(/^(der|die|das|ein|eine|einen|einem|einer)\s+/, '');
