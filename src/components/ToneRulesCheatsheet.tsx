@@ -14,7 +14,7 @@ import {
   ChevronRight,
   Flame,
 } from 'lucide-react';
-import { speakThai } from '../utils/thaiAudio';
+import { speakThai, normalizeThaiText } from '../utils/thaiAudio';
 import { THAI_TONES, ThaiTone, parseThaiSyllable, splitThaiIntoSyllables } from '../utils/thaiTones';
 import { CONSONANT_CLASS_CONFIG, ConsonantClass, THAI_CONSONANTS } from '../data/thaiAlphabet';
 
@@ -150,9 +150,14 @@ export const ToneRulesCheatsheet: React.FC<ToneRulesCheatsheetProps> = ({
       else if (syl.includes('๊')) toneMarkName = 'Mai Tri (๊)';
       else if (syl.includes('๋')) toneMarkName = 'Mai Chattawa (๋)';
 
-      // Detect dead or live
+      // Detect dead or live (Sara Am, Sara Ai, Sara Ao count as LIVE syllables with sonorant endings)
       let endingType = 'Lebend (คำเป็น)';
-      if (/[กขคฆดตถทธจชซศษสบปพฟภ]/.test(syl.slice(-1)) || /ะ|ั|ิ|ึ|ุ/.test(syl)) {
+      const isSonorantEnding = /[นมงยวญณรลฬ]/.test(syl.slice(-1));
+      if (syl.includes('ำ') || syl.includes('ใ') || syl.includes('ไ') || (syl.includes('เ') && syl.includes('า'))) {
+        endingType = 'Lebend (คำเป็น / Sonorant)';
+      } else if (isSonorantEnding) {
+        endingType = 'Lebend (คำเป็น / Sonorant-Endlaut)';
+      } else if (/[กขคฆดตถทธจชซศษสบปพฟภ]/.test(syl.slice(-1)) || /ะ|ั|ิ|ึ|ุ/.test(syl)) {
         endingType = 'Tot (คำตาย / K-P-T oder kurz)';
       }
 
@@ -636,13 +641,13 @@ export const ToneRulesCheatsheet: React.FC<ToneRulesCheatsheetProps> = ({
               <input
                 type="text"
                 value={customWord}
-                onChange={(e) => setCustomWord(e.target.value)}
+                onChange={(e) => setCustomWord(normalizeThaiText(e.target.value))}
                 placeholder="z. B. ขอบคุณ, น้ำ, ข้าว..."
                 className="flex-1 px-3.5 py-2.5 bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl text-base font-thai text-white focus:outline-none focus:border-[#FF7A00]"
               />
               <button
                 type="button"
-                onClick={() => speakThai(customWord)}
+                onClick={() => speakThai(normalizeThaiText(customWord))}
                 className="px-4 py-2.5 rounded-xl bg-[#FF7A00] text-black font-semibold hover:bg-[#FF881A] transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
               >
                 <Volume2 className="w-4 h-4" />

@@ -10,7 +10,6 @@ import {
   Sparkles,
   Trophy,
   Headphones,
-  Type,
 } from 'lucide-react';
 import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
 import { isCardDue, isDirectionDue, getDirectionProgress, shuffleStudyCards } from '../utils/leitner';
@@ -43,7 +42,6 @@ interface LearnViewProps {
   onNavigateCreate: () => void;
   onNavigateStats?: () => void;
   onOpenToneTrainer?: () => void;
-  onOpenFontTrainer?: () => void;
 }
 
 export const LearnView: React.FC<LearnViewProps> = ({
@@ -59,7 +57,6 @@ export const LearnView: React.FC<LearnViewProps> = ({
   onNavigateCreate,
   onNavigateStats,
   onOpenToneTrainer,
-  onOpenFontTrainer,
 }) => {
   const [showReports, setShowReports] = useState(false);
   const [showListeningModal, setShowListeningModal] = useState(false);
@@ -453,35 +450,6 @@ export const LearnView: React.FC<LearnViewProps> = ({
             </div>
             <span className="text-xs font-bold text-[#FF7A00] px-2.5 py-1 rounded-full bg-[#FF7A00]/10 border border-[#FF7A00]/30 group-hover:bg-[#FF7A00] group-hover:text-black transition-all">
               Starten →
-            </span>
-          </button>
-        )}
-
-        {/* Schriftarten-Trainer: Klassisch vs. Modern Banner */}
-        {onOpenFontTrainer && (
-          <button
-            type="button"
-            onClick={onOpenFontTrainer}
-            className="w-full py-3.5 px-4 rounded-full bg-gradient-to-r from-[#1B2228] via-[#1E1F24] to-[#1B2228] border border-sky-500/40 text-white font-semibold text-sm hover:border-sky-400 hover:from-[#202930] hover:to-[#24262E] transition-all flex items-center justify-between active:scale-[0.99] shadow-sm group cursor-pointer"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 group-hover:scale-110 transition-transform">
-                <Type className="w-4 h-4 text-sky-400" />
-              </div>
-              <div className="text-left">
-                <span className="block text-xs font-bold text-white flex items-center gap-1.5">
-                  <span>Schriftarten-Trainer</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-bold">
-                    Klassisch ↔ Modern
-                  </span>
-                </span>
-                <span className="block text-[10px] text-[#8E8E93]">
-                  Kopflose Schriften (Loopless) & Straßenschilder meistern
-                </span>
-              </div>
-            </div>
-            <span className="text-xs font-bold text-sky-400 px-2.5 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 group-hover:bg-sky-400 group-hover:text-black transition-all">
-              Öffnen →
             </span>
           </button>
         )}

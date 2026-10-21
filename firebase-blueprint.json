@@ -64,7 +64,7 @@
       "description": "Registered app accounts"
     },
     "/admin_settings/{settingId}": {
-      "description": "Admin configuration and global announcements"
+      "description": "Admin configuration, global announcements, and registration lockdown settings"
     },
     "/admin_codes/{codeId}": {
       "description": "Admin generated registration and invitation codes"

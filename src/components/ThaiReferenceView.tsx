@@ -13,7 +13,6 @@ import {
   X,
   Sliders,
   Palette,
-  Type,
 } from 'lucide-react';
 import {
   THAI_CONSONANTS,
@@ -34,7 +33,6 @@ interface ThaiReferenceViewProps {
   onToggleColorCoding?: (enabled: boolean) => void;
   onNavigateLearn?: () => void;
   onOpenToneTrainer?: () => void;
-  onOpenFontTrainer?: () => void;
 }
 
 export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
@@ -42,10 +40,8 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
   onToggleColorCoding,
   onNavigateLearn,
   onOpenToneTrainer,
-  onOpenFontTrainer,
 }) => {
   const [activeSection, setActiveSection] = useState<'consonants' | 'vowels' | 'tone_rules' | 'cheatsheet'>('consonants');
-  const [previewFont, setPreviewFont] = useState<'classic' | 'modern'>('classic');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState<'all' | ConsonantClass>('all');
   const [vowelFilter, setVowelFilter] = useState<'all' | 'short' | 'long' | 'special'>('all');
@@ -243,70 +239,26 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
             </button>
           </div>
 
-          {/* Search Input & Font Preview Toggle */}
-          <div className="space-y-2">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#8E8E93]">
-                <Search className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Suche Konsonant (z. B. ก, Huhn, gor, kh)..."
-                className="w-full pl-10 pr-4 py-2.5 bg-[#242426] rounded-xl text-xs text-white placeholder-[#8E8E93] border border-[#323236] focus:outline-none focus:border-[#FF7A00]"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-[#8E8E93] hover:text-white"
-                >
-                  ✕
-                </button>
-              )}
+          {/* Search Input */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#8E8E93]">
+              <Search className="w-4 h-4" />
             </div>
-
-            {/* Font Preview Switcher & Trainer Launch */}
-            <div className="flex items-center justify-between bg-[#1C1C1E] p-2 rounded-xl border border-[#2C2C2E] text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-[#8E8E93] font-medium">Schrift:</span>
-                <div className="flex items-center bg-[#242426] rounded-lg p-0.5 border border-[#323236]">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewFont('classic')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
-                      previewFont === 'classic'
-                        ? 'bg-[#FF7A00] text-black shadow-xs'
-                        : 'text-[#8E8E93] hover:text-white'
-                    }`}
-                  >
-                    Klassisch (mit Kopf)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewFont('modern')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
-                      previewFont === 'modern'
-                        ? 'bg-sky-400 text-black shadow-xs'
-                        : 'text-[#8E8E93] hover:text-white'
-                    }`}
-                  >
-                    Modern (Kanit)
-                  </button>
-                </div>
-              </div>
-
-              {onOpenFontTrainer && (
-                <button
-                  type="button"
-                  onClick={onOpenFontTrainer}
-                  className="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <Type className="w-3 h-3" />
-                  <span>Trainer öffnen</span>
-                </button>
-              )}
-            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Suche Konsonant (z. B. ก, Huhn, gor, kh)..."
+              className="w-full pl-10 pr-4 py-2.5 bg-[#242426] rounded-xl text-xs text-white placeholder-[#8E8E93] border border-[#323236] focus:outline-none focus:border-[#FF7A00]"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-[#8E8E93] hover:text-white"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
           {/* Consonant Cards Grid */}
@@ -323,7 +275,7 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className={`text-3xl font-bold ${previewFont === 'modern' ? 'font-thai-kanit' : 'font-thai'} ${cfg.colorClass}`}>
+                      <span className={`text-3xl font-bold font-thai ${cfg.colorClass}`}>
                         {c.letter}
                       </span>
                       <p className="text-xs font-bold text-white mt-0.5">{c.nameThai}</p>
@@ -838,23 +790,6 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
             </div>
 
             <div className="space-y-2 text-xs">
-              {/* Dual Font Comparison: Classic vs Modern */}
-              <div className="flex items-center justify-around p-2.5 bg-[#242426] rounded-xl border border-[#323236]">
-                <div className="text-center">
-                  <span className="text-3xl font-thai-classic text-white block">
-                    {selectedConsonant.letter}
-                  </span>
-                  <span className="text-[9px] text-[#8E8E93]">Klassisch (mit Kopf)</span>
-                </div>
-                <span className="text-sm text-[#71717A]">➔</span>
-                <div className="text-center">
-                  <span className="text-3xl font-thai-kanit text-[#FF7A00] font-bold block">
-                    {selectedConsonant.letter}
-                  </span>
-                  <span className="text-[9px] text-[#FF7A00]">Modern (Kanit)</span>
-                </div>
-              </div>
-
               <div className="flex items-center justify-between p-2.5 bg-[#242426] rounded-xl border border-[#323236]">
                 <span className="text-[#8E8E93]">Deutsche Bedeutung:</span>
                 <span className="font-semibold text-white">{selectedConsonant.meaningGerman}</span>

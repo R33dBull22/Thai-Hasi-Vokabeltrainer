@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { Vocabulary, UserProgress } from '../types/vocab';
 import { generateRomanizationFromThai } from '../utils/thaiTones';
@@ -28,9 +28,139 @@ export interface AdminAnnouncement {
   updatedAt: string;
 }
 
+export interface AdminRegistrationSettings {
+  locked: boolean;
+  lockReason: string;
+  allowVipCodeBypass: boolean;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export const DEFAULT_REGISTRATION_SETTINGS: AdminRegistrationSettings = {
+  locked: false,
+  lockReason: 'Neue Registrierungen sind derzeit durch den Administrator vorübergehend pausiert.',
+  allowVipCodeBypass: true,
+  updatedAt: '2026-01-01T00:00:00Z',
+};
+
 const LOCAL_ADMIN_CODES_KEY = 'thai_hasis_admin_codes_v1';
 const LOCAL_ANNOUNCEMENT_KEY = 'thai_hasis_announcement_v1';
 const LOCAL_ACCOUNTS_KEY = 'thai_hasis_accounts_v1';
+const LOCAL_REG_SETTINGS_KEY = 'thai_hasis_registration_settings_v1';
+
+// --- REGISTRATION LOCKDOWN CONTROLS ---
+
+export async function fetchRegistrationSettings(): Promise<AdminRegistrationSettings> {
+  let settings: AdminRegistrationSettings = { ...DEFAULT_REGISTRATION_SETTINGS };
+
+  // 1. Check Firestore
+  try {
+    const snap = await getDoc(doc(db, 'admin_settings', 'registration'));
+    if (snap.exists()) {
+      const data = snap.data();
+      settings = {
+        locked: Boolean(data.locked),
+        lockReason: data.lockReason || DEFAULT_REGISTRATION_SETTINGS.lockReason,
+        allowVipCodeBypass: data.allowVipCodeBypass !== false,
+        updatedAt: data.updatedAt || new Date().toISOString(),
+        updatedBy: data.updatedBy || '',
+      };
+      try {
+        localStorage.setItem(LOCAL_REG_SETTINGS_KEY, JSON.stringify(settings));
+      } catch {}
+      return settings;
+    }
+  } catch (err) {
+    console.warn('Could not fetch registration settings from Firestore:', err);
+  }
+
+  // 2. Check localStorage
+  try {
+    const local = localStorage.getItem(LOCAL_REG_SETTINGS_KEY);
+    if (local) {
+      const parsed = JSON.parse(local);
+      return {
+        ...DEFAULT_REGISTRATION_SETTINGS,
+        ...parsed,
+      };
+    }
+  } catch {}
+
+  return settings;
+}
+
+export async function saveRegistrationSettings(settings: AdminRegistrationSettings): Promise<void> {
+  const payload: AdminRegistrationSettings = {
+    locked: Boolean(settings.locked),
+    lockReason: settings.lockReason?.trim() || DEFAULT_REGISTRATION_SETTINGS.lockReason,
+    allowVipCodeBypass: settings.allowVipCodeBypass !== false,
+    updatedAt: new Date().toISOString(),
+    updatedBy: settings.updatedBy || 'admin',
+  };
+
+  try {
+    await setDoc(doc(db, 'admin_settings', 'registration'), payload);
+  } catch (err) {
+    console.warn('Failed saving registration settings to Firestore:', err);
+  }
+
+  try {
+    localStorage.setItem(LOCAL_REG_SETTINGS_KEY, JSON.stringify(payload));
+  } catch {}
+
+  // Notify active components in the current window
+  try {
+    window.dispatchEvent(
+      new CustomEvent('thai_hasis_registration_settings_changed', { detail: payload })
+    );
+  } catch {}
+}
+
+export function subscribeToRegistrationSettings(
+  callback: (settings: AdminRegistrationSettings) => void
+): () => void {
+  const handleLocalChange = (e: any) => {
+    if (e.detail) {
+      callback(e.detail);
+    }
+  };
+  window.addEventListener('thai_hasis_registration_settings_changed', handleLocalChange);
+
+  let unsubFirestore: (() => void) | null = null;
+  try {
+    unsubFirestore = onSnapshot(
+      doc(db, 'admin_settings', 'registration'),
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          const s: AdminRegistrationSettings = {
+            locked: Boolean(data.locked),
+            lockReason: data.lockReason || DEFAULT_REGISTRATION_SETTINGS.lockReason,
+            allowVipCodeBypass: data.allowVipCodeBypass !== false,
+            updatedAt: data.updatedAt || new Date().toISOString(),
+            updatedBy: data.updatedBy || '',
+          };
+          try {
+            localStorage.setItem(LOCAL_REG_SETTINGS_KEY, JSON.stringify(s));
+          } catch {}
+          callback(s);
+        }
+      },
+      (error) => {
+        console.warn('Registration settings snapshot listener warning:', error);
+      }
+    );
+  } catch (err) {
+    console.warn('Failed setting up Firestore registration settings snapshot:', err);
+  }
+
+  return () => {
+    window.removeEventListener('thai_hasis_registration_settings_changed', handleLocalChange);
+    if (unsubFirestore) {
+      unsubFirestore();
+    }
+  };
+}
 
 // --- 1. REGISTRATION & INVITE CODES ---
 

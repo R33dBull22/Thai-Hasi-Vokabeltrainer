@@ -23,6 +23,8 @@ import {
   Eye,
   Calendar,
   Crown,
+  Unlock,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Vocabulary, UserProgress } from '../types/vocab';
@@ -30,6 +32,10 @@ import {
   AdminInviteCode,
   AdminLearner,
   AdminAnnouncement,
+  AdminRegistrationSettings,
+  DEFAULT_REGISTRATION_SETTINGS,
+  fetchRegistrationSettings,
+  saveRegistrationSettings,
   fetchAdminCodes,
   createAdminCode,
   toggleAdminCodeStatus,
@@ -60,10 +66,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onBatchPermanentlyDelete,
   onNavigateHome,
 }) => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, registrationSettings, updateRegistrationLock } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'codes' | 'learners' | 'pool' | 'announcement' | 'backup'>('codes');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Registration lockdown state
+  const [regSettings, setRegSettings] = useState<AdminRegistrationSettings>(
+    () => registrationSettings || DEFAULT_REGISTRATION_SETTINGS
+  );
+  const [isSavingRegSettings, setIsSavingRegSettings] = useState(false);
 
   // Codes state
   const [codes, setCodes] = useState<AdminInviteCode[]>([]);
@@ -116,15 +128,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const loadAllAdminData = async () => {
     setIsLoadingData(true);
     try {
-      const [fetchedCodes, fetchedLearners, fetchedAnnouncement] = await Promise.all([
+      const [fetchedCodes, fetchedLearners, fetchedAnnouncement, fetchedRegSettings] = await Promise.all([
         fetchAdminCodes(),
         fetchAdminLearners(progressMap),
         fetchAnnouncement(),
+        fetchRegistrationSettings(),
       ]);
       setCodes(fetchedCodes);
       setLearners(fetchedLearners);
       if (fetchedAnnouncement) {
         setAnnouncement(fetchedAnnouncement);
+      }
+      if (fetchedRegSettings) {
+        setRegSettings(fetchedRegSettings);
       }
     } catch (err) {
       console.warn('Error loading admin data:', err);
@@ -136,6 +152,54 @@ export const AdminView: React.FC<AdminViewProps> = ({
   useEffect(() => {
     loadAllAdminData();
   }, []);
+
+  useEffect(() => {
+    if (registrationSettings) {
+      setRegSettings(registrationSettings);
+    }
+  }, [registrationSettings]);
+
+  // Handle Quick Toggle of Registration Lockdown
+  const handleToggleRegistrationLock = async (nextLocked: boolean) => {
+    setIsSavingRegSettings(true);
+    try {
+      const updated: AdminRegistrationSettings = {
+        ...regSettings,
+        locked: nextLocked,
+        updatedAt: new Date().toISOString(),
+      };
+      setRegSettings(updated);
+      await updateRegistrationLock(nextLocked, updated.lockReason, updated.allowVipCodeBypass);
+      showToast(
+        nextLocked
+          ? '🔒 Neuregistrierungen wurden erfolgreich GESPERRT!'
+          : '🟢 Neuregistrierungen wurden erfolgreich FREIGEGEBEN!'
+      );
+    } catch (err: any) {
+      showToast(`Fehler: ${err.message || 'Konnte nicht geändert werden'}`);
+    } finally {
+      setIsSavingRegSettings(false);
+    }
+  };
+
+  // Handle Save Custom Registration Lockdown Settings
+  const handleSaveRegistrationSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingRegSettings(true);
+    try {
+      const updated: AdminRegistrationSettings = {
+        ...regSettings,
+        updatedAt: new Date().toISOString(),
+      };
+      await updateRegistrationLock(updated.locked, updated.lockReason, updated.allowVipCodeBypass);
+      setRegSettings(updated);
+      showToast('✓ Einstellungen zur Registrierungssperre erfolgreich gespeichert!');
+    } catch (err: any) {
+      showToast(`Fehler: ${err.message || 'Konnte nicht gespeichert werden'}`);
+    } finally {
+      setIsSavingRegSettings(false);
+    }
+  };
 
   // Filtered learners
   const filteredLearners = useMemo(() => {
@@ -443,7 +507,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       )}
 
       {/* Overview Stat Badges */}
-      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
         <div className="p-3 rounded-2xl bg-[#1C1C1E] border border-[#2C2C2E]">
           <span className="text-base font-bold text-amber-400 block">{vocabularies.length}</span>
           <span className="text-[10px] text-[#8E8E93] uppercase tracking-wider">Vokabeln</span>
@@ -456,12 +520,38 @@ export const AdminView: React.FC<AdminViewProps> = ({
           <span className="text-base font-bold text-sky-400 block">{codes.filter((c) => c.active).length}</span>
           <span className="text-[10px] text-[#8E8E93] uppercase tracking-wider">Aktive Codes</span>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('codes');
+            handleToggleRegistrationLock(!regSettings.locked);
+          }}
+          disabled={isSavingRegSettings}
+          className={`p-3 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center justify-center ${
+            regSettings.locked
+              ? 'bg-rose-500/15 border-rose-500/40 hover:bg-rose-500/25'
+              : 'bg-emerald-500/15 border-emerald-500/40 hover:bg-emerald-500/25'
+          }`}
+          title="Klicken, um Neuregistrierungen sofort zu sperren oder freizugeben"
+        >
+          <span
+            className={`text-sm font-bold flex items-center justify-center gap-1 ${
+              regSettings.locked ? 'text-rose-300' : 'text-emerald-300'
+            }`}
+          >
+            {regSettings.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+            {regSettings.locked ? 'Gesperrt' : 'Offen'}
+          </span>
+          <span className="text-[9px] text-[#8E8E93] uppercase tracking-wider block mt-0.5">
+            Registrierung
+          </span>
+        </button>
       </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-[#1C1C1E] p-1 rounded-2xl border border-[#2C2C2E] overflow-x-auto text-xs">
         {[
-          { id: 'codes', label: 'Codes', icon: Key },
+          { id: 'codes', label: 'Registrierung & Codes', icon: Key },
           { id: 'learners', label: 'Lerner', icon: Users },
           { id: 'pool', label: 'Pool & Qualität', icon: Database },
           { id: 'announcement', label: 'Ankündigung', icon: Megaphone },
@@ -487,9 +577,142 @@ export const AdminView: React.FC<AdminViewProps> = ({
         })}
       </div>
 
-      {/* TAB 1: REGISTRIERUNGS- & EINLADUNGSCODES */}
+      {/* TAB 1: REGISTRIERUNGS-SPERRE & EINLADUNGSCODES */}
       {activeTab === 'codes' && (
         <div className="space-y-4 text-xs">
+          {/* 1. MASTER REGISTRATION LOCKDOWN CARD */}
+          <div
+            className={`p-4 rounded-3xl border transition-all space-y-3.5 ${
+              regSettings.locked
+                ? 'bg-[#2A1618] border-rose-500/50 shadow-lg shadow-rose-950/30'
+                : 'bg-[#18281E] border-emerald-500/40 shadow-lg shadow-emerald-950/20'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 border ${
+                    regSettings.locked
+                      ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                      : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                  }`}
+                >
+                  {regSettings.locked ? (
+                    <Lock className="w-4 h-4 stroke-[2.5]" />
+                  ) : (
+                    <Unlock className="w-4 h-4 stroke-[2.5]" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                    <span>Neuregistrierungen</span>
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                        regSettings.locked
+                          ? 'bg-rose-500/30 border-rose-500/60 text-rose-200'
+                          : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                      }`}
+                    >
+                      {regSettings.locked ? '● GESPERRT' : '● FREIGEGEBEN'}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-[#A1A1AA] mt-0.5">
+                    {regSettings.locked
+                      ? 'Niemand kann sich aktuell ein neues Konto anlegen.'
+                      : 'Nutzer können sich mit gültigen Registrierungscodes anmelden.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Instant Toggle Button */}
+              <button
+                type="button"
+                onClick={() => handleToggleRegistrationLock(!regSettings.locked)}
+                disabled={isSavingRegSettings}
+                className={`px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow shrink-0 active:scale-95 disabled:opacity-50 ${
+                  regSettings.locked
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-900/40'
+                    : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-950/40'
+                }`}
+              >
+                {regSettings.locked ? (
+                  <>
+                    <Unlock className="w-3.5 h-3.5" />
+                    <span>Freigeben</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Sperren</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Custom Settings Form */}
+            <form onSubmit={handleSaveRegistrationSettings} className="space-y-3 pt-2 border-t border-white/10">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-[#D1D1D6] block mb-1">
+                  Sperr-Nachricht an Besucher (im Login-Dialog):
+                </label>
+                <textarea
+                  rows={2}
+                  value={regSettings.lockReason}
+                  onChange={(e) => setRegSettings((prev) => ({ ...prev, lockReason: e.target.value }))}
+                  placeholder="z. B. Neue Registrierungen sind derzeit durch den Administrator vorübergehend pausiert."
+                  className="w-full px-3 py-2 bg-[#1C1C1E] border border-white/15 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400 resize-none leading-relaxed"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-[#1C1C1E]/80 rounded-xl border border-white/10">
+                <div className="pr-2">
+                  <span className="font-semibold text-white block text-xs">VIP-Codes trotz Sperre erlauben</span>
+                  <span className="text-[10px] text-[#A1A1AA] block leading-tight">
+                    Personen mit einem aktiven Code aus der Liste unten können sich trotz aktiver Sperre registrieren.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={regSettings.allowVipCodeBypass}
+                  onChange={(e) => setRegSettings((prev) => ({ ...prev, allowVipCodeBypass: e.target.checked }))}
+                  className="w-4 h-4 rounded accent-amber-400 cursor-pointer shrink-0"
+                />
+              </div>
+
+              {/* Live Preview Box */}
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#8E8E93] block mb-1">
+                  Live-Vorschau in der Registrierungs-Maske:
+                </span>
+                <div className="p-3 bg-[#1C1C1E] border border-white/10 rounded-xl text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-rose-400 text-[11px]">
+                    <Lock className="w-3 h-3" />
+                    <span>Neuregistrierungen derzeit gesperrt</span>
+                  </div>
+                  <p className="text-[11px] text-[#D1D1D6] leading-relaxed">
+                    {regSettings.lockReason || 'Neue Registrierungen sind derzeit durch den Administrator deaktiviert.'}
+                  </p>
+                  {regSettings.allowVipCodeBypass && (
+                    <p className="text-[10px] text-amber-300 font-medium pt-0.5">
+                      ⚡ Exklusiver VIP-Zugang: Mit persönlichem Einladungscode möglich.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  disabled={isSavingRegSettings}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-[#FF7A00] text-black font-semibold text-xs hover:opacity-95 transition flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isSavingRegSettings ? 'Speichere...' : 'Sperr-Einstellungen speichern'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
           {/* Create Code Card */}
           <div className="bg-[#242426] p-4 rounded-2xl border border-[#3A3A3D] space-y-3">
             <h3 className="font-bold text-white text-sm flex items-center gap-2">

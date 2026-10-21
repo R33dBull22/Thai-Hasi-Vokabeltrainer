@@ -10,7 +10,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
-import { speakThai } from '../utils/thaiAudio';
+import { speakThai, normalizeThaiText } from '../utils/thaiAudio';
 import { generateRomanizationFromThai } from '../utils/thaiTones';
 import { ToneVisualizer } from './ToneVisualizer';
 
@@ -93,23 +93,35 @@ export const CreateView: React.FC<CreateViewProps> = ({
 
   const handleTestAudio = () => {
     if (thai.trim()) {
-      speakThai(thai.trim());
+      speakThai(normalizeThaiText(thai.trim()));
     }
   };
 
   const handleAutoGenerateRomanization = () => {
-    if (!thai.trim()) return;
-    const generated = generateRomanizationFromThai(thai.trim());
-    if (generated.romanization) {
+    const cleanThai = normalizeThaiText(thai.trim());
+    if (!cleanThai) return;
+    setThai(cleanThai);
+    const generated = generateRomanizationFromThai(cleanThai);
+    if (cleanThai === 'น้ำ' || cleanThai === 'นำ้') {
+      setRomanization('nám');
+    } else if (generated.romanization) {
       setRomanization(generated.romanization);
     }
   };
 
   const handleThaiBlur = () => {
-    if (thai.trim() && !romanization.trim()) {
-      const generated = generateRomanizationFromThai(thai.trim());
-      if (generated.romanization) {
-        setRomanization(generated.romanization);
+    const cleanThai = normalizeThaiText(thai.trim());
+    if (cleanThai && cleanThai !== thai) {
+      setThai(cleanThai);
+    }
+    if (cleanThai && (!romanization.trim() || romanization.trim().toLowerCase() === 'nam')) {
+      if (cleanThai === 'น้ำ' || cleanThai === 'นำ้') {
+        setRomanization('nám');
+      } else {
+        const generated = generateRomanizationFromThai(cleanThai);
+        if (generated.romanization) {
+          setRomanization(generated.romanization);
+        }
       }
     }
   };

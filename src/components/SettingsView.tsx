@@ -25,10 +25,9 @@ import {
   Sparkles,
   Palette,
   Crown,
-  Type,
 } from 'lucide-react';
 import { isLiveFirebaseApiKeyConfigured } from '../firebase/config';
-import { Vocabulary, UserProgress, DeletedVocabEntry, ThaiFontStyle } from '../types/vocab';
+import { Vocabulary, UserProgress, DeletedVocabEntry } from '../types/vocab';
 import { StudyInputMethod, StudyMode, StudyDirection } from './StudySession';
 import {
   exportToCSV,
@@ -70,8 +69,6 @@ interface SettingsViewProps {
   onRefreshData: () => Promise<void>;
   colorCodingEnabled?: boolean;
   onToggleColorCoding?: (enabled: boolean) => void;
-  thaiFontStyle?: ThaiFontStyle;
-  onToggleThaiFontStyle?: (val: ThaiFontStyle) => void;
   onNavigateAdmin?: () => void;
 }
 
@@ -96,8 +93,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onRefreshData,
   colorCodingEnabled = true,
   onToggleColorCoding,
-  thaiFontStyle = 'classic',
-  onToggleThaiFontStyle,
   onNavigateAdmin,
 }) => {
   const { user, isGuest, logout, isAdmin } = useAuth();
@@ -1069,75 +1064,7 @@ Lecker;อร่อย;a-roi;Essen & Trinken;อาหารนี้อร่�
             </button>
           </div>
 
-          {/* Schriftstil für Vokabeln & Karten (Klassisch vs. Modern) */}
-          {onToggleThaiFontStyle && (
-            <div className="py-2.5 border-b border-[#323236]/60">
-              <div className="mb-2">
-                <p className="text-sm font-medium text-white flex items-center gap-1.5">
-                  <Type className="w-4 h-4 text-sky-400" />
-                  <span>Schriftstil für Vokabeln & Abfragen</span>
-                </p>
-                <p className="text-xs text-[#8E8E93]">
-                  Wähle zwischen traditioneller Behördenschrift oder moderner kopfloser Straßenschild-Schrift (BTS / Werbung)
-                </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => onToggleThaiFontStyle('classic')}
-                  className={`py-2 px-1.5 rounded-xl text-center border transition-all cursor-pointer ${
-                    thaiFontStyle === 'classic'
-                      ? 'bg-[#FF7A00] text-black border-[#FF7A00] font-bold shadow-xs'
-                      : 'bg-[#1C1C1E] text-[#8E8E93] border-[#3A3A3D] hover:text-white'
-                  }`}
-                >
-                  <span className="block text-xs">Klassisch</span>
-                  <span className="block text-[9px] opacity-80">mit Kopf (Sarabun)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onToggleThaiFontStyle('modern')}
-                  className={`py-2 px-1.5 rounded-xl text-center border transition-all cursor-pointer ${
-                    thaiFontStyle === 'modern'
-                      ? 'bg-sky-400 text-black border-sky-400 font-bold shadow-xs'
-                      : 'bg-[#1C1C1E] text-[#8E8E93] border-[#3A3A3D] hover:text-white'
-                  }`}
-                >
-                  <span className="block text-xs">Modern</span>
-                  <span className="block text-[9px] opacity-80">ohne Kopf (Kanit)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onToggleThaiFontStyle('mixed')}
-                  className={`py-2 px-1.5 rounded-xl text-center border transition-all cursor-pointer ${
-                    thaiFontStyle === 'mixed'
-                      ? 'bg-purple-500 text-white border-purple-500 font-bold shadow-xs'
-                      : 'bg-[#1C1C1E] text-[#8E8E93] border-[#3A3A3D] hover:text-white'
-                  }`}
-                >
-                  <span className="block text-xs">Gemischt</span>
-                  <span className="block text-[9px] opacity-80">Zufällig (Profi)</span>
-                </button>
-              </div>
-
-              {/* Live Preview Box */}
-              <div className="p-2.5 rounded-xl bg-[#1C1C1E] border border-[#2E2E32] flex items-center justify-between">
-                <span className="text-[10px] text-[#8E8E93]">Live-Schriftprobe:</span>
-                <span
-                  className={`text-xl font-medium ${
-                    thaiFontStyle === 'modern'
-                      ? 'font-thai-kanit text-sky-400'
-                      : thaiFontStyle === 'mixed'
-                      ? 'font-thai-kanit text-purple-300'
-                      : 'font-thai text-[#FF7A00]'
-                  }`}
-                >
-                  สวัสดีครับ (sa-wat-dee)
-                </span>
-              </div>
-            </div>
-          )}
+          {/* Konsonanten-Farbkodierung Toggle */}
           {onToggleColorCoding && (
             <div className="flex items-center justify-between py-2.5 border-b border-[#323236]/60">
               <div>
@@ -1173,23 +1100,6 @@ Lecker;อร่อย;a-roi;Essen & Trinken;อาหารนี้อร่�
               </p>
             </div>
             <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
-              Aktiv
-            </span>
-          </div>
-
-          {/* Intelligente Äquivalenzprüfung (Pronomen & Höflichkeit) */}
-          <div className="flex items-start justify-between py-2.5 border-b border-[#323236]/60 text-xs">
-            <div>
-              <p className="text-sm font-medium text-white flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Gleichwertige Formen (Pronomen & Höflichkeit)</span>
-              </p>
-              <p className="text-xs text-[#8E8E93] mt-0.5 leading-relaxed">
-                <span className="text-white font-semibold">ผม / ฉัน / ดิฉัน</span> (ich m/w) sowie{' '}
-                <span className="text-white font-semibold">ครับ / ค่ะ</span> (Höflichkeitspartikel) werden bei allen Abfragen automatisch als vollwertig und gleichwertig anerkannt.
-              </p>
-            </div>
-            <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30 shrink-0 ml-2">
               Aktiv
             </span>
           </div>

@@ -63,47 +63,11 @@
 }
 
 .font-thai {
-  font-family: "Sarabun", "Noto Sans Thai", "Thonburi", "Sukhumvit Set", -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-family: "Thonburi", "Sukhumvit Set", "Sarabun", "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
   letter-spacing: normal;
   line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-}
-
-.font-thai-classic {
-  font-family: "Sarabun", "Noto Sans Thai", "Thonburi", sans-serif;
-  letter-spacing: normal;
-  line-height: 1.5;
-  text-rendering: optimizeLegibility;
-}
-
-.font-thai-serif {
-  font-family: "Noto Serif Thai", "Sarabun", serif;
-  letter-spacing: normal;
-  line-height: 1.5;
-  text-rendering: optimizeLegibility;
-}
-
-.font-thai-modern,
-.font-thai-kanit {
-  font-family: "Kanit", sans-serif;
-  letter-spacing: 0.01em;
-  line-height: 1.5;
-  text-rendering: optimizeLegibility;
-}
-
-.font-thai-prompt {
-  font-family: "Prompt", sans-serif;
-  letter-spacing: 0.01em;
-  line-height: 1.5;
-  text-rendering: optimizeLegibility;
-}
-
-.font-thai-mitr {
-  font-family: "Mitr", sans-serif;
-  letter-spacing: 0.01em;
-  line-height: 1.5;
-  text-rendering: optimizeLegibility;
 }
 
 .perspective-1000 {

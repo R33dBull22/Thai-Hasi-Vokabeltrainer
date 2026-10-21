@@ -1,5 +1,6 @@
 import { Vocabulary, UserProgress } from '../types/vocab';
 import { getDirectionProgress } from '../utils/leitner';
+import { normalizeThaiText } from '../utils/thaiAudio';
 
 export interface ExportData {
   vocabularies: (Vocabulary & { phase?: number; phaseDeToTh?: number; phaseThToDe?: number })[];
@@ -116,7 +117,7 @@ export function downloadSampleCSVTemplate() {
       'Danke;ขอบคุณ;khop-khun;Begrüßung;ขอบคุณมาก;Vielen Dank;2',
       'Wie geht es dir?;สบายดีไหม;sa-baai-dee-mai;Begrüßung;สบายดีครับ;Mir geht es gut;1',
       'Lecker;อร่อย;a-roi;Essen & Trinken;อาหารนี้อร่อยมาก;Dieses Essen ist sehr lecker;3',
-      'Wasser;น้ำ;nam;Essen & Trinken;ขอน้ำเปล่าแก้วหนึ่ง;Bitte ein Glas stilles Wasser;1',
+      'Wasser;น้ำ;nám;Essen & Trinken;ขอน้ำเปล่าแก้วหนึ่ง;Bitte ein Glas stilles Wasser;1',
     ].join('\r\n');
 
   downloadFile(sampleContent, 'thai_hasis_muster_vorlage.csv', 'text/csv;charset=utf-8;');
@@ -220,12 +221,17 @@ export function parseCSVContent(text: string): ParsedCSVRow[] {
     if (cols.length === 0 || cols.every((c) => !c)) continue;
 
     // Expected order: Deutsch, Thai, Romanisierung, Lektion, [exThai], [exGerman], [Phase]
-    const german = cols[0] || '';
-    const thai = cols[1] || '';
-    const romanization = cols[2] || '';
-    const lesson = cols[3] || 'Importierte Vokabeln';
-    const exampleThai = cols[4] || '';
-    const exampleGerman = cols[5] || '';
+    const german = (cols[0] || '').trim();
+    const thai = normalizeThaiText(cols[1] || '').trim();
+    let romanization = (cols[2] || '').trim();
+    if ((thai === 'น้ำ' || thai === 'นำ้') && (!romanization || romanization.toLowerCase() === 'nam')) {
+      romanization = 'nám';
+    } else if ((thai.includes('น้ำ') || thai.includes('นำ้')) && /\bnam\b/i.test(romanization)) {
+      romanization = romanization.replace(/\bnam\b/g, 'nám').replace(/\bNam\b/g, 'Nám');
+    }
+    const lesson = (cols[3] || '').trim() || 'Importierte Vokabeln';
+    const exampleThai = normalizeThaiText(cols[4] || '').trim();
+    const exampleGerman = (cols[5] || '').trim();
 
     // Check for general phase
     let parsedPhase: number | undefined;

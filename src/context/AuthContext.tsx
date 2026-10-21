@@ -12,6 +12,13 @@ import {
 } from 'firebase/auth';
 import { auth, db, testConnection } from '../firebase/config';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  AdminRegistrationSettings,
+  DEFAULT_REGISTRATION_SETTINGS,
+  fetchRegistrationSettings,
+  saveRegistrationSettings,
+  subscribeToRegistrationSettings,
+} from '../services/adminService';
 
 export const ADMIN_EMAILS = ['r33dbull33@gmail.com'];
 
@@ -43,6 +50,10 @@ interface AuthContextType {
   loading: boolean;
   isGuest: boolean;
   isAdmin: boolean;
+  registrationSettings: AdminRegistrationSettings;
+  isRegistrationLocked: boolean;
+  registrationLockReason: string;
+  updateRegistrationLock: (locked: boolean, reason?: string, allowVipBypass?: boolean) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string, registrationCode: string, displayName?: string) => Promise<void>;
@@ -164,10 +175,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [registrationSettings, setRegistrationSettings] = useState<AdminRegistrationSettings>(() => {
+    try {
+      const raw = localStorage.getItem('thai_hasis_registration_settings_v1');
+      if (raw) return { ...DEFAULT_REGISTRATION_SETTINGS, ...JSON.parse(raw) };
+    } catch {}
+    return DEFAULT_REGISTRATION_SETTINGS;
+  });
 
   useEffect(() => {
     // Run connection test on boot
     testConnection().catch(() => {});
+
+    // Subscribe to registration settings
+    const unsubReg = subscribeToRegistrationSettings((updated) => {
+      setRegistrationSettings(updated);
+    });
+    fetchRegistrationSettings().then(setRegistrationSettings).catch(() => {});
 
     // Listen to Firebase auth changes
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -209,8 +233,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubReg();
+    };
   }, []);
+
+  const updateRegistrationLock = async (locked: boolean, reason?: string, allowVipBypass?: boolean) => {
+    const updated: AdminRegistrationSettings = {
+      ...registrationSettings,
+      locked,
+      lockReason: reason !== undefined ? reason : registrationSettings.lockReason,
+      allowVipCodeBypass: allowVipBypass !== undefined ? allowVipBypass : registrationSettings.allowVipCodeBypass,
+      updatedAt: new Date().toISOString(),
+      updatedBy: user?.email || 'admin',
+    };
+    setRegistrationSettings(updated);
+    await saveRegistrationSettings(updated);
+  };
 
   const registerWithEmail = async (
     email: string,
@@ -222,6 +262,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanEmail = email.trim().toLowerCase();
     const cleanPass = pass.trim();
     const finalDisplayName = displayName?.trim() || cleanEmail.split('@')[0];
+
+    // Check if new registrations are locked by administrator
+    if (registrationSettings.locked) {
+      if (registrationSettings.allowVipCodeBypass) {
+        const isCodeValid = await checkRegistrationCode(registrationCode);
+        if (!isCodeValid) {
+          const msg = registrationSettings.lockReason || 'Neue Registrierungen sind derzeit durch den Administrator deaktiviert.';
+          setAuthError(msg);
+          throw new Error(msg);
+        }
+      } else {
+        const msg = registrationSettings.lockReason || 'Neue Registrierungen sind derzeit durch den Administrator gesperrt. Niemand kann sich aktuell neu anmelden.';
+        setAuthError(msg);
+        throw new Error(msg);
+      }
+    }
 
     // Verify registration passkey against hash
     const isCodeValid = await checkRegistrationCode(registrationCode);
@@ -382,12 +438,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = new GoogleAuthProvider();
     try {
       const res = await signInWithPopup(auth, provider);
+      const email = res.user.email?.toLowerCase() || '';
+
+      // If registrations are locked, ensure user is either an admin or already registered
+      if (registrationSettings.locked && !checkIsAdmin(email)) {
+        const accounts = getStoredAccounts();
+        let isExistingUser = Boolean(accounts[email]);
+        if (!isExistingUser && email) {
+          try {
+            const docId = await getEmailDocId(email);
+            const snap = await getDoc(doc(db, 'app_users', docId));
+            if (snap.exists()) {
+              isExistingUser = true;
+            }
+          } catch {}
+        }
+
+        if (!isExistingUser) {
+          // New user trying to sign up via Google while registration is locked
+          await signOut(auth);
+          try {
+            localStorage.removeItem(ACTIVE_SESSION_KEY);
+            localStorage.removeItem(LEGACY_SESSION_KEY);
+          } catch {}
+          setUser(null);
+          const msg = registrationSettings.lockReason || 'Neue Registrierungen sind derzeit durch den Administrator gesperrt.';
+          setAuthError(msg);
+          throw new Error(msg);
+        }
+      }
+
       const authUser: AuthUser = {
         uid: res.user.uid,
         email: res.user.email,
         displayName: res.user.displayName,
         isAnonymous: false,
         photoURL: res.user.photoURL,
+        isAdmin: checkIsAdmin(res.user.email),
       };
       setUser(authUser);
       try {
@@ -568,6 +655,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         isGuest: !user,
         isAdmin: checkIsAdmin(user?.email),
+        registrationSettings,
+        isRegistrationLocked: Boolean(registrationSettings.locked),
+        registrationLockReason: registrationSettings.lockReason || DEFAULT_REGISTRATION_SETTINGS.lockReason,
+        updateRegistrationLock,
         loginWithGoogle,
         loginWithEmail,
         registerWithEmail,
