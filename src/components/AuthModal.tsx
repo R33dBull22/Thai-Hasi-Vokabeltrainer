@@ -12,7 +12,6 @@ import {
   ArrowLeft,
   Zap,
   AlertTriangle,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -34,8 +33,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
     resetPasswordWithEmail,
     authError,
     clearAuthError,
-    registrationSettings,
-    isRegistrationLocked,
   } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>('login');
@@ -304,23 +301,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
             </button>
             <button
               onClick={() => switchMode('register')}
-              className={`flex-1 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-1.5 rounded-lg transition-colors cursor-pointer ${
                 mode === 'register' ? 'bg-[#FF7A00] text-black shadow' : 'text-[#8E8E93] hover:text-white'
               }`}
             >
-              <span>Registrieren</span>
-              {isRegistrationLocked && (
-                <span
-                  className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold flex items-center gap-0.5 ${
-                    mode === 'register'
-                      ? 'bg-black/30 text-black'
-                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                  }`}
-                >
-                  <Lock className="w-2.5 h-2.5" />
-                  Gesperrt
-                </span>
-              )}
+              Registrieren
             </button>
           </div>
         )}
@@ -517,28 +502,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
         ) : (
           /* Login & Registration Form */
           <form onSubmit={handleSubmit} className="space-y-3">
-            {mode === 'register' && isRegistrationLocked && (
-              <div className="p-3 bg-rose-500/15 border border-rose-500/40 rounded-2xl text-xs space-y-1.5 animate-in fade-in">
-                <div className="flex items-center gap-1.5 font-bold text-rose-400">
-                  <Lock className="w-3.5 h-3.5 shrink-0" />
-                  <span>Neuregistrierungen derzeit gesperrt</span>
-                </div>
-                <p className="text-[11px] text-[#E4E4E7] leading-relaxed">
-                  {registrationSettings?.lockReason || 'Neue Registrierungen sind derzeit durch den Administrator deaktiviert.'}
-                </p>
-                {registrationSettings?.allowVipCodeBypass ? (
-                  <div className="pt-1 border-t border-rose-500/20 text-[10px] text-amber-300 flex items-center gap-1 font-medium">
-                    <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
-                    <span>VIP-Freischaltung: Mit einem persönlichen VIP-Einladungscode ist die Registrierung weiterhin möglich.</span>
-                  </div>
-                ) : (
-                  <p className="text-[10px] text-rose-300/80 font-medium pt-0.5">
-                    🚫 Aktuell können keine neuen Accounts angelegt werden.
-                  </p>
-                )}
-              </div>
-            )}
-
             {mode === 'register' && (
               <div>
                 <label className="block text-[11px] text-[#8E8E93] mb-1 font-medium">Name (Optional)</label>
@@ -550,8 +513,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="Dein Name"
                     autoComplete="name"
-                    disabled={mode === 'register' && isRegistrationLocked && !registrationSettings?.allowVipCodeBypass}
-                    className="w-full pl-9 pr-3 py-2 bg-[#242426] border border-[#323236] rounded-xl text-xs text-white focus:outline-none focus:border-[#FF7A00] disabled:opacity-50"
+                    className="w-full pl-9 pr-3 py-2 bg-[#242426] border border-[#323236] rounded-xl text-xs text-white focus:outline-none focus:border-[#FF7A00]"
                   />
                 </div>
               </div>
@@ -568,8 +530,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
                   placeholder="name@beispiel.de"
                   autoComplete="email"
                   required
-                  disabled={mode === 'register' && isRegistrationLocked && !registrationSettings?.allowVipCodeBypass}
-                  className="w-full pl-9 pr-3 py-2 bg-[#242426] border border-[#323236] rounded-xl text-xs text-white focus:outline-none focus:border-[#FF7A00] disabled:opacity-50"
+                  className="w-full pl-9 pr-3 py-2 bg-[#242426] border border-[#323236] rounded-xl text-xs text-white focus:outline-none focus:border-[#FF7A00]"
                 />
               </div>
             </div>
@@ -597,8 +558,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
                   placeholder="Mindestens 6 Zeichen"
                   autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                   required
-                  disabled={mode === 'register' && isRegistrationLocked && !registrationSettings?.allowVipCodeBypass}
-                  className="w-full pl-9 pr-10 py-2 bg-[#242426] border border-[#323236] rounded-xl text-xs text-white focus:outline-none focus:border-[#FF7A00] disabled:opacity-50"
+                  className="w-full pl-9 pr-10 py-2 bg-[#242426] border border-[#323236] rounded-xl text-xs text-white focus:outline-none focus:border-[#FF7A00]"
                 />
                 <button
                   type="button"
@@ -615,9 +575,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
             {mode === 'register' && (
               <div className="bg-[#262118] p-3 rounded-xl border border-[#FF7A00]/40">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] text-[#FF7A00] font-semibold flex items-center gap-1.5">
-                    <KeyRound className="w-3.5 h-3.5" />
-                    <span>{isRegistrationLocked ? 'VIP Registrierungs-Code' : 'Registrierungs-Passwort'}</span>
+                  <label className="block text-[11px] text-[#FF7A00] font-semibold">
+                    Registrierungs-Passwort
                   </label>
                   <span className="text-[10px] text-[#8E8E93]">Erforderlich</span>
                 </div>
@@ -627,11 +586,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
                     type={showRegCode ? 'text' : 'password'}
                     value={registrationCode}
                     onChange={(e) => setRegistrationCode(e.target.value)}
-                    placeholder={isRegistrationLocked ? 'VIP-Code eingeben' : 'Zugangs-Passwort eingeben'}
+                    placeholder="Zugangs-Passwort eingeben"
                     autoComplete="off"
                     required
-                    disabled={mode === 'register' && isRegistrationLocked && !registrationSettings?.allowVipCodeBypass}
-                    className="w-full pl-9 pr-10 py-2 bg-[#1C1C1E] border border-[#FF7A00]/50 rounded-xl text-xs text-white focus:outline-none focus:border-[#FF7A00] disabled:opacity-50"
+                    className="w-full pl-9 pr-10 py-2 bg-[#1C1C1E] border border-[#FF7A00]/50 rounded-xl text-xs text-white focus:outline-none focus:border-[#FF7A00]"
                   />
                   <button
                     type="button"
@@ -643,9 +601,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
                   </button>
                 </div>
                 <p className="text-[10px] text-[#D1D1D6] mt-1.5 leading-snug">
-                  {isRegistrationLocked && registrationSettings?.allowVipCodeBypass
-                    ? 'Da Neuregistrierungen gesperrt sind, benötigst du einen persönlichen VIP-Freischaltcode vom Admin.'
-                    : 'Für die Registrierung benötigst du das private Zugangs-Passwort von Thai Hasis.'}
+                  Für die Registrierung benötigst du das private Zugangs-Passwort von Thai Hasis.
                 </p>
               </div>
             )}
@@ -657,38 +613,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
 
             <button
               type="submit"
-              disabled={
-                isSubmitting ||
-                Boolean(successMessage) ||
-                (mode === 'register' && isRegistrationLocked && !registrationSettings?.allowVipCodeBypass)
-              }
-              className={`w-full py-3 rounded-full font-semibold text-xs transition-colors shadow-lg active:scale-[0.99] mt-2 flex items-center justify-center gap-1.5 ${
-                mode === 'register' && isRegistrationLocked && !registrationSettings?.allowVipCodeBypass
-                  ? 'bg-[#2C2C2E] text-[#8E8E93] border border-[#3A3A3D] cursor-not-allowed opacity-80'
-                  : 'bg-[#FF7A00] text-black hover:bg-[#FF881A] cursor-pointer disabled:opacity-50'
-              }`}
+              disabled={isSubmitting || Boolean(successMessage)}
+              className="w-full py-3 rounded-full bg-[#FF7A00] text-black font-semibold text-xs hover:bg-[#FF881A] transition-colors shadow-lg active:scale-[0.99] mt-2 cursor-pointer disabled:opacity-50"
             >
-              {isSubmitting ? (
-                'Wird verarbeitet...'
-              ) : mode === 'register' ? (
-                isRegistrationLocked ? (
-                  registrationSettings?.allowVipCodeBypass ? (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Mit VIP-Code registrieren</span>
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>Registrierung derzeit gesperrt</span>
-                    </>
-                  )
-                ) : (
-                  'Konto jetzt erstellen'
-                )
-              ) : (
-                'Anmelden'
-              )}
+              {isSubmitting
+                ? 'Wird verarbeitet...'
+                : mode === 'register'
+                ? 'Konto jetzt erstellen'
+                : 'Anmelden'}
             </button>
           </form>
         )}

@@ -15,8 +15,6 @@ import { auth, db } from '../firebase/config';
 import { Vocabulary, UserProgress, DeletedVocabEntry, DirectionProgress, QueryDirection } from '../types/vocab';
 import { STARTER_VOCABULARY } from '../data/initialVocab';
 import { calculateNextReviewDate, calculateResetReviewDate, getDirectionProgress } from '../utils/leitner';
-import { normalizeThaiText } from '../utils/thaiAudio';
-import { generateRomanizationFromThai } from '../utils/thaiTones';
 
 const VOCAB_COLLECTION = 'vocabularies';
 const PROGRESS_COLLECTION = 'user_progress';
@@ -273,76 +271,18 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
 } {
   const needsCloudSync: Vocabulary[] = [];
   const cleaned = list.map((v) => {
-    let updated = { ...v };
-    let hasChanges = false;
-
-    // 1. Normalize Thai Unicode (fixing malformed Sara Am sequences e.g. นำ้ -> น้ำ)
-    if (v.thai) {
-      const normThai = normalizeThaiText(v.thai);
-      if (normThai && normThai !== v.thai) {
-        updated.thai = normThai;
-        hasChanges = true;
-      }
-    }
-
-    // 2. Normalize exampleThai if present
-    if (v.exampleThai) {
-      const normEx = normalizeThaiText(v.exampleThai);
-      if (normEx && normEx !== v.exampleThai) {
-        updated.exampleThai = normEx;
-        hasChanges = true;
-      }
-    }
-
-    // 3. Fix known phonetic errors for bus stop
     if (
-      updated.thai &&
-      (updated.thai.includes('ป้ายรถเมล์') || updated.romanization?.includes('bpâan-thà'))
+      v.thai &&
+      (v.thai.includes('ป้ายรถเมล์') || v.romanization?.includes('bpâan-thà'))
     ) {
-      const fixedRom = updated.thai.includes('อยู่ที่ไหน')
+      const fixedRom = v.thai.includes('อยู่ที่ไหน')
         ? 'bpâai-rót-mee yòo thêe-năi kráp'
         : 'bpâai-rót-mee';
-      if (updated.romanization !== fixedRom) {
-        updated.romanization = fixedRom;
-        hasChanges = true;
+      if (v.romanization !== fixedRom) {
+        const updated = { ...v, romanization: fixedRom };
+        needsCloudSync.push(updated);
+        return updated;
       }
-    }
-
-    // 4. Fix romanization for "น้ำ" / "นำ้" ("Wasser") and compound words (e.g. น้ำเปล่า, ห้องน้ำ)
-    if (updated.thai) {
-      if (
-        (updated.thai === 'น้ำ' || updated.thai === 'นำ้') &&
-        (!updated.romanization || updated.romanization.trim().toLowerCase() === 'nam')
-      ) {
-        updated.romanization = 'nám';
-        hasChanges = true;
-      } else if (
-        (updated.thai.includes('น้ำ') || updated.thai.includes('นำ้')) &&
-        updated.romanization &&
-        /\bnam\b/i.test(updated.romanization)
-      ) {
-        const fixedRom = updated.romanization
-          .replace(/\bnam\b/g, 'nám')
-          .replace(/\bNam\b/g, 'Nám');
-        if (fixedRom !== updated.romanization) {
-          updated.romanization = fixedRom;
-          hasChanges = true;
-        }
-      }
-    }
-
-    // 5. If romanization is completely missing, auto-generate it
-    if (!updated.romanization && updated.thai) {
-      const gen = generateRomanizationFromThai(updated.thai);
-      if (gen.romanization) {
-        updated.romanization = gen.romanization;
-        hasChanges = true;
-      }
-    }
-
-    if (hasChanges) {
-      needsCloudSync.push(updated);
-      return updated;
     }
     return v;
   });
@@ -371,9 +311,7 @@ export async function fetchCommunityVocabularies(userId?: string): Promise<Vocab
         needsCloudSync.forEach(async (item) => {
           try {
             await updateDoc(doc(db, VOCAB_COLLECTION, item.id), {
-              thai: item.thai,
               romanization: item.romanization,
-              exampleThai: item.exampleThai || '',
             });
           } catch {}
         });
@@ -434,9 +372,7 @@ export function subscribeToCommunityVocabularies(
           needsCloudSync.forEach(async (item) => {
             try {
               await updateDoc(doc(db, VOCAB_COLLECTION, item.id), {
-                thai: item.thai,
                 romanization: item.romanization,
-                exampleThai: item.exampleThai || '',
               });
             } catch {}
           });
@@ -504,25 +440,10 @@ export async function addVocabulary(
   vocab: Omit<Vocabulary, 'id' | 'createdAt'>,
   userId: string
 ): Promise<Vocabulary> {
-  const normThai = normalizeThaiText(vocab.thai);
-  const normExThai = vocab.exampleThai ? normalizeThaiText(vocab.exampleThai) : '';
   const id = `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const actualCreatorId = auth.currentUser?.uid || userId || 'community_user';
-
-  let rom = vocab.romanization?.trim() || '';
-  if (!rom && normThai) {
-    rom = generateRomanizationFromThai(normThai).romanization;
-  } else if ((normThai === 'น้ำ' || normThai === 'นำ้') && rom.toLowerCase() === 'nam') {
-    rom = 'nám';
-  } else if ((normThai.includes('น้ำ') || normThai.includes('นำ้')) && /\bnam\b/i.test(rom)) {
-    rom = rom.replace(/\bnam\b/g, 'nám').replace(/\bNam\b/g, 'Nám');
-  }
-
   const newVocab: Vocabulary = {
     ...vocab,
-    thai: normThai,
-    exampleThai: normExThai || undefined,
-    romanization: rom,
     id,
     creatorId: actualCreatorId,
     creatorName: vocab.creatorName || auth.currentUser?.displayName || 'Lernender',
@@ -572,30 +493,6 @@ export async function updateVocabulary(
   updatedData: Partial<Omit<Vocabulary, 'id' | 'createdAt'>>,
   userId: string
 ): Promise<Vocabulary> {
-  const cleanData: Partial<Omit<Vocabulary, 'id' | 'createdAt'>> = { ...updatedData };
-  if (cleanData.thai) {
-    cleanData.thai = normalizeThaiText(cleanData.thai);
-  }
-  if (cleanData.exampleThai) {
-    cleanData.exampleThai = normalizeThaiText(cleanData.exampleThai);
-  }
-  if (
-    (cleanData.thai === 'น้ำ' || cleanData.thai === 'นำ้') &&
-    cleanData.romanization &&
-    cleanData.romanization.toLowerCase() === 'nam'
-  ) {
-    cleanData.romanization = 'nám';
-  } else if (
-    cleanData.thai &&
-    (cleanData.thai.includes('น้ำ') || cleanData.thai.includes('นำ้')) &&
-    cleanData.romanization &&
-    /\bnam\b/i.test(cleanData.romanization)
-  ) {
-    cleanData.romanization = cleanData.romanization
-      .replace(/\bnam\b/g, 'nám')
-      .replace(/\bNam\b/g, 'Nám');
-  }
-
   let existingVocab: Vocabulary | undefined;
 
   // 1. Update in local storage
@@ -607,7 +504,7 @@ export async function updateVocabulary(
       if (index !== -1) {
         list[index] = {
           ...list[index],
-          ...cleanData,
+          ...updatedData,
         };
         existingVocab = list[index];
         localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(list));

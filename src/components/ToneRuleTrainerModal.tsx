@@ -26,10 +26,12 @@ import {
   CURATED_TONE_LEVELS,
   ToneTrainerWord,
   ToneTrainerLevel,
+  ToneTrainerSyllableDetail,
   analyzeThaiWordForToneTrainer,
   TONE_MARK_INFO,
   SYLLABLE_TYPE_INFO,
 } from '../data/thaiToneTrainerData';
+import { STARTER_VOCABULARY } from '../data/initialVocab';
 import { ToneVisualizer } from './ToneVisualizer';
 import { ToneRulesCheatsheet } from './ToneRulesCheatsheet';
 
@@ -37,22 +39,25 @@ interface ToneRuleTrainerModalProps {
   isOpen: boolean;
   onClose: () => void;
   deckVocabs?: Vocabulary[];
+  allVocabs?: Vocabulary[];
 }
 
-type TrainerMode = 'guided' | 'speed';
+export type TrainerMode = 'guided' | 'speed' | 'syllables';
 type GuidedStep = 'initial_class' | 'tone_mark' | 'syllable_type' | 'result_tone' | 'resolved';
 
 export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
   isOpen,
   onClose,
   deckVocabs = [],
+  allVocabs = [],
 }) => {
-  const [selectedLevelId, setSelectedLevelId] = useState<number | 'deck'>(1);
+  const [selectedLevelId, setSelectedLevelId] = useState<number | 'deck' | 'all'>(1);
   const [mode, setMode] = useState<TrainerMode>('guided');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [activeSyllableIndex, setActiveSyllableIndex] = useState(0);
   const [guidedStep, setGuidedStep] = useState<GuidedStep>('initial_class');
 
-  // Romanization visibility toggle
+  // Romanization visibility toggle (default hidden in syllables mode for authentic challenge)
   const [showRomanization, setShowRomanization] = useState(false);
 
   // Stats & Progress
@@ -67,6 +72,11 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
   const [speedAnswerStatus, setSpeedAnswerStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [selectedToneSpeed, setSelectedToneSpeed] = useState<ThaiTone | null>(null);
 
+  // Syllables Mode specific states (Ohne Hilfe: Jede Silbe bestimmen)
+  const [selectedSyllableTones, setSelectedSyllableTones] = useState<Record<number, ThaiTone>>({});
+  const [activeSyllableSlot, setActiveSyllableSlot] = useState<number>(0);
+  const [syllablesAnswerStatus, setSyllablesAnswerStatus] = useState<'idle' | 'submitted'>('idle');
+
   // Guided Step Feedback
   const [stepFeedback, setStepFeedback] = useState<{
     status: 'correct' | 'wrong';
@@ -80,29 +90,87 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
   // Prepare Word Pool for current selection
   const wordPool = useMemo((): ToneTrainerWord[] => {
     if (selectedLevelId === 'deck') {
-      if (deckVocabs.length === 0) {
-        // Fallback to Level 1 if deck is empty
-        return CURATED_TONE_LEVELS[0].words;
+      const source = deckVocabs.length > 0 ? deckVocabs : allVocabs;
+      if (source.length === 0) {
+        // Fallback to starter vocabulary if deck is empty
+        return STARTER_VOCABULARY.map((v) =>
+          analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
+        );
       }
-      return deckVocabs.map((v) =>
+      return source.map((v) =>
+        analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
+      );
+    }
+    if (selectedLevelId === 'all') {
+      const source = allVocabs.length > 0 ? allVocabs : deckVocabs;
+      if (source.length === 0) {
+        return STARTER_VOCABULARY.map((v) =>
+          analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
+        );
+      }
+      return source.map((v) =>
         analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
       );
     }
     const foundLevel = CURATED_TONE_LEVELS.find((l) => l.id === selectedLevelId);
     return foundLevel ? foundLevel.words : CURATED_TONE_LEVELS[0].words;
-  }, [selectedLevelId, deckVocabs]);
+  }, [selectedLevelId, deckVocabs, allVocabs]);
 
   const currentWord = wordPool[currentIndex] || wordPool[0];
 
+  const activeSyllable = useMemo(() => {
+    if (currentWord?.syllables && currentWord.syllables[activeSyllableIndex]) {
+      return currentWord.syllables[activeSyllableIndex];
+    }
+    return {
+      syllableIndex: 0,
+      totalSyllables: 1,
+      syllable: currentWord?.targetSyllableText || currentWord?.thai || '',
+      romanization: currentWord?.targetSyllableRoman || currentWord?.romanization || '',
+      initialLetter: currentWord?.initialLetter || 'ก',
+      initialClass: currentWord?.initialClass || 'mid',
+      initialClassName: currentWord?.initialClassName || 'Mittelklasse',
+      toneMark: currentWord?.toneMark || 'none',
+      toneMarkName: currentWord?.toneMarkName || 'Kein Zeichen',
+      syllableType: currentWord?.syllableType || 'live',
+      syllableTypeName: currentWord?.syllableTypeName || 'Lebende Silbe',
+      vowelLength: currentWord?.vowelLength || 'long',
+      vowelLengthName: currentWord?.vowelLengthName || 'Langer Vokal',
+      tone: currentWord?.tone || 'mid',
+      ruleFormula: currentWord?.ruleFormula || '',
+      ruleTip: currentWord?.ruleTip || '',
+    };
+  }, [currentWord, activeSyllableIndex]);
+
+  // List of all syllables for the current word
+  const currentSyllables = useMemo((): ToneTrainerSyllableDetail[] => {
+    if (currentWord?.syllables && currentWord.syllables.length > 0) {
+      return currentWord.syllables;
+    }
+    return [activeSyllable];
+  }, [currentWord, activeSyllable]);
+
+  // Reset active syllable when moving to a new word or level
+  useEffect(() => {
+    setActiveSyllableIndex(0);
+    setActiveSyllableSlot(0);
+    setSelectedSyllableTones({});
+    setSyllablesAnswerStatus('idle');
+  }, [currentIndex, selectedLevelId]);
+
   // Reset or restart session when level or mode changes
-  const startNewSession = (newLevelId: number | 'deck', newMode: TrainerMode = mode) => {
+  const startNewSession = (newLevelId: number | 'deck' | 'all', newMode: TrainerMode = mode) => {
     setSelectedLevelId(newLevelId);
     setMode(newMode);
     setCurrentIndex(0);
+    setActiveSyllableIndex(0);
     setGuidedStep('initial_class');
     setStepFeedback(null);
     setSpeedAnswerStatus('idle');
     setSelectedToneSpeed(null);
+    setSelectedSyllableTones({});
+    setActiveSyllableSlot(0);
+    setSyllablesAnswerStatus('idle');
     setStreak(0);
     setCorrectCount(0);
     setWrongCount(0);
@@ -114,10 +182,14 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
   const startRevengeSession = () => {
     if (mistakes.length === 0) return;
     setCurrentIndex(0);
+    setActiveSyllableIndex(0);
     setGuidedStep('initial_class');
     setStepFeedback(null);
     setSpeedAnswerStatus('idle');
     setSelectedToneSpeed(null);
+    setSelectedSyllableTones({});
+    setActiveSyllableSlot(0);
+    setSyllablesAnswerStatus('idle');
     setCorrectCount(0);
     setWrongCount(0);
     setIsCompleted(false);
@@ -134,12 +206,72 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
     setStepFeedback(null);
     setSpeedAnswerStatus('idle');
     setSelectedToneSpeed(null);
+    setSelectedSyllableTones({});
+    setActiveSyllableSlot(0);
+    setSyllablesAnswerStatus('idle');
 
     if (currentIndex + 1 < wordPool.length) {
       setCurrentIndex((prev) => prev + 1);
+      setActiveSyllableIndex(0);
       setGuidedStep('initial_class');
     } else {
       setIsCompleted(true);
+    }
+  };
+
+  // Syllables Mode (Ohne Hilfe): Handle picking a tone for current active slot
+  const handlePickSyllableTone = (toneKey: ThaiTone) => {
+    if (syllablesAnswerStatus !== 'idle') return;
+
+    setSelectedSyllableTones((prev) => ({
+      ...prev,
+      [activeSyllableSlot]: toneKey,
+    }));
+
+    // Auto-advance to next unassigned slot
+    const total = currentSyllables.length;
+    let nextUnassigned = -1;
+    for (let i = 0; i < total; i++) {
+      if (i !== activeSyllableSlot && selectedSyllableTones[i] === undefined) {
+        nextUnassigned = i;
+        break;
+      }
+    }
+
+    if (nextUnassigned !== -1) {
+      setActiveSyllableSlot(nextUnassigned);
+    } else if (activeSyllableSlot + 1 < total) {
+      setActiveSyllableSlot(activeSyllableSlot + 1);
+    }
+  };
+
+  // Syllables Mode: Are all syllables chosen?
+  const allSyllablesChosen = useMemo(() => {
+    return currentSyllables.every((_, idx) => selectedSyllableTones[idx] !== undefined);
+  }, [currentSyllables, selectedSyllableTones]);
+
+  // Syllables Mode: Submit and evaluate tone sequence
+  const handleCheckSyllablesAnswer = () => {
+    if (!allSyllablesChosen || syllablesAnswerStatus !== 'idle') return;
+
+    setSyllablesAnswerStatus('submitted');
+    handlePlayAudio(currentWord.thai);
+
+    const isAllCorrect = currentSyllables.every(
+      (s, idx) => selectedSyllableTones[idx] === s.tone
+    );
+
+    if (isAllCorrect) {
+      const newStreak = streak + 1;
+      setStreak(newStreak);
+      if (newStreak > maxStreak) setMaxStreak(newStreak);
+      setCorrectCount((prev) => prev + 1);
+    } else {
+      setStreak(0);
+      setWrongCount((prev) => prev + 1);
+      if (!mistakes.some((m) => m.id === currentWord.id)) {
+        setMistakes((prev) => [...prev, currentWord]);
+      }
     }
   };
 
@@ -331,7 +463,9 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
             >
               <span className="text-[#FF7A00] font-bold">
                 {selectedLevelId === 'deck'
-                  ? 'Eigene Vokabeln'
+                  ? 'Deck-Vokabeln'
+                  : selectedLevelId === 'all'
+                  ? 'Alle Vokabeln'
                   : `Level ${selectedLevelId}`}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-[#8E8E93]" />
@@ -367,26 +501,50 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                 ))}
 
                 {/* Deck Vocabs Option */}
-                {deckVocabs.length > 0 && (
+                <button
+                  onClick={() => {
+                    setShowLevelDropdown(false);
+                    startNewSession('deck');
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between border-t border-[#323236] transition-colors ${
+                    selectedLevelId === 'deck'
+                      ? 'bg-[#FF7A00] text-black font-bold'
+                      : 'text-[#D1D1D6] hover:bg-[#2C2C2E]'
+                  }`}
+                >
+                  <div>
+                    <div className="font-semibold">📚 Eigene Deck-Karten</div>
+                    <div
+                      className={`text-[10px] ${
+                        selectedLevelId === 'deck' ? 'text-black/80' : 'text-[#8E8E93]'
+                      }`}
+                    >
+                      {deckVocabs.length > 0 ? `${deckVocabs.length} Vokabeln im Deck` : 'Aus Vokabel-Startpaket'}
+                    </div>
+                  </div>
+                </button>
+
+                {/* All Vocabs Option */}
+                {allVocabs.length > 0 && (
                   <button
                     onClick={() => {
                       setShowLevelDropdown(false);
-                      startNewSession('deck');
+                      startNewSession('all');
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between border-t border-[#323236] transition-colors ${
-                      selectedLevelId === 'deck'
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
+                      selectedLevelId === 'all'
                         ? 'bg-[#FF7A00] text-black font-bold'
                         : 'text-[#D1D1D6] hover:bg-[#2C2C2E]'
                     }`}
                   >
                     <div>
-                      <div className="font-semibold">📚 Eigene Vokabeln</div>
+                      <div className="font-semibold">🗂️ Alle Vokabeln (Pool)</div>
                       <div
                         className={`text-[10px] ${
-                          selectedLevelId === 'deck' ? 'text-black/80' : 'text-[#8E8E93]'
+                          selectedLevelId === 'all' ? 'text-black/80' : 'text-[#8E8E93]'
                         }`}
                       >
-                        {deckVocabs.length} Wörter aus deinem Deck
+                        {allVocabs.length} Wörter im gesamten Pool
                       </div>
                     </div>
                   </button>
@@ -401,11 +559,12 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
               onClick={() => {
                 if (mode !== 'guided') startNewSession(selectedLevelId, 'guided');
               }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+              className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                 mode === 'guided'
                   ? 'bg-[#FF7A00] text-black shadow-sm'
                   : 'text-[#8E8E93] hover:text-white'
               }`}
+              title="Schritt-für-Schritt Detektiv"
             >
               Geführt
             </button>
@@ -413,19 +572,36 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
               onClick={() => {
                 if (mode !== 'speed') startNewSession(selectedLevelId, 'speed');
               }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all ${
+              className={`px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all ${
                 mode === 'speed'
                   ? 'bg-[#FF7A00] text-black shadow-sm'
                   : 'text-[#8E8E93] hover:text-white'
               }`}
+              title="Schnell-Quiz für Einzeltöne"
             >
               <Zap className="w-3 h-3" />
-              <span>Speed-Quiz</span>
+              <span>Speed</span>
+            </button>
+            <button
+              onClick={() => {
+                const targetLevel = (selectedLevelId === 'deck' || selectedLevelId === 'all')
+                  ? selectedLevelId
+                  : (deckVocabs.length > 0 ? 'deck' : 'all');
+                if (mode !== 'syllables') startNewSession(targetLevel, 'syllables');
+              }}
+              className={`px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                mode === 'syllables'
+                  ? 'bg-[#FF7A00] text-black shadow-sm'
+                  : 'text-[#8E8E93] hover:text-white'
+              }`}
+              title="Ohne Hilfe: Alle Töne jeder Silbe direkt bestimmen (z. B. Hoch Tief Tief Mitte)"
+            >
+              <span>Silben (Frei)</span>
             </button>
           </div>
 
           {/* Streak Badge */}
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold text-xs">
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold text-xs shrink-0">
             <Flame className="w-3.5 h-3.5 fill-amber-400" />
             <span>{streak}</span>
           </div>
@@ -477,6 +653,33 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                   {showRomanization ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
 
+                {/* Multi-Syllable Chips if word has > 1 syllable (only in guided & speed modes) */}
+                {mode !== 'syllables' && currentWord.syllables && currentWord.syllables.length > 1 && (
+                  <div className="flex items-center justify-center gap-1.5 mb-2.5 flex-wrap">
+                    {currentWord.syllables.map((s, idx) => {
+                      const isCurrent = idx === 0;
+                      return (
+                        <span
+                          key={idx}
+                          className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold border transition-all ${
+                            isCurrent
+                              ? 'bg-[#FF7A00]/20 border-[#FF7A00]/50 text-[#FF7A00] ring-1 ring-[#FF7A00]/30 shadow-sm'
+                              : 'bg-[#1C1C1E] border-[#2C2C2E] text-[#8E8E93]'
+                          }`}
+                        >
+                          <span className="font-thai font-bold text-white mr-1">{s.syllable}</span>
+                          <span className="text-[10px] opacity-80">({s.romanization})</span>
+                          {isCurrent && (
+                            <span className="ml-1 text-[9px] uppercase px-1 py-0.5 rounded bg-[#FF7A00] text-black font-bold">
+                              Fokus
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Thai Word */}
                 <div className="my-2">
                   <span className="text-5xl sm:text-6xl font-bold font-thai text-white tracking-wide drop-shadow-md select-none inline-block">
@@ -487,7 +690,7 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                 {/* Romanization & Meaning */}
                 <div className="mt-2 space-y-1">
                   <div className="h-5">
-                    {showRomanization || guidedStep === 'resolved' || speedAnswerStatus !== 'idle' ? (
+                    {showRomanization || guidedStep === 'resolved' || speedAnswerStatus !== 'idle' || syllablesAnswerStatus === 'submitted' ? (
                       <span className="text-sm font-semibold text-[#FF7A00] tracking-wide animate-in fade-in">
                         {currentWord.romanization}
                       </span>
@@ -570,6 +773,11 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                         <span className="text-base font-bold font-thai text-[#FF7A00]">
                           {currentWord.initialLetter}
                         </span>
+                        {currentWord.syllables && currentWord.syllables.length > 1 && (
+                          <span className="text-[11px] text-[#A1A1A6] ml-1">
+                            (Silbe 1: {currentWord.targetSyllableText || currentWord.syllables[0].syllable})
+                          </span>
+                        )}
                         ?
                       </div>
                       <div className="grid grid-cols-3 gap-2">
@@ -602,7 +810,12 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                   {guidedStep === 'tone_mark' && (
                     <div className="space-y-2.5">
                       <div className="text-xs text-white font-medium text-center">
-                        Schritt 2: Welches Tonzeichen hat das Wort?
+                        Schritt 2: Welches Tonzeichen hat{' '}
+                        {currentWord.syllables && currentWord.syllables.length > 1 ? (
+                          <>die Silbe <span className="font-thai font-bold text-[#FF7A00]">{currentWord.targetSyllableText || currentWord.syllables[0].syllable}</span>?</>
+                        ) : (
+                          'das Wort?'
+                        )}
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         <button
@@ -648,7 +861,13 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                   {guidedStep === 'syllable_type' && (
                     <div className="space-y-2.5">
                       <div className="text-xs text-white font-medium text-center">
-                        Schritt 3: Ist die Silbe lebend oder tot?
+                        Schritt 3: Ist{' '}
+                        {currentWord.syllables && currentWord.syllables.length > 1 ? (
+                          <>Silbe 1 (<span className="font-thai font-bold text-[#FF7A00]">{currentWord.targetSyllableText || currentWord.syllables[0].syllable}</span>)</>
+                        ) : (
+                          'die Silbe'
+                        )}{' '}
+                        lebend oder tot?
                       </div>
                       <div className="grid grid-cols-2 gap-2.5">
                         <button
@@ -679,7 +898,12 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                   {guidedStep === 'result_tone' && (
                     <div className="space-y-2.5">
                       <div className="text-xs text-white font-medium text-center">
-                        Schritt 4: Welcher Ton ergibt sich aus den Regeln?
+                        Schritt 4: Welcher Ton ergibt sich{' '}
+                        {currentWord.syllables && currentWord.syllables.length > 1 ? (
+                          <>für Silbe 1 (<span className="font-thai font-bold text-[#FF7A00]">{currentWord.targetSyllableText || currentWord.syllables[0].syllable}</span>)</>
+                        ) : (
+                          'aus den Regeln'
+                        )}?
                       </div>
                       <div className="grid grid-cols-5 gap-1.5">
                         {(['mid', 'low', 'falling', 'high', 'rising'] as ThaiTone[]).map((toneKey) => {
@@ -715,12 +939,45 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                       </div>
 
                       {/* Formula Card */}
-                      <div className="p-3 rounded-2xl bg-[#1C1C1E] border border-[#2C2C2E] text-xs">
-                        <div className="text-[#8E8E93] text-[10px] font-medium uppercase tracking-wider mb-1">
-                          Herleitung
+                      <div className="p-3.5 rounded-2xl bg-[#1C1C1E] border border-[#2C2C2E] text-xs space-y-2">
+                        <div className="flex items-center justify-between text-[#8E8E93] text-[10px] font-medium uppercase tracking-wider">
+                          <span>Herleitung</span>
+                          {currentWord.syllables && currentWord.syllables.length > 1 && (
+                            <span className="text-[#FF7A00] font-semibold">{currentWord.syllables.length} Silben</span>
+                          )}
                         </div>
-                        <div className="font-semibold text-[#FF7A00]">{currentWord.ruleFormula}</div>
-                        <div className="text-[11px] text-[#A1A1A6] mt-1.5">{currentWord.ruleTip}</div>
+
+                        {currentWord.syllables && currentWord.syllables.length > 1 ? (
+                          <div className="space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
+                            {currentWord.syllables.map((s, idx) => (
+                              <div
+                                key={idx}
+                                className="p-2.5 rounded-xl bg-[#242426] border border-[#323236] space-y-1 text-left"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5 font-bold">
+                                    <span className="text-white font-thai text-base">{s.syllable}</span>
+                                    <span className="text-[#FF7A00] text-xs">({s.romanization})</span>
+                                  </div>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${THAI_TONES[s.tone].bgClass} ${THAI_TONES[s.tone].borderClass} ${THAI_TONES[s.tone].colorClass}`}>
+                                    {THAI_TONES[s.tone].germanName}-Ton {THAI_TONES[s.tone].symbol}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] font-medium text-[#E5E5EA]">
+                                  {s.ruleFormula}
+                                </div>
+                                <div className="text-[10px] text-[#8E8E93] leading-relaxed">
+                                  {s.ruleTip}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="font-semibold text-[#FF7A00]">{currentWord.ruleFormula}</div>
+                            <div className="text-[11px] text-[#A1A1A6] mt-1.5 leading-relaxed">{currentWord.ruleTip}</div>
+                          </>
+                        )}
                       </div>
 
                       {/* Next Button */}
@@ -740,7 +997,11 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
               {mode === 'speed' && (
                 <div className="space-y-4 animate-in fade-in">
                   <div className="text-xs text-white font-medium text-center">
-                    Welchen Ton hat dieses Wort?
+                    {currentWord.syllables && currentWord.syllables.length > 1 ? (
+                      <>Welchen Ton hat Silbe 1 (<span className="font-thai font-bold text-[#FF7A00]">{currentWord.targetSyllableText || currentWord.syllables[0].syllable}</span>) dieses Wortes?</>
+                    ) : (
+                      'Welchen Ton hat dieses Wort?'
+                    )}
                   </div>
 
                   {/* Direct 5 Tone Buttons */}
@@ -806,12 +1067,45 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                       </div>
 
                       {/* Formula & Rule Tip */}
-                      <div className="p-3 rounded-2xl bg-[#1C1C1E] border border-[#2C2C2E] text-xs">
-                        <div className="text-[#8E8E93] text-[10px] font-medium uppercase tracking-wider mb-1">
-                          Regel-Herleitung
+                      <div className="p-3.5 rounded-2xl bg-[#1C1C1E] border border-[#2C2C2E] text-xs space-y-2">
+                        <div className="flex items-center justify-between text-[#8E8E93] text-[10px] font-medium uppercase tracking-wider">
+                          <span>Regel-Herleitung</span>
+                          {currentWord.syllables && currentWord.syllables.length > 1 && (
+                            <span className="text-[#FF7A00] font-semibold">{currentWord.syllables.length} Silben</span>
+                          )}
                         </div>
-                        <div className="font-semibold text-[#FF7A00]">{currentWord.ruleFormula}</div>
-                        <div className="text-[11px] text-[#A1A1A6] mt-1.5">{currentWord.ruleTip}</div>
+
+                        {currentWord.syllables && currentWord.syllables.length > 1 ? (
+                          <div className="space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
+                            {currentWord.syllables.map((s, idx) => (
+                              <div
+                                key={idx}
+                                className="p-2.5 rounded-xl bg-[#242426] border border-[#323236] space-y-1 text-left"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5 font-bold">
+                                    <span className="text-white font-thai text-base">{s.syllable}</span>
+                                    <span className="text-[#FF7A00] text-xs">({s.romanization})</span>
+                                  </div>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${THAI_TONES[s.tone].bgClass} ${THAI_TONES[s.tone].borderClass} ${THAI_TONES[s.tone].colorClass}`}>
+                                    {THAI_TONES[s.tone].germanName}-Ton {THAI_TONES[s.tone].symbol}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] font-medium text-[#E5E5EA]">
+                                  {s.ruleFormula}
+                                </div>
+                                <div className="text-[10px] text-[#8E8E93] leading-relaxed">
+                                  {s.ruleTip}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="font-semibold text-[#FF7A00]">{currentWord.ruleFormula}</div>
+                            <div className="text-[11px] text-[#A1A1A6] mt-1.5 leading-relaxed">{currentWord.ruleTip}</div>
+                          </>
+                        )}
                       </div>
 
                       {/* Continue Button */}
@@ -820,6 +1114,307 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                         className="w-full py-3.5 rounded-full bg-[#FF7A00] text-black font-semibold text-sm hover:bg-[#FF881A] transition-colors shadow-md flex items-center justify-center gap-2 active:scale-[0.98]"
                       >
                         <span>Weiter</span>
+                        <ArrowRight className="w-4 h-4 text-black stroke-[2.5]" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* MODE 3: SILBEN-PROFI (Ohne Hilfe – Alle Silbentöne bestimmen) */}
+              {mode === 'syllables' && (
+                <div className="space-y-4 animate-in fade-in">
+                  <div className="text-xs text-white font-medium text-center space-y-0.5">
+                    <div>
+                      Bestimme den Ton für jede Silbe <span className="text-[#FF7A00] font-bold">ohne Zwischenhilfe</span>:
+                    </div>
+                    <div className="text-[11px] text-[#8E8E93]">
+                      Wähle die Töne in Reihe aus (z. B.{' '}
+                      <span className="text-amber-400 font-semibold font-mono">
+                        {currentSyllables.length > 2
+                          ? 'Hoch ➔ Tief ➔ Mitte'
+                          : currentSyllables.length === 2
+                          ? 'Tief ➔ Mitte'
+                          : 'Tief'}
+                      </span>
+                      )
+                    </div>
+                  </div>
+
+                  {/* Interactive Syllable Slot Cards */}
+                  <div className="flex items-stretch justify-center gap-2 flex-wrap">
+                    {currentSyllables.map((s, idx) => {
+                      const chosenTone = selectedSyllableTones[idx];
+                      const isActiveSlot = activeSyllableSlot === idx && syllablesAnswerStatus === 'idle';
+                      const isSubmitted = syllablesAnswerStatus === 'submitted';
+                      const isCorrect = isSubmitted && chosenTone === s.tone;
+                      const isWrong = isSubmitted && chosenTone !== s.tone;
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            if (!isSubmitted) setActiveSyllableSlot(idx);
+                          }}
+                          className={`relative p-3 rounded-2xl border text-center transition-all cursor-pointer min-w-[95px] flex-1 max-w-[160px] flex flex-col justify-between ${
+                            isCorrect
+                              ? 'bg-emerald-500/15 border-emerald-500/60 ring-2 ring-emerald-500/40 shadow-sm'
+                              : isWrong
+                              ? 'bg-rose-500/15 border-rose-500/60 ring-2 ring-rose-500/40 shadow-sm'
+                              : isActiveSlot
+                              ? 'bg-[#FF7A00]/15 border-[#FF7A00] ring-2 ring-[#FF7A00]/50 shadow-md'
+                              : chosenTone
+                              ? 'bg-[#242426] border-[#3A3A3D] hover:border-[#8E8E93]'
+                              : 'bg-[#1C1C1E] border-dashed border-[#3A3A3D] hover:border-[#8E8E93]'
+                          }`}
+                        >
+                          {/* Top Meta: Syllable Number */}
+                          <div className="flex items-center justify-between text-[10px] text-[#8E8E93] mb-1 font-semibold w-full">
+                            <span>Silbe {idx + 1}</span>
+                            {isActiveSlot && (
+                              <span className="inline-block w-2 h-2 rounded-full bg-[#FF7A00] animate-pulse" />
+                            )}
+                          </div>
+
+                          {/* Thai Syllable Text */}
+                          <div className="my-1">
+                            <span className="text-2xl sm:text-3xl font-bold font-thai text-white tracking-wide block">
+                              {s.syllable}
+                            </span>
+                          </div>
+
+                          {/* Romanization if toggled or revealed */}
+                          {(showRomanization || isSubmitted) && (
+                            <div className="text-[10px] text-[#FF7A00] font-mono mb-1">
+                              {s.romanization}
+                            </div>
+                          )}
+
+                          {/* Tone State Badge */}
+                          <div className="mt-1 pt-1 border-t border-white/5 w-full">
+                            {isSubmitted ? (
+                              isCorrect ? (
+                                <div className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-1 bg-emerald-500/20 py-1 px-1.5 rounded-lg border border-emerald-500/30">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  <span>{THAI_TONES[s.tone].germanName}</span>
+                                </div>
+                              ) : (
+                                <div className="text-[10px] font-bold space-y-0.5">
+                                  <div className="text-rose-400 line-through bg-rose-500/20 py-0.5 px-1 rounded border border-rose-500/30">
+                                    {chosenTone ? THAI_TONES[chosenTone].germanName : 'Kein Ton'}
+                                  </div>
+                                  <div className="text-emerald-400 bg-emerald-500/20 py-0.5 px-1 rounded border border-emerald-500/30 flex items-center justify-center gap-0.5">
+                                    <span>➔ {THAI_TONES[s.tone].germanName}</span>
+                                  </div>
+                                </div>
+                              )
+                            ) : chosenTone ? (
+                              <div
+                                className={`text-[11px] font-bold py-1 px-1.5 rounded-lg border flex items-center justify-center gap-1 ${THAI_TONES[chosenTone].bgClass} ${THAI_TONES[chosenTone].borderClass} ${THAI_TONES[chosenTone].colorClass}`}
+                              >
+                                <span>{THAI_TONES[chosenTone].symbol}</span>
+                                <span>{THAI_TONES[chosenTone].germanName}</span>
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-[#8E8E93] italic py-0.5">
+                                {isActiveSlot ? 'Ton wählen...' : 'Offen'}
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Sequence Breadcrumb Trail (e.g. Hoch ➔ Tief ➔ Tief ➔ Mitte) */}
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-[#8E8E93] bg-[#1C1C1E] p-2 rounded-2xl border border-[#2C2C2E] overflow-x-auto shadow-inner">
+                    <span className="text-[10px] uppercase font-bold text-[#A1A1A6] mr-1 shrink-0">
+                      Tonfolge:
+                    </span>
+                    {currentSyllables.map((s, idx) => {
+                      const chosen = selectedSyllableTones[idx];
+                      const toneInfo = chosen ? THAI_TONES[chosen] : null;
+                      const isCurrent = activeSyllableSlot === idx && syllablesAnswerStatus === 'idle';
+
+                      return (
+                        <React.Fragment key={idx}>
+                          {idx > 0 && <span className="text-[#3A3A3D] font-bold text-xs">➔</span>}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (syllablesAnswerStatus === 'idle') setActiveSyllableSlot(idx);
+                            }}
+                            className={`px-2 py-0.5 rounded-lg font-semibold text-[11px] transition-all cursor-pointer ${
+                              toneInfo
+                                ? `${toneInfo.colorClass} ${toneInfo.bgClass} border ${toneInfo.borderClass}`
+                                : isCurrent
+                                ? 'bg-[#FF7A00]/20 text-[#FF7A00] border border-[#FF7A00]/50 ring-1 ring-[#FF7A00]/40'
+                                : 'text-[#636366] bg-[#242426] border border-[#323236]'
+                            }`}
+                          >
+                            <span>
+                              {idx + 1}. {toneInfo ? toneInfo.germanName : '?'}
+                            </span>
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+
+                  {/* 5 Tone Selection Buttons (Interactive Input) */}
+                  {syllablesAnswerStatus === 'idle' && (
+                    <div className="space-y-3 pt-1">
+                      <div className="text-[11px] text-[#A1A1A6] text-center font-medium">
+                        Tippe den Ton für{' '}
+                        <strong className="text-white">
+                          Silbe {activeSyllableSlot + 1} (
+                          <span className="font-thai text-sm text-[#FF7A00]">
+                            {currentSyllables[activeSyllableSlot]?.syllable}
+                          </span>
+                          )
+                        </strong>
+                        :
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {(['mid', 'low', 'falling', 'high', 'rising'] as ThaiTone[]).map((toneKey) => {
+                          const info = THAI_TONES[toneKey];
+                          const isCurrentlyPickedForActive =
+                            selectedSyllableTones[activeSyllableSlot] === toneKey;
+
+                          return (
+                            <button
+                              key={toneKey}
+                              type="button"
+                              onClick={() => handlePickSyllableTone(toneKey)}
+                              className={`py-3 px-1 rounded-2xl border font-semibold text-xs flex flex-col items-center gap-1 transition-all active:scale-95 min-h-[52px] cursor-pointer ${
+                                isCurrentlyPickedForActive
+                                  ? `${info.bgClass} border-current ${info.colorClass} ring-2 ring-current shadow-lg scale-102 font-bold`
+                                  : `${info.bgClass} ${info.borderClass} ${info.colorClass} hover:opacity-100 opacity-85`
+                              }`}
+                            >
+                              <span className="text-base font-bold">{info.symbol}</span>
+                              <span className="text-[11px] font-bold">{info.germanName}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Action Buttons: Check & Clear */}
+                      <div className="flex items-center gap-2 pt-1">
+                        {Object.keys(selectedSyllableTones).length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedSyllableTones({});
+                              setActiveSyllableSlot(0);
+                            }}
+                            className="py-3 px-3.5 rounded-full bg-[#242426] border border-[#3A3A3D] text-[#8E8E93] hover:text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 active:scale-95"
+                            title="Auswahl leeren"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Leeren</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          disabled={!allSyllablesChosen}
+                          onClick={handleCheckSyllablesAnswer}
+                          className={`flex-1 py-3.5 px-4 rounded-full font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-md ${
+                            allSyllablesChosen
+                              ? 'bg-[#FF7A00] hover:bg-[#FF881A] text-black cursor-pointer active:scale-[0.98]'
+                              : 'bg-[#242426] text-[#8E8E93] border border-[#323236] cursor-not-allowed opacity-60'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>
+                            {allSyllablesChosen
+                              ? 'Tonfolge prüfen'
+                              : `Wähle alle Töne (${Object.keys(selectedSyllableTones).length}/${currentSyllables.length} bestimmt)`}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Educational Feedback & Rule Breakdown after Submission */}
+                  {syllablesAnswerStatus === 'submitted' && (
+                    <div className="p-4 rounded-3xl bg-[#242426] border border-[#3A3A3D] space-y-3.5 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {currentSyllables.every((s, idx) => selectedSyllableTones[idx] === s.tone) ? (
+                            <>
+                              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                              <span className="text-sm font-bold text-emerald-400">
+                                Perfekt! Alle Töne richtig bestimmt! 🎉
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                              <span className="text-sm font-bold text-amber-300">
+                                {currentSyllables.filter((s, idx) => selectedSyllableTones[idx] === s.tone).length} von {currentSyllables.length} Silben-Tönen richtig
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <ToneVisualizer
+                          thai={currentWord.thai}
+                          romanization={currentWord.romanization}
+                          compact
+                        />
+                      </div>
+
+                      {/* Syllable-by-syllable Grammatical Explanation */}
+                      <div className="space-y-2 pt-1">
+                        <div className="text-[10px] text-[#8E8E93] uppercase font-bold tracking-wider">
+                          Regel-Auflösung je Silbe:
+                        </div>
+                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                          {currentSyllables.map((s, idx) => {
+                            const toneInfo = THAI_TONES[s.tone];
+                            const wasCorrect = selectedSyllableTones[idx] === s.tone;
+                            return (
+                              <div
+                                key={idx}
+                                className={`p-2.5 rounded-xl border space-y-1 text-left ${
+                                  wasCorrect
+                                    ? 'bg-[#1C1C1E] border-emerald-500/30'
+                                    : 'bg-[#1C1C1E] border-rose-500/30'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5 font-bold">
+                                    <span className="text-white font-thai text-base">{s.syllable}</span>
+                                    <span className="text-[#FF7A00] text-xs">({s.romanization})</span>
+                                  </div>
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${toneInfo.bgClass} ${toneInfo.borderClass} ${toneInfo.colorClass}`}
+                                  >
+                                    {toneInfo.germanName}-Ton {toneInfo.symbol}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] font-medium text-[#E5E5EA]">
+                                  {s.ruleFormula}
+                                </div>
+                                <div className="text-[10px] text-[#8E8E93] leading-relaxed">
+                                  {s.ruleTip}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Next Word Button */}
+                      <button
+                        type="button"
+                        onClick={goToNextWord}
+                        className="w-full py-3.5 rounded-full bg-[#FF7A00] text-black font-semibold text-sm hover:bg-[#FF881A] transition-colors shadow-md flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer"
+                      >
+                        <span>Nächstes Wort</span>
                         <ArrowRight className="w-4 h-4 text-black stroke-[2.5]" />
                       </button>
                     </div>
@@ -835,9 +1430,15 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-white">Runde abgeschlossen!</h3>
+                <h3 className="text-xl font-bold text-white">
+                  {mode === 'syllables'
+                    ? 'Silben-Meister gemeistert! 🎯'
+                    : 'Runde abgeschlossen!'}
+                </h3>
                 <p className="text-xs text-[#8E8E93] mt-1">
-                  Du hast alle Wörter dieses Levels durchgearbeitet.
+                  {mode === 'syllables'
+                    ? 'Du hast die Töne aller Silben komplett ohne Zwischenhilfe bestimmt.'
+                    : 'Du hast alle Wörter dieser Runde durchgearbeitet.'}
                 </p>
               </div>
 
@@ -888,7 +1489,11 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                   onClick={() => startNewSession(selectedLevelId)}
                   className="w-full py-3 rounded-full text-xs text-[#8E8E93] hover:text-white transition-colors"
                 >
-                  Dieses Level nochmal üben
+                  {selectedLevelId === 'deck'
+                    ? 'Eigene Deck-Vokabeln nochmal üben'
+                    : selectedLevelId === 'all'
+                    ? 'Alle Vokabeln nochmal üben'
+                    : `Level ${selectedLevelId} nochmal üben`}
                 </button>
               </div>
             </div>

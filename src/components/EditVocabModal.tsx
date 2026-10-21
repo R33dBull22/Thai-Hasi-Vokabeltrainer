@@ -9,7 +9,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
-import { speakThai, normalizeThaiText } from '../utils/thaiAudio';
+import { speakThai } from '../utils/thaiAudio';
 import { generateRomanizationFromThai } from '../utils/thaiTones';
 import { ToneVisualizer } from './ToneVisualizer';
 
@@ -169,38 +169,15 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
 
   const handleTestAudio = () => {
     if (thai.trim()) {
-      speakThai(normalizeThaiText(thai.trim()));
+      speakThai(thai.trim());
     }
   };
 
   const handleAutoGenerateRomanization = () => {
-    const cleanThai = normalizeThaiText(thai.trim());
-    if (!cleanThai) return;
-    setThai(cleanThai);
-    if (cleanThai === 'น้ำ' || cleanThai === 'นำ้') {
-      setRomanization('nám');
-    } else {
-      const generated = generateRomanizationFromThai(cleanThai);
-      if (generated.romanization) {
-        setRomanization(generated.romanization);
-      }
-    }
-  };
-
-  const handleThaiBlur = () => {
-    const cleanThai = normalizeThaiText(thai.trim());
-    if (cleanThai && cleanThai !== thai) {
-      setThai(cleanThai);
-    }
-    if (cleanThai && (!romanization.trim() || romanization.trim().toLowerCase() === 'nam')) {
-      if (cleanThai === 'น้ำ' || cleanThai === 'นำ้') {
-        setRomanization('nám');
-      } else {
-        const generated = generateRomanizationFromThai(cleanThai);
-        if (generated.romanization) {
-          setRomanization(generated.romanization);
-        }
-      }
+    if (!thai.trim()) return;
+    const generated = generateRomanizationFromThai(thai.trim());
+    if (generated.romanization) {
+      setRomanization(generated.romanization);
     }
   };
 
@@ -303,7 +280,6 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
               type="text"
               value={thai}
               onChange={(e) => setThai(e.target.value)}
-              onBlur={handleThaiBlur}
               placeholder="z. B. สวัสดีครับ"
               className="w-full bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl px-3 py-3 text-lg font-thai text-white focus:outline-none focus:border-[#FF7A00]"
             />

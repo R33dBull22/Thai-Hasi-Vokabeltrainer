@@ -808,6 +808,14 @@ function AppContent() {
         isOpen={toneTrainerOpen}
         onClose={() => setToneTrainerOpen(false)}
         deckVocabs={deckVocabs}
+        allVocabs={vocabularies}
+      />
+
+      {/* Interactive Thai Font Trainer (Klassisch vs. Modern / Loopless) */}
+      <ThaiFontTrainerModal
+        isOpen={fontTrainerOpen}
+        onClose={() => setFontTrainerOpen(false)}
+        colorCodingEnabled={colorCodingEnabled}
       />
 
       {/* Interactive Thai Font Trainer (Klassisch vs. Modern / Loopless) */}
