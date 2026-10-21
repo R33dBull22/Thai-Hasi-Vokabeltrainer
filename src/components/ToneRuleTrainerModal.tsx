@@ -17,6 +17,7 @@ import {
   ChevronDown,
   BookOpen,
   Compass,
+  Shuffle,
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
@@ -86,35 +87,50 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
   // Cheatsheet Quick Peek Drawer
   const [showCheatsheetPeek, setShowCheatsheetPeek] = useState(false);
   const [showLevelDropdown, setShowLevelDropdown] = useState(false);
+  const [sessionKey, setSessionKey] = useState(0);
 
-  // Prepare Word Pool for current selection
+  // Fisher-Yates array shuffler for unpredictable, randomized vocabulary order
+  const shuffleArray = <T,>(items: T[]): T[] => {
+    const result = [...items];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  };
+
+  // Prepare Word Pool for current selection (automatically shuffled for own vocabs!)
   const wordPool = useMemo((): ToneTrainerWord[] => {
     if (selectedLevelId === 'deck') {
       const source = deckVocabs.length > 0 ? deckVocabs : allVocabs;
       if (source.length === 0) {
         // Fallback to starter vocabulary if deck is empty
-        return STARTER_VOCABULARY.map((v) =>
+        const mapped = STARTER_VOCABULARY.map((v) =>
           analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
         );
+        return shuffleArray(mapped);
       }
-      return source.map((v) =>
+      const mapped = source.map((v) =>
         analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
       );
+      return shuffleArray(mapped);
     }
     if (selectedLevelId === 'all') {
       const source = allVocabs.length > 0 ? allVocabs : deckVocabs;
       if (source.length === 0) {
-        return STARTER_VOCABULARY.map((v) =>
+        const mapped = STARTER_VOCABULARY.map((v) =>
           analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
         );
+        return shuffleArray(mapped);
       }
-      return source.map((v) =>
+      const mapped = source.map((v) =>
         analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
       );
+      return shuffleArray(mapped);
     }
     const foundLevel = CURATED_TONE_LEVELS.find((l) => l.id === selectedLevelId);
     return foundLevel ? foundLevel.words : CURATED_TONE_LEVELS[0].words;
-  }, [selectedLevelId, deckVocabs, allVocabs]);
+  }, [selectedLevelId, deckVocabs, allVocabs, sessionKey]);
 
   const currentWord = wordPool[currentIndex] || wordPool[0];
 
@@ -162,6 +178,7 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
   const startNewSession = (newLevelId: number | 'deck' | 'all', newMode: TrainerMode = mode) => {
     setSelectedLevelId(newLevelId);
     setMode(newMode);
+    setSessionKey((prev) => prev + 1);
     setCurrentIndex(0);
     setActiveSyllableIndex(0);
     setGuidedStep('initial_class');
@@ -176,6 +193,20 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
     setWrongCount(0);
     setMistakes([]);
     setIsCompleted(false);
+  };
+
+  // Reshuffle the current word pool on the fly
+  const handleReshuffleSession = () => {
+    setSessionKey((prev) => prev + 1);
+    setCurrentIndex(0);
+    setActiveSyllableIndex(0);
+    setGuidedStep('initial_class');
+    setStepFeedback(null);
+    setSpeedAnswerStatus('idle');
+    setSelectedToneSpeed(null);
+    setSelectedSyllableTones({});
+    setActiveSyllableSlot(0);
+    setSyllablesAnswerStatus('idle');
   };
 
   // Switch to revenge round with mistakes
@@ -623,9 +654,22 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
             <div className="space-y-4">
               {/* Question Progress Meta */}
               <div className="flex items-center justify-between text-xs text-[#8E8E93]">
-                <span>
-                  Wort <strong className="text-white">{currentIndex + 1}</strong> von {wordPool.length}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span>
+                    Wort <strong className="text-white">{currentIndex + 1}</strong> von {wordPool.length}
+                  </span>
+                  {(selectedLevelId === 'deck' || selectedLevelId === 'all') && (
+                    <button
+                      type="button"
+                      onClick={handleReshuffleSession}
+                      className="px-2 py-0.5 rounded-lg bg-[#242426] hover:bg-[#2C2C2E] border border-[#323236] text-[10px] text-[#A1A1AA] hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Vokabelreihenfolge zufällig neu mischen"
+                    >
+                      <Shuffle className="w-3 h-3 text-[#FF7A00]" />
+                      <span>Neu mischen</span>
+                    </button>
+                  )}
+                </div>
                 <span className="text-[11px]">
                   {correctCount} richtig • {wrongCount} Fehler
                 </span>
