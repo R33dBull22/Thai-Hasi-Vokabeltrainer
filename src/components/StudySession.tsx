@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X,
   Volume2,
@@ -23,15 +23,16 @@ import {
   Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
+import { Vocabulary, UserProgress, QueryDirection, ThaiFontStyle } from '../types/vocab';
 import { PHASES, getDirectionProgress, shuffleStudyCards } from '../utils/leitner';
-import { speakThai, normalizeThaiText } from '../utils/thaiAudio';
+import { speakThai } from '../utils/thaiAudio';
 import { EditVocabModal } from './EditVocabModal';
 import { saveStudySession } from '../services/statsService';
 import { ToneVisualizer } from './ToneVisualizer';
 import { ThaiColorWord } from './ThaiColorWord';
 import { ThaiReferenceView } from './ThaiReferenceView';
 import { ToneRulesCheatsheet } from './ToneRulesCheatsheet';
+import { canonicalizeThaiString, generateRomanizationFromThai } from '../utils/thaiTones';
 
 export type StudyMode = 'preview_first' | 'skip_preview';
 export type StudyDirection = 'de_to_th' | 'both' | 'th_to_de';
@@ -55,12 +56,14 @@ interface StudySessionProps {
   onUpdateVocab?: (id: string, updatedData: Partial<Omit<Vocabulary, 'id' | 'createdAt'>>) => Promise<void>;
   existingLessons?: string[];
   colorCodingEnabled?: boolean;
+  fontStyle?: ThaiFontStyle;
 }
 
 function normalizeGerman(str: string): string {
   return str
     .toLowerCase()
     .trim()
+    .replace(/ß/g, 'ss')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, ' ')
@@ -68,23 +71,186 @@ function normalizeGerman(str: string): string {
     .trim();
 }
 
-function normalizeThaiString(str: string): string {
-  return normalizeThaiText(str).replace(/[\s\-_]+/g, '');
-}
-
 function normalizeRomanization(str: string): { spaced: string; collapsed: string } {
   const base = str
     .toLowerCase()
     .trim()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, ' ')
+    .replace(/[\u0300-\u036f\u02B0-\u02FF\u00B4]/g, '') // strip accent marks and standalone phonetic tone symbols
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   return {
     spaced: base,
     collapsed: base.replace(/\s+/g, ''),
   };
+}
+
+const THAI_POLITE_PARTICLES_REGEX = /(?:นะครับผม|นะครับ|นะคับ|นะคะ|นะค่ะ|ครับผม|คับผม|ครับ|คับ|ค่ะ|คะ|ค่า|ขา)$/;
+const ROMAN_POLITE_PARTICLES_REGEX = /(?:nakhrab|nakhrap|nakrab|nakrap|nakhrub|nakhrup|nakrub|nakrup|khrabphom|khrapphom|krabphom|krapphom|khrabpom|krabpom|nakhaa|nakaa|nakha|naka|khrab|khrap|krab|krap|khrub|khrup|krub|krup|khub|kub|khaa|kaa|khah|kah|kha|ka|ha|hah)$/;
+
+function isThaiPoliteOnly(str: string): boolean {
+  return /^(?:นะครับผม|นะครับ|นะคับ|นะคะ|นะค่ะ|ครับผม|คับผม|ครับ|คับ|ค่ะ|คะ|ค่า|ขา)$/.test(str);
+}
+
+function stripThaiPolite(str: string): string {
+  if (isThaiPoliteOnly(str)) return '';
+  return str.replace(THAI_POLITE_PARTICLES_REGEX, '');
+}
+
+function isRomanPoliteOnly(str: string): boolean {
+  return /^(?:nakhrab|nakhrap|nakrab|nakrap|nakhrub|nakhrup|nakrub|nakrup|khrabphom|khrapphom|krabphom|krapphom|khrabpom|krabpom|nakhaa|nakaa|nakha|naka|khrab|khrap|krab|krap|khrub|khrup|krub|krup|khub|kub|khaa|kaa|khah|kah|kha|ka|ha|hah)$/.test(str);
+}
+
+function stripRomanPolite(collapsed: string): string {
+  if (isRomanPoliteOnly(collapsed)) return '';
+  return collapsed.replace(ROMAN_POLITE_PARTICLES_REGEX, '');
+}
+
+function simplifyRoman(col: string): string {
+  return col
+    .replace(/sawa[tds]?dee/g, 'sawasdee')
+    .replace(/khop|khob|kop|kob/g, 'khop')
+    .replace(/ch/g, 'j')
+    .replace(/ph/g, 'p')
+    .replace(/th/g, 't')
+    .replace(/kh/g, 'k')
+    .replace(/bp/g, 'p')
+    .replace(/dt/g, 't')
+    .replace(/ee/g, 'i')
+    .replace(/oo/g, 'u')
+    .replace(/aa/g, 'a')
+    .replace(/ae/g, 'e');
+}
+
+// 1st-person Thai pronouns ("ich"):
+// ผม (phom - male), ฉัน (chan - female/informal), ดิฉัน (dichan - formal female), หนู (nuu - junior/female)
+const THAI_FIRST_PERSON_PRONOUNS_REGEX = /^(?:ผม|ฉัน|ดิฉัน|หนู)$/;
+const ROMAN_FIRST_PERSON_PRONOUNS = new Set([
+  'phom',
+  'pom',
+  'chan',
+  'chun',
+  'dichan',
+  'dichun',
+  'nu',
+  'nuu',
+]);
+
+function isThaiFirstPersonPronounOnly(str: string): boolean {
+  return THAI_FIRST_PERSON_PRONOUNS_REGEX.test(str.trim());
+}
+
+function isRomanFirstPersonPronounOnly(col: string): boolean {
+  return ROMAN_FIRST_PERSON_PRONOUNS.has(col.trim().toLowerCase());
+}
+
+/**
+ * Normalizes 1st person pronouns in Thai script to a canonical placeholder '@@PRON_1ST@@'
+ * Handles standalone occurrences or within compound phrases (e.g. "ผมชื่อ" -> "@@PRON_1ST@@ชื่อ", "ของผม" -> "ของ@@PRON_1ST@@")
+ */
+function normalizeThaiPronouns(str: string): string {
+  if (!str) return '';
+  return str.replace(/(?:ดิฉัน|ฉัน|ผม|หนู)/g, '@@PRON_1ST@@');
+}
+
+/**
+ * Normalizes 1st person pronouns in Romanization to '@@PRON_1ST@@'
+ */
+function normalizeRomanPronouns(col: string): string {
+  if (!col) return '';
+  return col.replace(/(?:di[- ]?chan|di[- ]?chun|dichan|dichun|phom|pom|chan|chun)/gi, '@@PRON_1ST@@');
+}
+
+function isThaiEquivalentMatch(userStr: string, targetStr: string): boolean {
+  if (!userStr || !targetStr) return false;
+
+  // 1. Both are 1st person pronouns alone (ผม vs ฉัน vs ดิฉัน)
+  if (isThaiFirstPersonPronounOnly(userStr) && isThaiFirstPersonPronounOnly(targetStr)) {
+    return true;
+  }
+
+  // 2. Both are polite particles alone (ครับ vs ค่ะ / คะ / etc.)
+  if (isThaiPoliteOnly(userStr) && isThaiPoliteOnly(targetStr)) {
+    return true;
+  }
+
+  // 3. Pronoun + polite particle combo alone (e.g. ผมครับ vs ฉันค่ะ)
+  const uCore = stripThaiPolite(userStr);
+  const tCore = stripThaiPolite(targetStr);
+
+  if (
+    isThaiFirstPersonPronounOnly(uCore || userStr) &&
+    isThaiFirstPersonPronounOnly(tCore || targetStr)
+  ) {
+    return true;
+  }
+
+  // 4. Exact core match after stripping polite particles
+  if (uCore && tCore && uCore === tCore) return true;
+  if (uCore && uCore === targetStr) return true;
+  if (tCore && userStr === tCore) return true;
+
+  // 5. Full sentence / phrase match with both pronoun canonicalization and polite stripping
+  // e.g. "ผมชื่อ..." vs "ฉันชื่อ...", "ของผม" vs "ของฉัน"
+  const uNorm = normalizeThaiPronouns(uCore || userStr);
+  const tNorm = normalizeThaiPronouns(tCore || targetStr);
+  if (uNorm && tNorm && uNorm === tNorm) return true;
+
+  const uRawNorm = normalizeThaiPronouns(userStr);
+  const tRawNorm = normalizeThaiPronouns(targetStr);
+  if (uRawNorm && tRawNorm && uRawNorm === tRawNorm) return true;
+
+  return false;
+}
+
+function isRomanEquivalentMatch(userCol: string, targetCol: string): boolean {
+  if (!userCol || !targetCol) return false;
+
+  // 1. Both are 1st person pronouns alone (phom vs chan vs dichan)
+  if (isRomanFirstPersonPronounOnly(userCol) && isRomanFirstPersonPronounOnly(targetCol)) {
+    return true;
+  }
+
+  // 2. Both are polite particles alone (khrab vs kha)
+  if (isRomanPoliteOnly(userCol) && isRomanPoliteOnly(targetCol)) {
+    return true;
+  }
+
+  // 3. Pronoun + polite particle alone
+  const uCore = stripRomanPolite(userCol);
+  const tCore = stripRomanPolite(targetCol);
+
+  if (
+    isRomanFirstPersonPronounOnly(uCore || userCol) &&
+    isRomanFirstPersonPronounOnly(tCore || targetCol)
+  ) {
+    return true;
+  }
+
+  if (uCore && tCore) {
+    if (uCore === tCore) return true;
+    if (simplifyRoman(uCore) === simplifyRoman(tCore)) return true;
+  }
+  if (uCore && (uCore === targetCol || simplifyRoman(uCore) === simplifyRoman(targetCol))) return true;
+  if (tCore && (userCol === tCore || simplifyRoman(userCol) === simplifyRoman(tCore))) return true;
+
+  // 4. Full sentence / phrase match with both pronoun canonicalization and polite stripping
+  const uNorm = normalizeRomanPronouns(uCore || userCol);
+  const tNorm = normalizeRomanPronouns(tCore || targetCol);
+  if (uNorm && tNorm) {
+    if (uNorm === tNorm) return true;
+    if (simplifyRoman(uNorm) === simplifyRoman(tNorm)) return true;
+  }
+
+  const uRawNorm = normalizeRomanPronouns(userCol);
+  const tRawNorm = normalizeRomanPronouns(targetCol);
+  if (uRawNorm && tRawNorm) {
+    if (uRawNorm === tRawNorm) return true;
+    if (simplifyRoman(uRawNorm) === simplifyRoman(tRawNorm)) return true;
+  }
+
+  return false;
 }
 
 function evaluateInput(
@@ -97,35 +263,100 @@ function evaluateInput(
   if (!trimmed) return false;
 
   if (isDeToTh) {
-    const userThai = normalizeThaiString(trimmed);
+    const userThai = canonicalizeThaiString(trimmed);
+    const userRom = normalizeRomanization(trimmed);
+    const targetThai = canonicalizeThaiString(v.thai);
 
-    // 1. Check Thai script against full string and any slash/comma separated alternatives
-    const thaiAlternatives = v.thai
-      .split(/[\/,;+&]/)
-      .map((s) => normalizeThaiString(s))
-      .filter(Boolean);
-
-    if (userThai === normalizeThaiString(v.thai) || thaiAlternatives.includes(userThai)) {
+    // 0. Polite particle & 1st-person pronoun interchangeability (ผม ↔ ฉัน ↔ ดิฉัน and ครับ ↔ ค่ะ)
+    if (
+      (isThaiPoliteOnly(userThai) || isRomanPoliteOnly(userRom.collapsed)) &&
+      (isThaiPoliteOnly(targetThai) || (v.romanization && isRomanPoliteOnly(normalizeRomanization(v.romanization).collapsed)))
+    ) {
       return true;
     }
 
+    if (
+      (isThaiFirstPersonPronounOnly(userThai) || isRomanFirstPersonPronounOnly(userRom.collapsed)) &&
+      (isThaiFirstPersonPronounOnly(targetThai) || (v.romanization && isRomanFirstPersonPronounOnly(normalizeRomanization(v.romanization).collapsed)))
+    ) {
+      return true;
+    }
+
+    // 1. Check Thai script against full string and any slash/comma/pipe/newline separated alternatives
+    const thaiAlternatives = v.thai
+      .split(/[\/,;+&|\n]/)
+      .map((s) => canonicalizeThaiString(s))
+      .filter(Boolean);
+
+    if (
+      userThai === targetThai ||
+      thaiAlternatives.includes(userThai) ||
+      isThaiEquivalentMatch(userThai, targetThai) ||
+      thaiAlternatives.some((alt) => isThaiEquivalentMatch(userThai, alt))
+    ) {
+      return true;
+    }
+
+    // Check without parentheses/brackets: e.g. "น้ำหนักเกิน (คำนาม)" -> "น้ำหนักเกิน"
+    const withoutParentheses = v.thai
+      .replace(/[\(\[\{（【][^\)\]\}）】]*[\)\]\}）】]/g, ' ')
+      .trim();
+    const canonWithoutParen = canonicalizeThaiString(withoutParentheses);
+    if (canonWithoutParen) {
+      const parenAlternatives = canonWithoutParen
+        .split(/[\/,;+&|\n]/)
+        .map(canonicalizeThaiString)
+        .filter(Boolean);
+      if (
+        userThai === canonWithoutParen ||
+        parenAlternatives.includes(userThai) ||
+        isThaiEquivalentMatch(userThai, canonWithoutParen) ||
+        parenAlternatives.some((alt) => isThaiEquivalentMatch(userThai, alt))
+      ) {
+        return true;
+      }
+    }
+
     // 2. Check romanization if permitted
-    if (allowRomanization && v.romanization) {
-      const userRom = normalizeRomanization(trimmed);
-      const romAlternatives = v.romanization
-        .split(/[\/,;+&]/)
+    const effectiveRom = v.romanization || generateRomanizationFromThai(v.thai).romanization;
+    if (allowRomanization && effectiveRom) {
+      const romAlternatives = effectiveRom
+        .split(/[\/,;+&|\n]/)
         .map((s) => normalizeRomanization(s))
         .filter((r) => Boolean(r.collapsed));
 
-      const fullRom = normalizeRomanization(v.romanization);
+      const fullRom = normalizeRomanization(effectiveRom);
 
-      // Match either spaced ("sa wat dee") or collapsed ("sawatdee")
+      // Also check without parentheses (e.g. "sà-wàt-dee (kráp)" -> "sà-wàt-dee")
+      const romWithoutParentheses = effectiveRom
+        .replace(/[\(\[\{（【][^\)\]\}）】]*[\)\]\}）】]/g, ' ')
+        .trim();
+      const cleanRom = normalizeRomanization(romWithoutParentheses);
+      const cleanAlternatives = romWithoutParentheses
+        .split(/[\/,;+&|\n]/)
+        .map((s) => normalizeRomanization(s))
+        .filter((r) => Boolean(r.collapsed));
+
+      const allTargetCols = [
+        fullRom.collapsed,
+        cleanRom.collapsed,
+        ...romAlternatives.map((a) => a.collapsed),
+        ...cleanAlternatives.map((a) => a.collapsed),
+      ].filter(Boolean);
+
+      // Match either spaced ("sa wat dee") or collapsed ("sawatdee") or with pronoun / polite particle interchangeability
       if (
         userRom.collapsed === fullRom.collapsed ||
         userRom.spaced === fullRom.spaced ||
+        userRom.collapsed === cleanRom.collapsed ||
+        userRom.spaced === cleanRom.spaced ||
         romAlternatives.some(
           (alt) => alt.collapsed === userRom.collapsed || alt.spaced === userRom.spaced
-        )
+        ) ||
+        cleanAlternatives.some(
+          (alt) => alt.collapsed === userRom.collapsed || alt.spaced === userRom.spaced
+        ) ||
+        allTargetCols.some((tc) => isRomanEquivalentMatch(userRom.collapsed, tc))
       ) {
         return true;
       }
@@ -137,37 +368,84 @@ function evaluateInput(
     const userGerman = normalizeGerman(trimmed);
     if (!userGerman) return false;
 
-    // Full target comparison
-    const fullGerman = normalizeGerman(v.german);
-    if (userGerman === fullGerman) return true;
-
     // Split options by delimiter (e.g., "Hallo / Guten Tag (männlich gesprochen)")
-    const rawOptions = v.german.split(/[\/,;\n]/).map((s) => s.trim()).filter(Boolean);
+    const rawOptions = v.german.split(/[\/,;|\n]/).map((s) => s.trim()).filter(Boolean);
     const candidateVariants = new Set<string>();
 
-    for (const opt of rawOptions) {
-      const normFull = normalizeGerman(opt);
-      if (normFull) candidateVariants.add(normFull);
+    const addVariantForms = (text: string) => {
+      const norm = normalizeGerman(text);
+      if (!norm) return;
+      candidateVariants.add(norm);
 
-      // Strip parentheses and brackets: "Guten Tag (männlich gesprochen)" -> "Guten Tag"
-      const strippedParentheses = opt
-        .replace(/\([^)]*\)/g, ' ')
-        .replace(/\[[^\]]*\]/g, ' ')
-        .trim();
-      const normStripped = normalizeGerman(strippedParentheses);
-      if (normStripped) candidateVariants.add(normStripped);
+      // Support alternative spelling of German umlauts (ae -> a, oe -> o, ue -> u)
+      const mapped = norm.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u');
+      if (mapped) candidateVariants.add(mapped);
 
-      // Optional: check without leading German articles ("der Hund" -> "Hund")
-      const withoutArticle = normStripped.replace(/^(der|die|das|ein|eine|einen|einem|einer)\s+/, '');
-      if (withoutArticle && withoutArticle !== normStripped) {
+      // Check without leading German articles ("der Hund" -> "Hund")
+      const withoutArticle = norm.replace(/^(der|die|das|ein|eine|einen|einem|einer)\s+/, '');
+      if (withoutArticle && withoutArticle !== norm) {
         candidateVariants.add(withoutArticle);
+        candidateVariants.add(withoutArticle.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u'));
       }
+    };
+
+    addVariantForms(v.german);
+    for (const opt of rawOptions) {
+      addVariantForms(opt);
+      const strippedParentheses = opt
+        .replace(/[\(\[\{（【][^\)\]\}）】]*[\)\]\}）】]/g, ' ')
+        .trim();
+      if (strippedParentheses) addVariantForms(strippedParentheses);
     }
 
-    // User input without leading articles as well
-    const userWithoutArticle = userGerman.replace(/^(der|die|das|ein|eine|einen|einem|einer)\s+/, '');
+    // For polite particle vocabulary (e.g. ครับ / ค่ะ), also accept common general German labels
+    if (isThaiPoliteOnly(canonicalizeThaiString(v.thai)) || (v.romanization && isRomanPoliteOnly(normalizeRomanization(v.romanization).collapsed))) {
+      candidateVariants.add('bitte');
+      candidateVariants.add('danke');
+      candidateVariants.add('ja');
+      candidateVariants.add('hoflichkeitspartikel');
+      candidateVariants.add('hoflichkeitsform');
+    }
 
-    return candidateVariants.has(userGerman) || (Boolean(userWithoutArticle) && candidateVariants.has(userWithoutArticle));
+    // For 1st-person pronoun vocabulary (e.g. ผม / ฉัน / ดิฉัน), also accept general and gendered German forms
+    if (
+      isThaiFirstPersonPronounOnly(canonicalizeThaiString(v.thai)) ||
+      (v.romanization && isRomanFirstPersonPronounOnly(normalizeRomanization(v.romanization).collapsed)) ||
+      /\bich\b/i.test(v.german)
+    ) {
+      candidateVariants.add('ich');
+      candidateVariants.add('ich mannlich');
+      candidateVariants.add('ich weiblich');
+      candidateVariants.add('ich mann');
+      candidateVariants.add('ich frau');
+      candidateVariants.add('ich mannlich gesprochen');
+      candidateVariants.add('ich weiblich gesprochen');
+    }
+
+    // For 1st-person possessives (e.g. ของผม / ของฉัน)
+    if (
+      v.thai.includes('ของผม') ||
+      v.thai.includes('ของฉัน') ||
+      /\bmein\b|\bmeine\b/i.test(v.german)
+    ) {
+      candidateVariants.add('mein');
+      candidateVariants.add('meine');
+      candidateVariants.add('meiner');
+      candidateVariants.add('meines');
+      candidateVariants.add('mein mannlich');
+      candidateVariants.add('mein weiblich');
+    }
+
+    const userWithoutArticle = userGerman.replace(/^(der|die|das|ein|eine|einen|einem|einer)\s+/, '');
+    const userUmlautMapped = userGerman.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u');
+    const userWithoutArticleUmlautMapped = userWithoutArticle.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u');
+
+    return (
+      candidateVariants.has(userGerman) ||
+      candidateVariants.has(userWithoutArticle) ||
+      candidateVariants.has(userUmlautMapped) ||
+      candidateVariants.has(userWithoutArticleUmlautMapped)
+    );
   }
 }
 
@@ -183,12 +461,22 @@ export const StudySession: React.FC<StudySessionProps> = ({
   onUpdateVocab,
   existingLessons = [],
   colorCodingEnabled = true,
+  fontStyle = 'classic',
 }) => {
   // Session queue: intelligently shuffled so opposing directions of the same vocab never appear back-to-back
   const [cardQueue, setCardQueue] = useState<StudyCardItem[]>(() => shuffleStudyCards(initialCards));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showReferenceModal, setShowReferenceModal] = useState(false);
   const [showCheatsheetModal, setShowCheatsheetModal] = useState(false);
+
+  // Active font class based on user fontStyle preference
+  const activeFontClass = useMemo(() => {
+    if (fontStyle === 'modern') return 'font-thai-kanit';
+    if (fontStyle === 'mixed') {
+      return currentIndex % 2 === 0 ? 'font-thai' : 'font-thai-kanit';
+    }
+    return 'font-thai';
+  }, [fontStyle, currentIndex]);
 
   // Set of task keys (vocabId_direction) that have been answered correctly during this session
   const [masteredTaskKeys, setMasteredTaskKeys] = useState<Set<string>>(new Set());
@@ -276,6 +564,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
   const isDeToThai = activeDirection === 'de_to_th';
   const otherDirection: QueryDirection = isDeToThai ? 'th_to_de' : 'de_to_th';
+  const isTyping = currentInputMethod === 'typing' && isDeToThai;
 
   const dirProgress = getDirectionProgress(progress, activeDirection);
   const otherDirProgress = getDirectionProgress(progress, otherDirection);
@@ -399,6 +688,73 @@ export const StudySession: React.FC<StudySessionProps> = ({
     }
   };
 
+  // Keyboard navigation for desktop and external keyboards
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ignore if a modal or card edit is open
+      if (showReferenceModal || showCheatsheetModal || editingCurrentVocab || showCardMenu) {
+        return;
+      }
+
+      // If user is actively typing in the input field before evaluating, input handles Enter
+      if (document.activeElement === inputRef.current && !isEvaluated) {
+        return;
+      }
+
+      if (isTyping) {
+        if (isEvaluated && !isSubmitting) {
+          if (isTypingCorrect) {
+            // Evaluated & Correct: Enter / Space / ArrowRight / '1' -> "Gewusst"
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight' || e.key === '1') {
+              e.preventDefault();
+              handleRate(true);
+            }
+          } else {
+            // Evaluated & Wrong: ArrowLeft / '1' / 'n' -> Nicht gewusst; ArrowRight / '2' / 'g' / Enter -> Gelten lassen
+            if (e.key === 'ArrowLeft' || e.key === '1' || e.key.toLowerCase() === 'n') {
+              e.preventDefault();
+              handleRate(false);
+            } else if (e.key === 'ArrowRight' || e.key === '2' || e.key.toLowerCase() === 'g' || e.key === 'Enter') {
+              e.preventDefault();
+              handleRate(true);
+            }
+          }
+        }
+      } else {
+        // Flashcard mode (not typing)
+        if (!isRevealed) {
+          // Space or Enter or ArrowDown -> Reveal answer
+          if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            handleReveal();
+          }
+        } else if (!isSubmitting) {
+          // Revealed: ArrowLeft / '1' / 'n' -> Nicht gewusst; ArrowRight / '2' / 'g' / Enter / Space -> Gewusst
+          if (e.key === 'ArrowLeft' || e.key === '1' || e.key.toLowerCase() === 'n') {
+            e.preventDefault();
+            handleRate(false);
+          } else if (e.key === 'ArrowRight' || e.key === '2' || e.key.toLowerCase() === 'g' || e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleRate(true);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [
+    isTyping,
+    isEvaluated,
+    isTypingCorrect,
+    isRevealed,
+    isSubmitting,
+    showReferenceModal,
+    showCheatsheetModal,
+    editingCurrentVocab,
+    showCardMenu,
+  ]);
+
   // Completed Screen
   if (isSessionComplete) {
     return (
@@ -481,15 +837,14 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
   if (!vocab) return null;
 
-  // Typing is only for Deutsch -> Thai, while Thai -> Deutsch uses "Lösung anzeigen" -> "Gelten lassen / Nicht gewusst" with red/green arrows!
-  const isTyping = currentInputMethod === 'typing' && isDeToThai;
-
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-3 sm:p-5 select-none overflow-hidden h-[100dvh]"
+      className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between pt-[60px] pb-safe px-3 sm:px-5 select-none overflow-hidden h-[100dvh]"
       style={{
-        paddingTop: 'max(calc(env(safe-area-inset-top) + 8px), 56px)',
-        paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 8px), 24px)',
+        paddingTop: 'calc(max(env(safe-area-inset-top, 0px), 54px) + 10px)',
+        paddingBottom: 'calc(max(env(safe-area-inset-bottom, 0px), 20px) + 8px)',
+        paddingLeft: 'max(env(safe-area-inset-left, 0px), 12px)',
+        paddingRight: 'max(env(safe-area-inset-right, 0px), 12px)',
       }}
       onClick={() => setShowCardMenu(false)}
     >
@@ -515,8 +870,8 @@ export const StudySession: React.FC<StudySessionProps> = ({
           </div>
 
           {/* Counter and Close on Right */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold select-none">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <span className="text-xs font-semibold select-none whitespace-nowrap">
               <span className="text-[#FF7A00] font-bold">{masteredTaskKeys.size}</span>
               <span className="text-[#8E8E93]"> / {totalUniqueCount}</span>
             </span>
@@ -524,11 +879,11 @@ export const StudySession: React.FC<StudySessionProps> = ({
             <button
               type="button"
               onClick={() => setShowCheatsheetModal(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400/20 text-xs font-semibold transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400/20 text-xs font-semibold transition-colors cursor-pointer shrink-0"
               title="Tonregeln-Cheatsheet öffnen"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>Tonregeln</span>
+              <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="hidden min-[380px]:inline">Tonregeln</span>
             </button>
 
             <button
@@ -659,7 +1014,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               </h2>
             ) : (
               <div>
-                <h2 className="text-3xl sm:text-4xl font-thai font-medium text-white tracking-normal leading-snug">
+                <h2 className={`text-3xl sm:text-4xl ${activeFontClass} font-medium text-white tracking-normal leading-snug`}>
                   <ThaiColorWord text={vocab.thai} enabled={colorCodingEnabled} />
                 </h2>
                 {!hideRomanization && vocab.romanization && (
@@ -690,7 +1045,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                         Richtige Lösung
                       </span>
                     )}
-                    <h3 className="text-3xl sm:text-4xl font-thai font-semibold text-white tracking-normal mb-1">
+                    <h3 className={`text-3xl sm:text-4xl ${activeFontClass} font-semibold text-white tracking-normal mb-1`}>
                       <ThaiColorWord text={vocab.thai} enabled={colorCodingEnabled} />
                     </h3>
                     {!hideRomanization && vocab.romanization && (
@@ -852,11 +1207,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      if (!isEvaluated) {
-                        handleCheckTyping();
-                      } else {
-                        handleRate(isTypingCorrect ? true : false);
-                      }
+                      handleCheckTyping();
                     }
                   }}
                   autoComplete="off"
@@ -866,7 +1217,6 @@ export const StudySession: React.FC<StudySessionProps> = ({
                   data-form-type="other"
                   data-lpignore="true"
                   aria-autocomplete="none"
-                  tabIndex={-1}
                   enterKeyHint="send"
                   inputMode="text"
                   placeholder={

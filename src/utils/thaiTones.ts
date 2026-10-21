@@ -690,6 +690,87 @@ const CLUSTER_PAIRS = new Set([
 ]);
 
 /**
+ * Canonicalizes raw Thai text:
+ * - Double Sara E (เเ) -> Sara Ae (แ)
+ * - Inverted vowels and tone marks
+ * - Mobile keystroke misorderings
+ */
+export function canonicalizeThaiScript(str: string, keepSpaces = true): string {
+  if (!str) return '';
+  let s = str
+    // 0. Remove zero-width spaces, directional marks, formatting, BOM, soft hyphens
+    .replace(/[\u200B-\u200D\uFEFF\u00A0\u202A-\u202E\u00AD\u2060\u2000-\u200A\u202F\u205F\u3000]/g, '')
+    .normalize('NFC');
+
+  if (!keepSpaces) {
+    // Strip parenthetical clarifications and brackets
+    s = s.replace(/[\(\[\{（【][^\)\]\}）】]*[\)\]\}）】]/g, ' ');
+    // Strip punctuation, hyphens, quotes, fullwidth symbols
+    s = s.replace(/[\s\-_.,;!?/\\()\[\]{}'"`~^«»“”‘’、。・！？（）【】《》…|:]+/g, '');
+  }
+
+  // 1. Double Sara E (เเ \u0E40\u0E40) -> Sara Ae (แ \u0E41)
+  s = s.replace(/\u0E40\u0E40/g, '\u0E41');
+
+  // 2. Deduplicate consecutive identical combining marks
+  s = s.replace(/([\u0E31\u0E34-\u0E3A\u0E47-\u0E4E])\1+/g, '$1');
+
+  // 3. Decomposed Sara Ue: Sara I (\u0E34) + Nikhahit (\u0E4D) -> Sara Ue (\u0E36)
+  s = s.replace(/\u0E34([\u0E48-\u0E4B])?\u0E4D/g, (_m, tone) => '\u0E36' + (tone || ''));
+  s = s.replace(/\u0E34\u0E4D/g, '\u0E36');
+
+  // 4. Decomposed Sara Am with tone mark in any position -> Tone Mark + Sara Am
+  s = s.replace(/([\u0E48-\u0E4B])\u0E4D\u0E32/g, '$1\u0E33');
+  s = s.replace(/\u0E4D([\u0E48-\u0E4B])\u0E32/g, '$1\u0E33');
+  s = s.replace(/\u0E4D\u0E32([\u0E48-\u0E4B])/g, '$1\u0E33');
+  s = s.replace(/\u0E4D\u0E32/g, '\u0E33');
+  s = s.replace(/\u0E33([\u0E48-\u0E4B])/g, '$1\u0E33');
+
+  // 5. Tone mark typed after right-hand vowels: า (\u0E32), ะ (\u0E30), ๅ (\u0E45)
+  s = s.replace(/([ก-ฮ])([\u0E30\u0E32\u0E45])([\u0E48-\u0E4B])/g, '$1$3$2');
+
+  // 6. Tone mark typed after compound vowel endings
+  s = s.replace(/\u0E31\u0E27([\u0E48-\u0E4B])/g, '\u0E31$1\u0E27');
+  s = s.replace(/\u0E35\u0E22([\u0E48-\u0E4B])/g, '\u0E35$1\u0E22');
+  s = s.replace(/\u0E37\u0E2D([\u0E48-\u0E4B])/g, '\u0E37$1\u0E2D');
+
+  // 7. Trailing tone mark on closed syllables
+  s = s.replace(/\u0E37\u0E2D([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '\u0E37$2\u0E2D$1');
+  s = s.replace(/\u0E35\u0E22([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '\u0E35$2\u0E22$1');
+  s = s.replace(/\u0E31\u0E27([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '\u0E31$2\u0E27$1');
+  s = s.replace(/([ก-ฮ])\u0E27([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3\u0E27$2');
+  s = s.replace(/([\u0E31\u0E34-\u0E37\u0E47])([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3$2');
+  s = s.replace(/([\u0E38\u0E39])([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3$2');
+  s = s.replace(/([ก-ฮ])\u0E32([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3\u0E32$2');
+  s = s.replace(/([ก-ฮ])\u0E2D([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$3\u0E2D$2');
+  s = s.replace(/([\u0E40\u0E41\u0E42])([ก-ฮ])([ก-ฮ])([\u0E48-\u0E4B])(?![ะาๅำ\u0E30-\u0E3A\u0E45])/g, '$1$2$4$3');
+
+  // 8. Reorder tone mark between consonants in known consonant cluster / Aksorn Nam
+  s = s.replace(/([ก-ฮ])([\u0E48-\u0E4B])([ก-ฮ])/g, (match, c1, tone, c2) => {
+    if (CLUSTER_PAIRS.has(c1 + c2)) {
+      return c1 + c2 + tone;
+    }
+    return match;
+  });
+
+  // 9. Tone mark before upper/lower vowels
+  s = s.replace(/([\u0E48-\u0E4B])([\u0E31\u0E34-\u0E3A\u0E47])/g, '$2$1');
+
+  // 10. Karan after upper/lower vowels
+  s = s.replace(/\u0E4C([\u0E31\u0E34-\u0E3A])/g, '$1\u0E4C');
+
+  // 11. Reorder Tone Mark and Karan
+  s = s.replace(/\u0E4C([\u0E48-\u0E4B])/g, '$1\u0E4C');
+
+  return s;
+}
+
+export function canonicalizeThaiString(str: string): string {
+  if (!str) return '';
+  return canonicalizeThaiScript(str, false);
+}
+
+/**
  * Splits arbitrary Thai text into phonetic syllable chunks
  */
 export function splitThaiIntoSyllables(text: string): string[] {

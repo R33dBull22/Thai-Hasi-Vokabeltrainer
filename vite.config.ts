@@ -19,7 +19,7 @@ export default defineConfig(({mode}) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon.svg'],
+        includeAssets: ['favicon.png', 'apple-touch-icon.png', 'apple-touch-icon-precomposed.png', 'icon.svg'],
         manifest: {
           id: '/',
           name: 'Thai Hasis Vokabeltrainer',
