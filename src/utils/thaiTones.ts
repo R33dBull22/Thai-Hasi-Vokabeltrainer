@@ -670,19 +670,12 @@ export const CLUSTER_PAIRS = new Set([
 ]);
 
 /**
-<<<<<<< HEAD
- * Canonicalizes raw Thai text:
- * - Double Sara E (เเ) -> Sara Ae (แ)
- * - Inverted vowels and tone marks
- * - Mobile keystroke misorderings
-=======
  * Normalizes Thai script characters and keystroke order:
  * - Decomposed characters (Sara Am, Sara Ue)
  * - Double Sara E (เเ) -> Sara Ae (แ)
  * - Inverted vowels and tone marks (above, below, right-hand vowels, compound vowels)
  * - Known consonant clusters and Aksorn Nam tone marks
  * - Deduplicates consecutive identical combining marks
->>>>>>> 7bb8c49 (feat: Silben-Profi Modus für Tonbestimmungstrainer ohne Zwischenhilfe (Deck & Vokabeln))
  */
 export function canonicalizeThaiScript(str: string, keepSpaces = true): string {
   if (!str) return '';
@@ -692,11 +685,7 @@ export function canonicalizeThaiScript(str: string, keepSpaces = true): string {
     .normalize('NFC');
 
   if (!keepSpaces) {
-<<<<<<< HEAD
-    // Strip parenthetical clarifications and brackets
-=======
     // Strip parenthetical clarifications and brackets (including fullwidth Asian parentheses)
->>>>>>> 7bb8c49 (feat: Silben-Profi Modus für Tonbestimmungstrainer ohne Zwischenhilfe (Deck & Vokabeln))
     s = s.replace(/[\(\[\{（【][^\)\]\}）】]*[\)\]\}）】]/g, ' ');
     // Strip punctuation, hyphens, quotes, fullwidth symbols
     s = s.replace(/[\s\-_.,;!?/\\()\[\]{}'"`~^«»“”‘’、。・！？（）【】《》…|:]+/g, '');
@@ -782,7 +771,6 @@ export function canonicalizeThaiScript(str: string, keepSpaces = true): string {
  * Canonicalizes Thai text for robust equality comparison.
  * Strips whitespace, hyphens, punctuation, and applies full Thai keystroke canonicalization.
  */
->>>>>>> 7bb8c49 (feat: Silben-Profi Modus für Tonbestimmungstrainer ohne Zwischenhilfe (Deck & Vokabeln))
 export function canonicalizeThaiString(str: string): string {
   if (!str) return '';
   return canonicalizeThaiScript(str, false);
