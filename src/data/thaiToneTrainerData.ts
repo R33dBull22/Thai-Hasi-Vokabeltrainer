@@ -986,6 +986,53 @@ export function analyzeThaiWordForToneTrainer(
   romHint?: string
 ): ToneTrainerWord {
   const clean = rawThai.trim();
+
+  // Pedagogical handling for ภรรยา (phan-rá-yaa / พัน-ระ-ยา)
+  if (clean === 'ภรรยา') {
+    const s1 = analyzeSingleThaiSyllable('ภรร', 0, 3);
+    const s2: ToneTrainerSyllableDetail = {
+      syllableIndex: 1,
+      totalSyllables: 3,
+      syllable: '-ระ-',
+      romanization: 'rá',
+      initialLetter: 'ร',
+      initialClass: 'low',
+      initialClassName: 'Tiefklasse',
+      toneMark: 'none',
+      toneMarkName: 'Kein Zeichen',
+      syllableType: 'dead',
+      syllableTypeName: 'Tote Silbe',
+      vowelLength: 'short',
+      vowelLengthName: 'Kurzer Vokal',
+      tone: 'high',
+      ruleFormula: 'Tiefklasse (ร) + Tote Silbe (Kurzer Vokal) ➔ Hoch-Ton',
+      ruleTip: 'In ภรรยา erzeugt das zweite ร einen hochtonigen Verbindungslaut (-ระ- ➔ rá).'
+    };
+    const s3 = analyzeSingleThaiSyllable('ยา', 2, 3);
+    return {
+      id: `dyn-${clean}`,
+      thai: clean,
+      meaning: meaningHint || 'Ehefrau',
+      romanization: romHint || 'phan-rá-yaa',
+      initialLetter: 'ภ',
+      initialClass: 'low',
+      initialClassName: 'Tiefklasse',
+      toneMark: 'none',
+      toneMarkName: 'Kein Zeichen',
+      syllableType: 'live',
+      syllableTypeName: 'Lebende Silbe',
+      vowelLength: 'short',
+      vowelLengthName: 'Ro Han (-an)',
+      tone: 'mid',
+      ruleFormula: '3 Silben: 1. ภรร (phan): Mitte • 2. -ระ- (rá): Hoch • 3. ยา (yaa): Mitte',
+      ruleTip: 'ภรรยา (phan-rá-yaa): Ausgesprochen พัน-ระ-ยา. ภรร (Mitte), Verbindungs-Laut -ระ- (Hoch), ยา (Mitte).',
+      level: 5,
+      syllables: [s1, s2, s3],
+      targetSyllableText: 'ภรร',
+      targetSyllableRoman: 'phan',
+    };
+  }
+
   const rawSyllables = splitThaiIntoSyllables(clean);
   const syllablesList = rawSyllables.length > 0 ? rawSyllables : [clean];
 

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
-import { THAI_TONES, ThaiTone } from '../utils/thaiTones';
+import { THAI_TONES, ThaiTone, getEffectiveRomanization } from '../utils/thaiTones';
 import { ConsonantClass, CONSONANT_CLASS_CONFIG } from '../data/thaiAlphabet';
 import {
   CURATED_TONE_LEVELS,
@@ -106,12 +106,12 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
       if (source.length === 0) {
         // Fallback to starter vocabulary if deck is empty
         const mapped = STARTER_VOCABULARY.map((v) =>
-          analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
+          analyzeThaiWordForToneTrainer(v.thai, v.german, getEffectiveRomanization(v.thai, v.romanization))
         );
         return shuffleArray(mapped);
       }
       const mapped = source.map((v) =>
-        analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
+        analyzeThaiWordForToneTrainer(v.thai, v.german, getEffectiveRomanization(v.thai, v.romanization))
       );
       return shuffleArray(mapped);
     }
@@ -119,12 +119,12 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
       const source = allVocabs.length > 0 ? allVocabs : deckVocabs;
       if (source.length === 0) {
         const mapped = STARTER_VOCABULARY.map((v) =>
-          analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
+          analyzeThaiWordForToneTrainer(v.thai, v.german, getEffectiveRomanization(v.thai, v.romanization))
         );
         return shuffleArray(mapped);
       }
       const mapped = source.map((v) =>
-        analyzeThaiWordForToneTrainer(v.thai, v.german, v.romanization)
+        analyzeThaiWordForToneTrainer(v.thai, v.german, getEffectiveRomanization(v.thai, v.romanization))
       );
       return shuffleArray(mapped);
     }

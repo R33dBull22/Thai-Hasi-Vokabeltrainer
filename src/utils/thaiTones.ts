@@ -245,11 +245,14 @@ const THAI_DICTIONARY: Record<string, string> = {
   'ตู้เย็น': 'dtôo-yen',
   'เตียง': 'dtiiang',
 
-  // Personen & Pronomen
+  // Personen, Familie & Pronomen (inkl. ภรรยา / สามี)
   'คน': 'khon',
   'เพื่อน': 'phûean',
   'แฟน': 'faaen',
   'ครอบครัว': 'khrôop-khrua',
+  'สามี': 'săa-mee',
+  'ภรรยา': 'phan-rá-yaa',
+  'ภริยา': 'phá-rí-yaa',
   'พ่อ': 'phôo',
   'แม่': 'mâae',
   'พี่': 'phêe',
@@ -264,6 +267,33 @@ const THAI_DICTIONARY: Record<string, string> = {
   'คะ': 'khá',
   'นะ': 'ná',
   'ด้วย': 'dûai',
+
+  // Wörter mit Ro Han (ร หัน / รร) & klassische Begriffe
+  'กรรไกร': 'gan-grai',
+  'กรรโชก': 'gan-chôok',
+  'กรรเชียง': 'gan-chiiang',
+  'กรรม': 'gam',
+  'ธรรม': 'tham',
+  'ธรรมชาติ': 'tham-má-châat',
+  'ธรรมดา': 'tham-má-daa',
+  'กิจกรรม': 'gìt-jà-gam',
+  'พรรษา': 'phan-săa',
+  'พรรค': 'phák',
+  'วรรค': 'wák',
+  'สรรพ': 'sàp',
+  'สรรหา': 'săn-hăa',
+  'จัดสรร': 'jàt-săn',
+  'บรรยาย': 'ban-yaai',
+  'บรรดา': 'ban-daa',
+  'บรรทัด': 'ban-thát',
+  'บรรจุ': 'ban-jù',
+  'บรรทุก': 'ban-thúk',
+  'บรรลุ': 'ban-lú',
+  'สวรรค์': 'sà-wăn',
+  'อุปสรรค': 'òop-bpà-sàk',
+  'ศตวรรษ': 'sà-dtà-wát',
+  'มรรยาท': 'man-yâat',
+  'มารยาท': 'maa-rá-yâat',
 
   // Fragen & Partikel
   'ไหม': 'măi',
@@ -837,6 +867,40 @@ export function splitThaiIntoSyllables(text: string): string[] {
       continue;
     }
 
+    // 1.5 Handle Thai special vowel: Ro Han (ร หัน / รร) attached directly to initial consonant
+    // e.g. ภรรยา (phan-rá-yaa), กรรไกร (gan-grai), กรรม (gam), ธรรม (tham), พรรค (phák)
+    const hasLeadingVowelForInitial = isLeadingVowel(chars[start]);
+    if (
+      !hasLeadingVowelForInitial &&
+      end + 1 < chars.length &&
+      chars[end] === 'ร' &&
+      chars[end + 1] === 'ร'
+    ) {
+      end += 2; // consume 'รร'
+
+      // Check if an optional coda consonant belongs to this Ro Han syllable:
+      if (end < chars.length && isConsonant(chars[end])) {
+        const codaChar = chars[end];
+        const afterCoda = end + 1 < chars.length ? chars[end + 1] : '';
+        const codaHasVowel = isVowelOrTone(afterCoda) || isLeadingVowel(codaChar) || afterCoda === 'อ';
+        if (!codaHasVowel) {
+          end++; // consume coda consonant (e.g. ม in กรรม, ค in พรรค, ษ in ศตวรรษ)
+        }
+      }
+
+      // Check for trailing silent letters with karan (e.g. ค์ in สวรรค์, ษณ์ in พรรณ)
+      const remainingText = chars.slice(end).join('');
+      const silentMatch = remainingText.match(/^(?:ทร์|ตร์|ศร์|ดร์|ษณ์|[ก-ฮ][ิุี]?์)/);
+      if (silentMatch) {
+        end += Array.from(silentMatch[0]).length;
+      }
+
+      const chunk = chars.slice(start, end).join('').trim();
+      if (chunk) syllables.push(chunk);
+      i = end;
+      continue;
+    }
+
     // 2. Consume vowel signs and diphthong glides attached to initial
     const hasLeadingE = chars.slice(start, end).some((c) => c === 'เ' || c === 'แ');
     let hasUpperI = false;
@@ -1052,6 +1116,22 @@ export function parseThaiSyllable(raw: string): ParsedThaiSyllable {
     };
   }
 
+  // Explicit handling for isolated double Ro (รร)
+  if (s === 'รร') {
+    return {
+      roman: 'ran',
+      tone: 'mid',
+      initial: 'r',
+      initialChar: 'ร',
+      initialClass: 'low',
+      toneMark: null,
+      isDead: false,
+      isLong: false,
+      vowel: 'a',
+      finalCons: 'n',
+    };
+  }
+
   // Explicit handling for vocalic ฤ (ru / rue) and ฦ (lu)
   if (s.startsWith('ฤๅ') || s.startsWith('ฦๅ')) {
     const isRu = s.startsWith('ฤ');
@@ -1172,7 +1252,23 @@ export function parseThaiSyllable(raw: string): ParsedThaiSyllable {
   let isDead = false;
 
   // Diphthongs & Special Vowels
-  if (leadingVowel === 'เ' && s.includes('ื') && (s.includes('อ') || s.includes('ะ'))) {
+  if (s.startsWith('รร')) {
+    const afterRoHan = s.substring(2);
+    if (afterRoHan.length === 0) {
+      // Ro Han without coda: represents sound -an (อัน), live syllable ending in sonorant /n/
+      vowel = 'a';
+      finalCons = 'n';
+      isDead = false;
+      isLong = false;
+      s = '';
+    } else {
+      // Ro Han with coda: short vowel -a- followed by that coda consonant (e.g. กรรม, ธรรม, พรรค, วรรค)
+      vowel = 'a';
+      isLong = false;
+      s = afterRoHan;
+      // remaining characters in s will be parsed by final consonant logic below
+    }
+  } else if (leadingVowel === 'เ' && s.includes('ื') && (s.includes('อ') || s.includes('ะ'))) {
     vowel = 'uea';
     isLong = !s.includes('ะ');
     s = s.replace(/[ื]/g, '').replace(/[อะ]/g, '');
@@ -1426,4 +1522,37 @@ export function generateRomanizationFromThai(thaiText: string): {
     romanization: resultRom,
     syllables: extractTonesFromRomanization(resultRom),
   };
+}
+
+/**
+ * Resolves the cleanest, canonical romanization for a word:
+ * - Fixes previously stored bugged artifacts (e.g. 'phá-rorn-yaa' -> 'phan-rá-yaa')
+ * - Prefers curated dictionary mappings
+ * - Falls back to dynamic generation from Thai script
+ */
+export function getEffectiveRomanization(thai?: string, romanization?: string): string {
+  const cleanThai = thai ? canonicalizeThaiScript(thai.trim(), true) : '';
+  const cleanRom = romanization?.trim() || '';
+
+  // Auto-correct previously generated corrupted romanizations containing 'rorn' (e.g. 'phá-rorn-yaa')
+  if (cleanRom.includes('rorn') || cleanRom === 'phá-rorn-yaa') {
+    if (cleanThai && THAI_DICTIONARY[cleanThai]) {
+      return THAI_DICTIONARY[cleanThai];
+    }
+    if (cleanThai) {
+      return generateRomanizationFromThai(cleanThai).romanization;
+    }
+    return cleanRom.replace(/phá-rorn-yaa/g, 'phan-rá-yaa').replace(/rorn/g, 'ran');
+  }
+
+  if (cleanThai && THAI_DICTIONARY[cleanThai]) {
+    // If dictionary has exact match and stored romanization was empty or matches legacy generation
+    if (!cleanRom || cleanRom === 'phá-rorn-yaa') {
+      return THAI_DICTIONARY[cleanThai];
+    }
+  }
+
+  if (cleanRom) return cleanRom;
+  if (cleanThai) return generateRomanizationFromThai(cleanThai).romanization;
+  return '';
 }

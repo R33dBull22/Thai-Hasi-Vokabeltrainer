@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   extractTonesFromRomanization,
   generateRomanizationFromThai,
+  getEffectiveRomanization,
   SyllableTone,
   THAI_TONES,
   ThaiTone,
@@ -25,10 +26,11 @@ export const ToneVisualizer: React.FC<ToneVisualizerProps> = ({
 }) => {
   const [showExplanation, setShowExplanation] = useState(false);
 
-  // Derive syllables & tones
+  // Derive syllables & tones using canonical effective romanization
+  const effectiveRom = getEffectiveRomanization(thai, romanization);
   let syllables: SyllableTone[] = [];
-  if (romanization && romanization.trim()) {
-    syllables = extractTonesFromRomanization(romanization);
+  if (effectiveRom) {
+    syllables = extractTonesFromRomanization(effectiveRom);
     // If romanization has no diacritic tone marks at all (every syllable detected as 'mid'),
     // but Thai script is available, prefer the phonetically analyzed tones from Thai!
     if (thai && thai.trim() && syllables.length > 0 && syllables.every((s) => s.tone === 'mid')) {

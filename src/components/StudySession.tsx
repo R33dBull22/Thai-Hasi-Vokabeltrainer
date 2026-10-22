@@ -32,7 +32,7 @@ import { ToneVisualizer } from './ToneVisualizer';
 import { ThaiColorWord } from './ThaiColorWord';
 import { ThaiReferenceView } from './ThaiReferenceView';
 import { ToneRulesCheatsheet } from './ToneRulesCheatsheet';
-import { canonicalizeThaiString, generateRomanizationFromThai } from '../utils/thaiTones';
+import { canonicalizeThaiString, generateRomanizationFromThai, getEffectiveRomanization } from '../utils/thaiTones';
 
 export type StudyMode = 'preview_first' | 'skip_preview';
 export type StudyDirection = 'de_to_th' | 'both' | 'th_to_de';
@@ -318,7 +318,7 @@ function evaluateInput(
     }
 
     // 2. Check romanization if permitted
-    const effectiveRom = v.romanization || generateRomanizationFromThai(v.thai).romanization;
+    const effectiveRom = getEffectiveRomanization(v.thai, v.romanization);
     if (allowRomanization && effectiveRom) {
       const romAlternatives = effectiveRom
         .split(/[\/,;+&|\n]/)
@@ -1017,20 +1017,27 @@ export const StudySession: React.FC<StudySessionProps> = ({
                 <h2 className={`text-3xl sm:text-4xl ${activeFontClass} font-medium text-white tracking-normal leading-snug`}>
                   <ThaiColorWord text={vocab.thai} enabled={colorCodingEnabled} />
                 </h2>
-                {!hideRomanization && vocab.romanization && (
-                  <p className="text-base text-[#FF7A00] font-medium mt-1.5">
-                    {vocab.romanization}
-                  </p>
-                )}
-                {!hideRomanization && (
-                  <div className="flex justify-center mt-2">
-                    <ToneVisualizer
-                      romanization={vocab.romanization}
-                      thai={vocab.thai}
-                      compact
-                    />
-                  </div>
-                )}
+                {(() => {
+                  const displayRom = getEffectiveRomanization(vocab.thai, vocab.romanization);
+                  return (
+                    <>
+                      {!hideRomanization && displayRom && (
+                        <p className="text-base text-[#FF7A00] font-medium mt-1.5">
+                          {displayRom}
+                        </p>
+                      )}
+                      {!hideRomanization && (
+                        <div className="flex justify-center mt-2">
+                          <ToneVisualizer
+                            romanization={displayRom}
+                            thai={vocab.thai}
+                            compact
+                          />
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
 
@@ -1048,18 +1055,25 @@ export const StudySession: React.FC<StudySessionProps> = ({
                     <h3 className={`text-3xl sm:text-4xl ${activeFontClass} font-semibold text-white tracking-normal mb-1`}>
                       <ThaiColorWord text={vocab.thai} enabled={colorCodingEnabled} />
                     </h3>
-                    {!hideRomanization && vocab.romanization && (
-                      <p className="text-base text-[#FF7A00] font-medium tracking-wide">
-                        {vocab.romanization}
-                      </p>
-                    )}
-                    <div className="flex justify-center mt-2">
-                      <ToneVisualizer
-                        romanization={vocab.romanization}
-                        thai={vocab.thai}
-                        showHelpIcon
-                      />
-                    </div>
+                    {(() => {
+                      const displayRom = getEffectiveRomanization(vocab.thai, vocab.romanization);
+                      return (
+                        <>
+                          {!hideRomanization && displayRom && (
+                            <p className="text-base text-[#FF7A00] font-medium tracking-wide">
+                              {displayRom}
+                            </p>
+                          )}
+                          <div className="flex justify-center mt-2">
+                            <ToneVisualizer
+                              romanization={displayRom}
+                              thai={vocab.thai}
+                              showHelpIcon
+                            />
+                          </div>
+                        </>
+                      );
+                    })()}
                     {/* Audio button for Thai pronunciation */}
                     <div className="flex items-center justify-center gap-3 mt-2">
                       <button
