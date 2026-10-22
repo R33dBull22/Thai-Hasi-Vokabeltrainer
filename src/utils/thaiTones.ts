@@ -291,9 +291,39 @@ const THAI_DICTIONARY: Record<string, string> = {
   'บรรลุ': 'ban-lú',
   'สวรรค์': 'sà-wăn',
   'อุปสรรค': 'òop-bpà-sàk',
-  'ศตวรรษ': 'sà-dtà-wát',
   'มรรยาท': 'man-yâat',
   'มารยาท': 'maa-rá-yâat',
+
+  // Sanskrit/Pali-Ausnahmen (stumme End-Vokale & stumme Konsonanten wie -ติ, -ตุ, -ตร, -ชร, -กร, -คร)
+  'ชาติ': 'châat',
+  'ญาติ': 'yâat',
+  'รสชาติ': 'rót-châat',
+  'ประวัติ': 'bprà-wàt',
+  'ประวัติศาสตร์': 'bprà-wàt-dtì-sàat',
+  'สมบัติ': 'sŏm-bàt',
+  'ปฏิบัติ': 'bprà-dtì-bàt',
+  'อนุมัติ': 'à-nú-mát',
+  'อัตโนมัติ': 'àt-dtà-noo-mát',
+  'เหตุ': 'hèet',
+  'สาเหตุ': 'săa-hèet',
+  'อุบัติเหตุ': 'òo-bàt-dtì-hèet',
+  'ธาตุ': 'thâat',
+  'สามารถ': 'săa-mâat',
+  'บัตร': 'bàt',
+  'บัตรเครดิต': 'bàt-khree-dìt',
+  'สูตร': 'sòot',
+  'มิตร': 'mít',
+  'มิตรภาพ': 'mít-dtrà-phâap',
+  'เมตร': 'mêet',
+  'กิโลเมตร': 'gì-loo-mêet',
+  'เซนติเมตร': 'sen-dtì-mêet',
+  'ลิตร': 'lít',
+  'บุตร': 'bùt',
+  'เพชร': 'phét',
+  'จักร': 'jàk',
+  'สมัคร': 'sà-màk',
+  'สมัครงาน': 'sà-màk ngaan',
+  'เกษตร': 'gà-sèet',
 
   // Fragen & Partikel
   'ไหม': 'măi',
@@ -965,8 +995,20 @@ export function splitThaiIntoSyllables(text: string): string[] {
       isLeadingVowel(chars[start]) ||
       chars.slice(start, end).some((c) => isVowelOrTone(c) || c === 'อ' || c === 'ว');
 
-    // 3. Optional: AT MOST ONE final consonant (coda)
+    // 3. Optional: Final consonant (coda) or classical Sanskrit/Pali coda
     if (end < chars.length && isConsonant(chars[end])) {
+      const remainingCodaSlice = chars.slice(end).join('');
+      const isClassicalSanskritCoda = hasExplicitVowel && /^(?:ตร|ทร|ชร|กร|คร)(?![เแโใไาิีึืุูะั็่้๊๋])/.test(remainingCodaSlice);
+      const isSilentVowelStopCoda = hasExplicitVowel && /^(?:ติ|ตุ|ธิ)(?![เแโใไาิีึืุูะั็่้๊๋])/.test(remainingCodaSlice);
+
+      if (isClassicalSanskritCoda || isSilentVowelStopCoda) {
+        end += 2;
+        const chunk = chars.slice(start, end).join('').trim();
+        if (chunk) syllables.push(chunk);
+        i = end;
+        continue;
+      }
+
       const nextChar = chars[end];
       const afterNext = end + 1 < chars.length ? chars[end + 1] : '';
 
@@ -1082,6 +1124,16 @@ export function parseThaiSyllable(raw: string): ParsedThaiSyllable {
     .replace(/์/g, '')
     .trim();
   if (!s) return emptyResult;
+
+  // Classical Sanskrit/Pali rules:
+  // 1. Silent trailing 'ร' without karan: -ตร, -ทร, -ชร, -กร, -คร (e.g. บัตร -> บัต, สูตร -> สูต, เพชร -> เพช, จักร -> จัก, เนตร -> เนต)
+  if (s.length >= 3 && /(?<=[เแโ][ก-ฮ]|[ก-ฮ][าีืูัิุ])([ตชกคท])ร$/.test(s)) {
+    s = s.replace(/(?<=[เแโ][ก-ฮ]|[ก-ฮ][าีืูัิุ])([ตชกคท])ร$/, '$1');
+  }
+  // 2. Silent trailing vowel marks on final stops: -ติ, -ตุ, -ธิ (e.g. ชาติ -> ชาต, ญาติ -> ญาต, เหตุ -> เหต, ธาตุ -> ธาต)
+  if (s.length >= 3 && /(?<=[เแโ][ก-ฮ]|[ก-ฮ][าีืูั])[ตทธ][ิุ]$/.test(s)) {
+    s = s.replace(/(?<=[เแโ][ก-ฮ]|[ก-ฮ][าีืูั])([ตทธ])[ิุ]$/, '$1');
+  }
 
   // Explicit handling for Thai numerals (๐-๙)
   if (/^[๐-๙]$/.test(s)) {
