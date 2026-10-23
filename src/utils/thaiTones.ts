@@ -155,6 +155,13 @@ const THAI_DICTIONARY: Record<string, string> = {
   'ขอโทษ': 'khăaw-thôot',
   'ขอโทษครับ': 'khăaw-thôot kráp',
   'ขอโทษค่ะ': 'khăaw-thôot khâ',
+  'ขออภัยในความไม่สะดวกครับ': 'khăaw-à-phai nai khwaam mâi sà-dùak kráp',
+  'ขออภัยในความไม่สะดวกค่ะ': 'khăaw-à-phai nai khwaam mâi sà-dùak khâ',
+  'ขออภัยครับ': 'khăaw-à-phai kráp',
+  'ขออภัยค่ะ': 'khăaw-à-phai khâ',
+  'ขออภัย': 'khăaw-à-phai',
+  'อภัย': 'à-phai',
+  'ขอ': 'khăaw',
   'ลาก่อน': 'laa-gò̜on',
   'เจอกันใหม่': 'jooe-gan mài',
 
@@ -982,18 +989,10 @@ export function splitThaiIntoSyllables(text: string): string[] {
     }
 
     // Handle vowel Sara Aw (สระออ - อ) after initial consonant with or without tone mark:
-    // e.g. ขอบ, ชอบ, บอก, สอน, นอน, ต้อน, ห้อง, น้อง, ร้อน
+    // e.g. ขอบ, ชอบ, บอก, สอน, นอน, ต้อน, ห้อง, น้อง, ร้อน, ขอ, รอ, พ่อ
     const hasVowelSignSoFar = chars.slice(start, end).some((c) => isVowelOrTone(c) && !/^[่้๊๋]$/.test(c));
     if (!hasLeadingE && !hasVowelSignSoFar && end < chars.length && chars[end] === 'อ') {
-      if (end + 1 < chars.length && isConsonant(chars[end + 1])) {
-        const afterO = chars[end + 1];
-        const afterAfterO = end + 2 < chars.length ? chars[end + 2] : '';
-        const afterOHasVowel = isVowelOrTone(afterAfterO) || isLeadingVowel(afterO);
-        const afterOIsCluster = CLUSTER_PAIRS.has(afterO + afterAfterO);
-        if (!afterOHasVowel && !afterOIsCluster) {
-          end++; // consume 'อ' as vowel
-        }
-      }
+      end++; // consume 'อ' as vowel Sara Aw (สระออ) for open or closed syllables
     }
 
     // Check if an explicit vowel sign is attached to this initial
@@ -1002,18 +1001,24 @@ export function splitThaiIntoSyllables(text: string): string[] {
       chars.slice(start, end).some((c) => isVowelOrTone(c) || c === 'อ' || c === 'ว');
 
     // 3. Optional: Final consonant (coda) or classical Sanskrit/Pali coda
-    if (end < chars.length && isConsonant(chars[end])) {
-      const remainingCodaSlice = chars.slice(end).join('');
-      const isClassicalSanskritCoda = hasExplicitVowel && /^(?:ตร|ทร|ชร|กร|คร)(?![เแโใไาิีึืุูะั็่้๊๋])/.test(remainingCodaSlice);
-      const isSilentVowelStopCoda = hasExplicitVowel && /^(?:ติ|ตุ|ธิ)(?![เแโใไาิีึืุูะั็่้๊๋])/.test(remainingCodaSlice);
+    const remainingCodaSlice = chars.slice(end).join('');
+    const isClassicalSanskritCoda = hasExplicitVowel && /^(?:ตร|ทร|ชร|กร|คร)(?![เแโใไาิีึืุูะั็่้๊๋])/.test(remainingCodaSlice);
+    const isSilentVowelStopCoda = hasExplicitVowel && /^(?:ติ|ตุ|ธิ)(?![เแโใไาิีึืุูะั็่้๊๋])/.test(remainingCodaSlice);
 
-      if (isClassicalSanskritCoda || isSilentVowelStopCoda) {
-        end += 2;
-        const chunk = chars.slice(start, end).join('').trim();
-        if (chunk) syllables.push(chunk);
-        i = end;
-        continue;
-      }
+    if (isClassicalSanskritCoda || isSilentVowelStopCoda) {
+      end += 2;
+      const chunk = chars.slice(start, end).join('').trim();
+      if (chunk) syllables.push(chunk);
+      i = end;
+      continue;
+    }
+
+    const isPotentialCoda =
+      end < chars.length &&
+      isConsonant(chars[end]) &&
+      Boolean(FINAL_CONSONANTS[chars[end]]);
+
+    if (isPotentialCoda) {
 
       const nextChar = chars[end];
       const afterNext = end + 1 < chars.length ? chars[end + 1] : '';
@@ -1620,11 +1625,14 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
   // Auto-correct previously generated corrupted romanizations:
   // 1. Ro Han artifact: 'phá-rorn-yaa' -> 'phan-rá-yaa' or any 'rorn'
   // 2. วัด / coda split artifact before อยู่: 'wá-dà-yòo-glâi' or 'wá-dà-'
+  // 3. ขออภัย artifact: 'khà-phay' -> 'khăaw-à-phai'
   if (
     cleanRom.includes('rorn') ||
     cleanRom === 'phá-rorn-yaa' ||
     cleanRom.includes('wá-dà-') ||
-    cleanRom === 'wá-dà-yòo-glâi'
+    cleanRom === 'wá-dà-yòo-glâi' ||
+    cleanRom === 'khà-phay' ||
+    cleanRom.includes('khà-phay')
   ) {
     if (cleanThai && THAI_DICTIONARY[cleanThai]) {
       return THAI_DICTIONARY[cleanThai];
@@ -1635,12 +1643,18 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
     return cleanRom
       .replace(/phá-rorn-yaa/g, 'phan-rá-yaa')
       .replace(/rorn/g, 'ran')
-      .replace(/wá-dà-/g, 'wát-');
+      .replace(/wá-dà-/g, 'wát-')
+      .replace(/khà-phay/g, 'khăaw-à-phai');
   }
 
   if (cleanThai && THAI_DICTIONARY[cleanThai]) {
     // If dictionary has exact match and stored romanization was empty or matches legacy generation
-    if (!cleanRom || cleanRom === 'phá-rorn-yaa' || cleanRom.includes('wá-dà-')) {
+    if (
+      !cleanRom ||
+      cleanRom === 'phá-rorn-yaa' ||
+      cleanRom.includes('wá-dà-') ||
+      cleanRom === 'khà-phay'
+    ) {
       return THAI_DICTIONARY[cleanThai];
     }
   }
