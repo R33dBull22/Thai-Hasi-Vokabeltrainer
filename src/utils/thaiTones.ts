@@ -162,6 +162,11 @@ const THAI_DICTIONARY: Record<string, string> = {
   'ขออภัย': 'khăaw-à-phai',
   'อภัย': 'à-phai',
   'ขอ': 'khăaw',
+  'กรุณาถอดรองเท้า': 'grù-naa-thòrt-rorng-tháo',
+  'ถอดรองเท้า': 'thòrt-rorng-tháo',
+  'รองเท้า': 'rorng-tháo',
+  'ถอด': 'thòrt',
+  'กรุณา': 'grù-naa',
   'ลาก่อน': 'laa-gò̜on',
   'เจอกันใหม่': 'jooe-gan mài',
 
@@ -738,7 +743,7 @@ export function computeTone(
 }
 
 export const CLUSTER_PAIRS = new Set([
-  'กร', 'กล', 'กว', 'ขร', 'ขล', 'ขว', 'คร', 'คล', 'คว', 'ตร', 'ปร', 'ปล', 'ผล', 'พร', 'พล', 'ฟร', 'บล', 'บร', 'ดร', 'ฝร',
+  'กร', 'กล', 'กว', 'ขร', 'ขล', 'ขว', 'คร', 'คล', 'คว', 'ตร', 'ปร', 'ปล', 'ผล', 'พร', 'พล',
   'กฤ', 'พฤ', 'หม', 'หน', 'หว', 'หล', 'หย', 'หง', 'หร', 'หญ', 'อย', 'ทร', 'ศร', 'สร', 'จร',
 ]);
 
@@ -1626,13 +1631,15 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
   // 1. Ro Han artifact: 'phá-rorn-yaa' -> 'phan-rá-yaa' or any 'rorn'
   // 2. วัด / coda split artifact before อยู่: 'wá-dà-yòo-glâi' or 'wá-dà-'
   // 3. ขออภัย artifact: 'khà-phay' -> 'khăaw-à-phai'
+  // 4. ถอดรองเท้า / ดร cluster artifact: 'thŏr-drorng' -> 'thòrt-rorng' or 'drorng'
   if (
     cleanRom.includes('rorn') ||
     cleanRom === 'phá-rorn-yaa' ||
     cleanRom.includes('wá-dà-') ||
     cleanRom === 'wá-dà-yòo-glâi' ||
     cleanRom === 'khà-phay' ||
-    cleanRom.includes('khà-phay')
+    cleanRom.includes('khà-phay') ||
+    cleanRom.includes('drorng')
   ) {
     if (cleanThai && THAI_DICTIONARY[cleanThai]) {
       return THAI_DICTIONARY[cleanThai];
@@ -1644,7 +1651,9 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
       .replace(/phá-rorn-yaa/g, 'phan-rá-yaa')
       .replace(/rorn/g, 'ran')
       .replace(/wá-dà-/g, 'wát-')
-      .replace(/khà-phay/g, 'khăaw-à-phai');
+      .replace(/khà-phay/g, 'khăaw-à-phai')
+      .replace(/thŏr-drorng/g, 'thòrt-rorng')
+      .replace(/drorng/g, 'rorng');
   }
 
   if (cleanThai && THAI_DICTIONARY[cleanThai]) {
@@ -1653,7 +1662,8 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
       !cleanRom ||
       cleanRom === 'phá-rorn-yaa' ||
       cleanRom.includes('wá-dà-') ||
-      cleanRom === 'khà-phay'
+      cleanRom === 'khà-phay' ||
+      cleanRom.includes('drorng')
     ) {
       return THAI_DICTIONARY[cleanThai];
     }
