@@ -26,7 +26,7 @@ import { speakThai } from '../utils/thaiAudio';
 import { PHASES, formatDueDate, isCardDue, getDirectionProgress, isAnyDirectionDue } from '../utils/leitner';
 import { EditVocabModal } from './EditVocabModal';
 import { ToneVisualizer } from './ToneVisualizer';
-import { generateRomanizationFromThai } from '../utils/thaiTones';
+import { generateRomanizationFromThai, getEffectiveRomanization } from '../utils/thaiTones';
 import { ThaiColorWord } from './ThaiColorWord';
 
 interface PoolViewProps {
@@ -835,13 +835,13 @@ export const PoolView: React.FC<PoolViewProps> = ({
                                 enabled={colorCodingEnabled}
                                 className="text-[#E4E4E7] font-thai font-medium"
                               />
-                              {vocab.romanization && (
+                              {getEffectiveRomanization(vocab.thai, vocab.romanization) && (
                                 <span className="text-[#FF7A00] font-sans">
-                                  {vocab.romanization}
+                                  {getEffectiveRomanization(vocab.thai, vocab.romanization)}
                                 </span>
                               )}
                               <ToneVisualizer
-                                romanization={vocab.romanization}
+                                romanization={getEffectiveRomanization(vocab.thai, vocab.romanization)}
                                 thai={vocab.thai}
                                 compact
                               />

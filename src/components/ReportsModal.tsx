@@ -16,6 +16,7 @@ import {
 import { UserProgress, Vocabulary } from '../types/vocab';
 import { PHASES, formatDueDate, getDirectionProgress } from '../utils/leitner';
 import { speakThai } from '../utils/thaiAudio';
+import { getEffectiveRomanization } from '../utils/thaiTones';
 
 interface ReportsModalProps {
   isOpen: boolean;
@@ -403,9 +404,9 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
                                     <span className="truncate max-w-[120px] text-[#A1A1AA]">
                                       {vocab.lesson || 'Allgemein'}
                                     </span>
-                                    {vocab.romanization && (
+                                    {getEffectiveRomanization(vocab.thai, vocab.romanization) && (
                                       <span className="italic truncate max-w-[110px] text-[#8E8E93]">
-                                        ({vocab.romanization})
+                                        ({getEffectiveRomanization(vocab.thai, vocab.romanization)})
                                       </span>
                                     )}
                                     {progress.streak > 0 && (

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
-import { generateRomanizationFromThai } from '../utils/thaiTones';
+import { generateRomanizationFromThai, getEffectiveRomanization } from '../utils/thaiTones';
 import { ToneVisualizer } from './ToneVisualizer';
 
 interface EditVocabModalProps {
@@ -62,7 +62,7 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
     if (vocab) {
       setGerman(vocab.german || '');
       setThai(vocab.thai || '');
-      setRomanization(vocab.romanization || '');
+      setRomanization(getEffectiveRomanization(vocab.thai, vocab.romanization));
       setExampleThai(vocab.exampleThai || '');
       setExampleGerman(vocab.exampleGerman || '');
       setSelectedDePhase(currentDePhase || currentPhase || 1);

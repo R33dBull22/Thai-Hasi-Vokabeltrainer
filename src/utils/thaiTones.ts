@@ -123,6 +123,12 @@ const THAI_DICTIONARY: Record<string, string> = {
   'หยุด': 'yùt',
   'ใกล้': 'glâi',
   'ไกล': 'glai',
+  'วัดอยู่ใกล้': 'wát-yòo-glâi',
+  'วัดอยู่ไกล': 'wát-yòo-glai',
+  'วัดพระแก้ว': 'wát-phrá-gâaew',
+  'วัดอรุณ': 'wát-à-run',
+  'วัดโพธิ์': 'wát-phoo',
+  'วัด': 'wát',
   'ห้องน้ำอยู่ที่ไหน': 'hông-nám yòo thêe-năi',
   'อยู่ที่ไหน': 'yòo thêe-năi',
   'ที่ไหน': 'thêe-năi',
@@ -1012,12 +1018,33 @@ export function splitThaiIntoSyllables(text: string): string[] {
       const nextChar = chars[end];
       const afterNext = end + 1 < chars.length ? chars[end + 1] : '';
 
-      // If afterNext is Sara Aw 'อ' followed by a consonant (e.g. ชอบ, ตอบ, นอน), nextChar is onset of that syllable!
-      const afterNextIsSaraAw = afterNext === 'อ' && end + 2 < chars.length && isConsonant(chars[end + 2]);
+      // In Thai orthography, syllables with Mai Han-Akat (ั) or Maitaikhu (็) CANNOT be open!
+      // They strictly require a final coda consonant. Therefore nextChar MUST be their coda!
+      const hasMandatoryCoda = chars.slice(start, end).some((c) => c === 'ั' || c === '็');
+
+      // A syllable can only be Sara Aw (สระออ - C1 + อ + C2, e.g. ชอบ, นอน, ตอบ, ของ) if:
+      // 1. Current syllable does NOT strictly require a coda (ั or ็ MUST have a coda)
+      // 2. afterNext is 'อ'
+      // 3. chars[end + 2] is a consonant (C2)
+      // 4. 'อ' + C2 does NOT form an onset cluster like 'อย' (in อยู่, อย่า, อย่าง, อยาก)
+      // 5. C2 does not have an attached vowel or tone mark (e.g. ู in อยู่)
+      // 6. C2 is a recognized Thai final consonant
+      const thirdChar = end + 2 < chars.length ? chars[end + 2] : '';
+      const fourthChar = end + 3 < chars.length ? chars[end + 3] : '';
+      const thirdCharHasVowelOrTone = isVowelOrTone(fourthChar) || fourthChar === '์';
+      const afterNextIsSaraAw =
+        !hasMandatoryCoda &&
+        afterNext === 'อ' &&
+        end + 2 < chars.length &&
+        isConsonant(thirdChar) &&
+        !CLUSTER_PAIRS.has(afterNext + thirdChar) &&
+        !thirdCharHasVowelOrTone &&
+        Boolean(FINAL_CONSONANTS[thirdChar]);
+
       const nextHasVowel = isVowelOrTone(afterNext) || isLeadingVowel(nextChar) || afterNextIsSaraAw;
 
       // If nextChar + afterNext forms an onset cluster (e.g. คร in ครับ, ปร in โปรด), nextChar cannot be coda!
-      const nextIsCluster = CLUSTER_PAIRS.has(nextChar + afterNext);
+      const nextIsCluster = !hasMandatoryCoda && CLUSTER_PAIRS.has(nextChar + afterNext);
 
       const afterIsSilentTail = /^(?:ทร์|ตร์|ศร์|ดร์|ษณ์|[ก-ฮ][ิุี]?์)/.test(chars.slice(end + 1).join(''));
 
@@ -1040,6 +1067,7 @@ export function splitThaiIntoSyllables(text: string): string[] {
 
       // If nextChar and afterNext form a standalone closed 2-consonant syllable (e.g. รถ in สถานีรถไฟ, ชม in สีชมพู, ขน in สถานีขนส่ง):
       const isNextTwoConsonantsAClosedSyllable = (() => {
+        if (hasMandatoryCoda) return false;
         if (!isConsonant(nextChar) || !isConsonant(afterNext)) return false;
         if (!FINAL_CONSONANTS[afterNext]) return false;
         if (CLUSTER_PAIRS.has(nextChar + afterNext)) return false;
@@ -1059,7 +1087,10 @@ export function splitThaiIntoSyllables(text: string): string[] {
         return false;
       })();
 
-      if (!nextHasVowel && !isNextOnsetOfConsonantPair && !nextIsCluster && !isNextTwoConsonantsAClosedSyllable) {
+      if (
+        hasMandatoryCoda ||
+        (!nextHasVowel && !isNextOnsetOfConsonantPair && !nextIsCluster && !isNextTwoConsonantsAClosedSyllable)
+      ) {
         end++;
         // consume trailing tone/karan if any
         while (end < chars.length && (isVowelOrTone(chars[end]) || chars[end] === '์')) {
@@ -1586,20 +1617,30 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
   const cleanThai = thai ? canonicalizeThaiScript(thai.trim(), true) : '';
   const cleanRom = romanization?.trim() || '';
 
-  // Auto-correct previously generated corrupted romanizations containing 'rorn' (e.g. 'phá-rorn-yaa')
-  if (cleanRom.includes('rorn') || cleanRom === 'phá-rorn-yaa') {
+  // Auto-correct previously generated corrupted romanizations:
+  // 1. Ro Han artifact: 'phá-rorn-yaa' -> 'phan-rá-yaa' or any 'rorn'
+  // 2. วัด / coda split artifact before อยู่: 'wá-dà-yòo-glâi' or 'wá-dà-'
+  if (
+    cleanRom.includes('rorn') ||
+    cleanRom === 'phá-rorn-yaa' ||
+    cleanRom.includes('wá-dà-') ||
+    cleanRom === 'wá-dà-yòo-glâi'
+  ) {
     if (cleanThai && THAI_DICTIONARY[cleanThai]) {
       return THAI_DICTIONARY[cleanThai];
     }
     if (cleanThai) {
       return generateRomanizationFromThai(cleanThai).romanization;
     }
-    return cleanRom.replace(/phá-rorn-yaa/g, 'phan-rá-yaa').replace(/rorn/g, 'ran');
+    return cleanRom
+      .replace(/phá-rorn-yaa/g, 'phan-rá-yaa')
+      .replace(/rorn/g, 'ran')
+      .replace(/wá-dà-/g, 'wát-');
   }
 
   if (cleanThai && THAI_DICTIONARY[cleanThai]) {
     // If dictionary has exact match and stored romanization was empty or matches legacy generation
-    if (!cleanRom || cleanRom === 'phá-rorn-yaa') {
+    if (!cleanRom || cleanRom === 'phá-rorn-yaa' || cleanRom.includes('wá-dà-')) {
       return THAI_DICTIONARY[cleanThai];
     }
   }
