@@ -87,11 +87,16 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // Test connection on app boot as required by skill
 export async function testConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    await getDocFromServer(doc(db, 'vocabularies', 'ping_connection'));
     return true;
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client is currently offline or unreachable.');
+    if (
+      error instanceof Error &&
+      (error.message.includes('offline') ||
+        error.message.includes('unavailable') ||
+        (error as { code?: string }).code === 'unavailable')
+    ) {
+      console.warn('Firebase client is operating in offline mode.');
     }
     return false;
   }
