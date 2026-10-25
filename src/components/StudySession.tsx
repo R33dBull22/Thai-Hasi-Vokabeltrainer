@@ -33,6 +33,7 @@ import { ThaiColorWord } from './ThaiColorWord';
 import { ThaiReferenceView } from './ThaiReferenceView';
 import { ToneRulesCheatsheet } from './ToneRulesCheatsheet';
 import { canonicalizeThaiString, generateRomanizationFromThai, getEffectiveRomanization } from '../utils/thaiTones';
+import { THAI_CONSONANTS, CONSONANT_CLASS_CONFIG } from '../data/thaiAlphabet';
 
 export type StudyMode = 'preview_first' | 'skip_preview';
 export type StudyDirection = 'de_to_th' | 'both' | 'th_to_de';
@@ -317,6 +318,18 @@ function evaluateInput(
       }
     }
 
+    // Also check content inside parentheses: e.g. "ก (ก ไก่)" -> accepts "ก ไก่"
+    const insideParenMatch = v.thai.match(/[\(\[\{（【]([^\)\]\}）】]+)[\)\]\}）】]/);
+    if (insideParenMatch) {
+      const canonInside = canonicalizeThaiString(insideParenMatch[1]);
+      if (
+        canonInside &&
+        (userThai === canonInside || isThaiEquivalentMatch(userThai, canonInside))
+      ) {
+        return true;
+      }
+    }
+
     // 2. Check romanization if permitted
     const effectiveRom = getEffectiveRomanization(v.thai, v.romanization);
     if (allowRomanization && effectiveRom) {
@@ -368,8 +381,8 @@ function evaluateInput(
     const userGerman = normalizeGerman(trimmed);
     if (!userGerman) return false;
 
-    // Split options by delimiter (e.g., "Hallo / Guten Tag (männlich gesprochen)")
-    const rawOptions = v.german.split(/[\/,;|\n]/).map((s) => s.trim()).filter(Boolean);
+    // Split options by delimiter (e.g., "Hallo / Guten Tag", "gor gài (Huhn) • An: g | Aus: k")
+    const rawOptions = v.german.split(/[\/,;|\n•·]/).map((s) => s.trim()).filter(Boolean);
     const candidateVariants = new Set<string>();
 
     const addVariantForms = (text: string) => {
@@ -396,6 +409,10 @@ function evaluateInput(
         .replace(/[\(\[\{（【][^\)\]\}）】]*[\)\]\}）】]/g, ' ')
         .trim();
       if (strippedParentheses) addVariantForms(strippedParentheses);
+
+      // Also extract what is inside parentheses (e.g. "Huhn" from "gor gài (Huhn)")
+      const insideParen = opt.match(/[\(\[\{（【]([^\)\]\}）】]+)[\)\]\}）】]/)?.[1]?.trim();
+      if (insideParen) addVariantForms(insideParen);
     }
 
     // For polite particle vocabulary (e.g. ครับ / ค่ะ), also accept common general German labels
@@ -571,6 +588,20 @@ export const StudySession: React.FC<StudySessionProps> = ({
   const currentPhase = dirProgress.phase;
 
   const currentTaskKey = vocab ? `${vocab.id}_${activeDirection}` : '';
+
+  // Consonant information for Thai alphabet cards (initial sound, final sound, letter name, class)
+  const consonantInfo = useMemo(() => {
+    if (!vocab?.thai) return null;
+    const firstChar = vocab.thai.trim()[0];
+    if (!firstChar) return null;
+    return THAI_CONSONANTS.find((c) => c.letter === firstChar) || null;
+  }, [vocab?.thai]);
+
+  const isAlphabetCard = Boolean(
+    vocab?.lesson === 'Alphabet' ||
+    vocab?.german.includes('• An:') ||
+    (consonantInfo && vocab?.thai && (vocab.thai.includes('(') || vocab.thai.length === 1))
+  );
 
   // Auto-focus input when card changes
   useEffect(() => {
@@ -1009,9 +1040,23 @@ export const StudySession: React.FC<StudySessionProps> = ({
           <div className="my-auto text-center px-4 py-2 z-10">
             {/* Primary Question Prompt */}
             {isDeToThai ? (
-              <h2 className="text-2xl sm:text-3xl font-medium text-white tracking-wide leading-snug">
-                {vocab.german}
-              </h2>
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-medium text-white tracking-wide leading-snug">
+                  {vocab.german}
+                </h2>
+                {consonantInfo && isAlphabetCard && (
+                  <div className="mt-2.5 inline-flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-xl bg-[#202022] border border-[#323236] text-xs text-[#D1D1D6]">
+                    <span className="text-[#8E8E93] text-[11px]">Laut:</span>
+                    <span className="font-mono text-amber-300 font-semibold text-[11px]">An: {consonantInfo.initialSound}</span>
+                    <span className="text-[#52525B]">·</span>
+                    <span className="font-mono text-amber-300 font-semibold text-[11px]">Aus: {consonantInfo.finalSound}</span>
+                    <span className="text-[#52525B]">·</span>
+                    <span className={`text-[11px] font-semibold ${CONSONANT_CLASS_CONFIG[consonantInfo.class].colorClass}`}>
+                      {CONSONANT_CLASS_CONFIG[consonantInfo.class].labelGerman}
+                    </span>
+                  </div>
+                )}
+              </div>
             ) : (
               <div>
                 <h2 className={`text-3xl sm:text-4xl ${activeFontClass} font-medium text-white tracking-normal leading-snug`}>
@@ -1074,6 +1119,22 @@ export const StudySession: React.FC<StudySessionProps> = ({
                         </>
                       );
                     })()}
+                    {consonantInfo && isAlphabetCard && (
+                      <div className="mt-2.5 inline-flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-xl bg-[#202022] border border-[#323236] text-xs text-[#D1D1D6]">
+                        <span className="text-[#8E8E93] text-[11px]">Name:</span>
+                        <span className="font-thai text-white font-bold">{consonantInfo.nameThai}</span>
+                        <span className="text-[#52525B]">·</span>
+                        <span className="text-[#8E8E93] text-[11px]">An:</span>
+                        <span className="font-mono text-amber-300 font-semibold text-[11px]">{consonantInfo.initialSound}</span>
+                        <span className="text-[#52525B]">·</span>
+                        <span className="text-[#8E8E93] text-[11px]">Aus:</span>
+                        <span className="font-mono text-amber-300 font-semibold text-[11px]">{consonantInfo.finalSound}</span>
+                        <span className="text-[#52525B]">·</span>
+                        <span className={`text-[11px] font-semibold ${CONSONANT_CLASS_CONFIG[consonantInfo.class].colorClass}`}>
+                          {CONSONANT_CLASS_CONFIG[consonantInfo.class].labelGerman}
+                        </span>
+                      </div>
+                    )}
                     {/* Audio button for Thai pronunciation */}
                     <div className="flex items-center justify-center gap-3 mt-2">
                       <button
@@ -1101,6 +1162,22 @@ export const StudySession: React.FC<StudySessionProps> = ({
                     <h3 className="text-2xl sm:text-3xl font-bold text-white mb-1">
                       {vocab.german}
                     </h3>
+                    {consonantInfo && isAlphabetCard && (
+                      <div className="mt-2.5 inline-flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-xl bg-[#202022] border border-[#323236] text-xs text-[#D1D1D6]">
+                        <span className="text-[#8E8E93] text-[11px]">Name:</span>
+                        <span className="font-thai text-white font-bold">{consonantInfo.nameThai}</span>
+                        <span className="text-[#52525B]">·</span>
+                        <span className="text-[#8E8E93] text-[11px]">An:</span>
+                        <span className="font-mono text-amber-300 font-semibold text-[11px]">{consonantInfo.initialSound}</span>
+                        <span className="text-[#52525B]">·</span>
+                        <span className="text-[#8E8E93] text-[11px]">Aus:</span>
+                        <span className="font-mono text-amber-300 font-semibold text-[11px]">{consonantInfo.finalSound}</span>
+                        <span className="text-[#52525B]">·</span>
+                        <span className={`text-[11px] font-semibold ${CONSONANT_CLASS_CONFIG[consonantInfo.class].colorClass}`}>
+                          {CONSONANT_CLASS_CONFIG[consonantInfo.class].labelGerman}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-center gap-3 mt-2">
                       <button
                         type="button"

@@ -516,6 +516,51 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'จริง': 'jing',
   'สร้าง': 'sâang',
   'ศรี': 'sĕe',
+  // 44 Thai alphabet consonants
+  'ก ไก่': 'gor gài', 'ก (ก ไก่)': 'gor gài',
+  'ข ไข่': 'khăaw khài', 'ข (ข ไข่)': 'khăaw khài',
+  'ฃ ขวด': 'khăaw khùat', 'ฃ (ฃ ขวด)': 'khăaw khùat',
+  'ค ควาย': 'khaaw khwaai', 'ค (ค ควาย)': 'khaaw khwaai',
+  'ฅ คน': 'khaaw khon', 'ฅ (ฅ คน)': 'khaaw khon',
+  'ฆ ระฆัง': 'khaaw rá-khang', 'ฆ (ฆ ระฆัง)': 'khaaw rá-khang',
+  'ง งู': 'ngaaw ngoo', 'ง (ง งู)': 'ngaaw ngoo',
+  'จ จาน': 'jaaw jaan', 'จ (จ จาน)': 'jaaw jaan',
+  'ฉ ฉิ่ง': 'chăaw chìng', 'ฉ (ฉ ฉิ่ง)': 'chăaw chìng',
+  'ช ช้าง': 'chaaw cháang', 'ช (ช ช้าง)': 'chaaw cháang',
+  'ซ โซ่': 'saaw sôo', 'ซ (ซ โซ่)': 'saaw sôo',
+  'ฌ เฌอ': 'chaaw chooe', 'ฌ (ฌ เฌอ)': 'chaaw chooe',
+  'ญ ผู้หญิง': 'yaaw phôo-yĭng', 'ญ (ญ ผู้หญิง)': 'yaaw phôo-yĭng', 'ญ หญิง': 'yaaw phôo-yĭng',
+  'ฎ ชฎา': 'daaw chá-daa', 'ฎ (ฎ ชฎา)': 'daaw chá-daa',
+  'ฏ ปฏัก': 'dtaaw bpà-dtàk', 'ฏ (ฏ ปฏัก)': 'dtaaw bpà-dtàk',
+  'ฐ ฐาน': 'thăaw thăan', 'ฐ (ฐ ฐาน)': 'thăaw thăan',
+  'ฑ มณโฑ': 'thaaw mon-thoo', 'ฑ (ฑ มณโฑ)': 'thaaw mon-thoo',
+  'ฒ ผู้เฒ่า': 'thaaw phôo-thâo', 'ฒ (ฒ ผู้เฒ่า)': 'thaaw phôo-thâo',
+  'ณ เณร': 'naaw neen', 'ณ (ณ เณร)': 'naaw neen',
+  'ด เด็ก': 'daaw dèk', 'ด (ด เด็ก)': 'daaw dèk',
+  'ต เต่า': 'dtaaw dtào', 'ต (ต เต่า)': 'dtaaw dtào',
+  'ถ ถุง': 'thăaw thŭng', 'ถ (ถ ถุง)': 'thăaw thŭng',
+  'ท ทหาร': 'thaaw thá-hăan', 'ท (ท ทหาร)': 'thaaw thá-hăan',
+  'ธ ธง': 'thaaw thong', 'ธ (ธ ธง)': 'thaaw thong',
+  'น หนู': 'naaw nŏo', 'น (น หนู)': 'naaw nŏo',
+  'บ ใบไม้': 'baaw bai-mái', 'บ (บ ใบไม้)': 'baaw bai-mái',
+  'ป ปลา': 'bpaaw bplaa', 'ป (ป ปลา)': 'bpaaw bplaa',
+  'ผ ผึ้ง': 'phăaw phûeng', 'ผ (ผ ผึ้ง)': 'phăaw phûeng',
+  'ฝ ฝา': 'făaw făa', 'ฝ (ฝ ฝา)': 'făaw făa',
+  'พ พาน': 'phaaw phaan', 'พ (พ พาน)': 'phaaw phaan',
+  'ฟ ฟัน': 'faaw fan', 'ฟ (ฟ ฟัน)': 'faaw fan',
+  'ภ สำเภา': 'phaaw săm-phao', 'ภ (ภ สำเภา)': 'phaaw săm-phao',
+  'ม ม้า': 'maaw máa', 'ม (ม ม้า)': 'maaw máa',
+  'ย ยักษ์': 'yaaw yák', 'ย (ย ยักษ์)': 'yaaw yák',
+  'ร เรือ': 'raaw ruea', 'ร (ร เรือ)': 'raaw ruea',
+  'ล ลิง': 'laaw ling', 'ล (ล ลิง)': 'laaw ling',
+  'ว แหวน': 'waaw wăaen', 'ว (ว แหวน)': 'waaw wăaen',
+  'ศ ศาลา': 'săaw săa-laa', 'ศ (ศ ศาลา)': 'săaw săa-laa',
+  'ษ ฤๅษี': 'săaw rue-sĕe', 'ษ (ษ ฤๅษี)': 'săaw rue-sĕe', 'ษ ฤาษี': 'săaw rue-sĕe',
+  'ส เสือ': 'săaw sŭea', 'ส (ส เสือ)': 'săaw sŭea',
+  'ห หีบ': 'hăaw hèep', 'ห (ห หีบ)': 'hăaw hèep',
+  'ฬ จุฬา': 'laaw jù-laa', 'ฬ (ฬ จุฬา)': 'laaw jù-laa',
+  'อ อ่าง': 'aaw àang', 'อ (อ อ่าง)': 'aaw àang',
+  'ฮ นกฮูก': 'haaw nók-hôok', 'ฮ (ฮ นกฮูก)': 'haaw nók-hôok',
 };
 
 // Thai consonant classes
@@ -1692,6 +1737,11 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
       .replace(/thŏr-drorng/g, 'thòrt-rorng')
       .replace(/drorng/g, 'rorng')
       .replace(/\bmát-yít\b/g, 'mát-sà-yít');
+  }
+
+  const parenContent = cleanThai.match(/\(([^)]+)\)/)?.[1]?.trim();
+  if (parenContent && THAI_DICTIONARY[parenContent]) {
+    return THAI_DICTIONARY[parenContent];
   }
 
   if (cleanThai && THAI_DICTIONARY[cleanThai]) {

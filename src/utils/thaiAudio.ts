@@ -26,8 +26,15 @@ export function speakThai(
   try {
     window.speechSynthesis.cancel(); // cancel any ongoing speech
 
+    // If text is in the format "ก (ก ไก่)", extract what is inside parentheses ("ก ไก่") for clear, natural pronunciation
+    let targetText = text;
+    const parenMatch = text.match(/\(([^)]+)\)/);
+    if (parenMatch && parenMatch[1].trim()) {
+      targetText = parenMatch[1].trim();
+    }
+
     // Replace slashes or semicolons with commas to create a natural pause without reading punctuation
-    const speechText = text
+    const speechText = targetText
       .replace(/\s*[\/;\n]\s*/g, ', ')
       .replace(/\s+/g, ' ')
       .trim();

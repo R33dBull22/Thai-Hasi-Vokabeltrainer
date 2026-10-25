@@ -1,4 +1,5 @@
 import { Vocabulary } from '../types/vocab';
+import { THAI_CONSONANTS } from './thaiAlphabet';
 
 export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdAt'>[] = [
   // Lektion 1: Begrüßung & Höflichkeit
@@ -202,4 +203,14 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
     exampleThai: 'คุณพูดภาษาอังกฤษได้ไหมครับ',
     exampleGerman: 'Sprechen Sie Englisch?',
   },
+
+  // Lektion: Alphabet (44 Konsonanten mit Namen, Anfangs- und Endlauten)
+  ...THAI_CONSONANTS.map((c) => ({
+    german: `${c.namePhonetic} (${c.meaningGerman}) • An: ${c.initialSound} | Aus: ${c.finalSound}`,
+    thai: `${c.letter} (${c.nameThai})`,
+    romanization: c.namePhonetic,
+    lesson: 'Alphabet',
+    exampleThai: c.nameThai,
+    exampleGerman: `Anfangslaut: ${c.initialSound} • Endlaut: ${c.finalSound}`,
+  })),
 ];

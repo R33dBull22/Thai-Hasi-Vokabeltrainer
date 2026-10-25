@@ -15,6 +15,7 @@ import { auth, db } from '../firebase/config';
 import { Vocabulary, UserProgress, DeletedVocabEntry, DirectionProgress, QueryDirection } from '../types/vocab';
 import { STARTER_VOCABULARY } from '../data/initialVocab';
 import { calculateNextReviewDate, calculateResetReviewDate, getDirectionProgress } from '../utils/leitner';
+import { THAI_CONSONANTS } from '../data/thaiAlphabet';
 
 const VOCAB_COLLECTION = 'vocabularies';
 const PROGRESS_COLLECTION = 'user_progress';
@@ -297,8 +298,74 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
         }
       }
     }
+    // Standardize Alphabet lesson consonant cards: ensure Thai letter name and initial/final sound details
+    if (v.lesson === 'Alphabet' && v.thai) {
+      const match = THAI_CONSONANTS.find(
+        (c) => v.thai === c.letter || v.thai === c.nameThai || v.thai.startsWith(c.letter + ' (')
+      );
+      if (match) {
+        const targetThai = `${match.letter} (${match.nameThai})`;
+        const targetGerman = `${match.namePhonetic} (${match.meaningGerman}) • An: ${match.initialSound} | Aus: ${match.finalSound}`;
+        const targetRom = match.namePhonetic;
+        const targetExTh = match.nameThai;
+        const targetExDe = `Anfangslaut: ${match.initialSound} • Endlaut: ${match.finalSound}`;
+
+        if (
+          v.thai !== targetThai ||
+          v.romanization !== targetRom ||
+          v.german !== targetGerman ||
+          v.exampleThai !== targetExTh ||
+          v.exampleGerman !== targetExDe
+        ) {
+          const updated = {
+            ...v,
+            thai: targetThai,
+            romanization: targetRom,
+            german: targetGerman,
+            exampleThai: targetExTh,
+            exampleGerman: targetExDe,
+          };
+          needsCloudSync.push(updated);
+          return updated;
+        }
+      }
+    }
     return v;
   });
+
+  // If the user's collection contains the Alphabet lesson, ensure all 44 consonants exist
+  const hasAlphabetLesson = cleaned.some((v) => v.lesson === 'Alphabet');
+  if (hasAlphabetLesson) {
+    const existingConsonants = new Set<string>();
+    cleaned.forEach((v) => {
+      if (v.lesson === 'Alphabet' && v.thai) {
+        const first = v.thai.trim()[0];
+        if (first) existingConsonants.add(first);
+      }
+    });
+
+    const now = new Date().toISOString();
+    for (const c of THAI_CONSONANTS) {
+      if (!existingConsonants.has(c.letter)) {
+        const missingCard: Vocabulary = {
+          id: `vocab_alpha_${c.letter.charCodeAt(0)}_${Date.now().toString(36)}`,
+          thai: `${c.letter} (${c.nameThai})`,
+          romanization: c.namePhonetic,
+          german: `${c.namePhonetic} (${c.meaningGerman}) • An: ${c.initialSound} | Aus: ${c.finalSound}`,
+          exampleThai: c.nameThai,
+          exampleGerman: `Anfangslaut: ${c.initialSound} • Endlaut: ${c.finalSound}`,
+          lesson: 'Alphabet',
+          creatorId: 'system_alphabet',
+          creatorName: 'Thai Hasi Team',
+          createdAt: now,
+        };
+        cleaned.push(missingCard);
+        needsCloudSync.push(missingCard);
+        existingConsonants.add(c.letter);
+      }
+    }
+  }
+
   return { cleaned, needsCloudSync };
 }
 
