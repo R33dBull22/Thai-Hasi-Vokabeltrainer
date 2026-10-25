@@ -850,15 +850,15 @@ export const CLUSTER_PAIRS = new Set([
 export function canonicalizeThaiScript(str: string, keepSpaces = true): string {
   if (!str) return '';
   let s = str
-    // 0. Remove zero-width spaces, directional marks, formatting, BOM, soft hyphens
-    .replace(/[\u200B-\u200D\uFEFF\u00A0\u202A-\u202E\u00AD\u2060\u2000-\u200A\u202F\u205F\u3000]/g, '')
+    // 0. Remove zero-width spaces, directional marks, formatting, BOM, soft hyphens, and dotted circle / bullet placeholders
+    .replace(/[\u200B-\u200D\uFEFF\u00A0\u202A-\u202E\u00AD\u2060\u2000-\u200A\u202F\u205F\u3000\u25CC\u25CB\u25CF\u2022\u25E6\u2043]/g, '')
     .normalize('NFC');
 
   if (!keepSpaces) {
     // Strip parenthetical clarifications and brackets (including fullwidth Asian parentheses)
     s = s.replace(/[\(\[\{（【][^\)\]\}）】]*[\)\]\}）】]/g, ' ');
-    // Strip punctuation, hyphens, quotes, fullwidth symbols
-    s = s.replace(/[\s\-_.,;!?/\\()\[\]{}'"`~^«»“”‘’、。・！？（）【】《》…|:]+/g, '');
+    // Strip punctuation, hyphens, quotes, fullwidth symbols, dashes, and bullet marks
+    s = s.replace(/[\s\-_.,;!?/\\()\[\]{}'"`~^«»“”‘’、。・！？（）【】《》…|:\u2013\u2014\u25CC\u25CB\u25CF\u2022\u25E6\u2043]+/g, '');
   }
 
   // 1. Double Sara E (เเ \u0E40\u0E40) -> Sara Ae (แ \u0E41)
@@ -971,6 +971,8 @@ export const KNOWN_THAI_SYLLABLES: Record<string, string[]> = {
   'ภัตตาคาร': ['ภัต', 'ตา', 'คาร'],
 };
 
+const KNOWN_SYLLABLES_KEYS_DESC = Object.keys(KNOWN_THAI_SYLLABLES).sort((a, b) => b.length - a.length);
+
 /**
  * Splits arbitrary Thai text into phonetic syllable chunks
  */
@@ -1007,6 +1009,15 @@ export function splitThaiIntoSyllables(text: string): string[] {
     // Handle Thai abbreviation sign (ไปยาลน้อย ฯ)
     if (chars[i] === 'ฯ') {
       i++;
+      continue;
+    }
+
+    // Check if remaining text at current syllable boundary starts with any known irregular/ambisyllabic word
+    const aheadText = chars.slice(i).join('');
+    const matchedKnownWord = KNOWN_SYLLABLES_KEYS_DESC.find((kw) => aheadText.startsWith(kw));
+    if (matchedKnownWord) {
+      syllables.push(...KNOWN_THAI_SYLLABLES[matchedKnownWord]);
+      i += Array.from(matchedKnownWord).length;
       continue;
     }
 
@@ -1763,7 +1774,7 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
     cleanRom === 'khà-phay' ||
     cleanRom.includes('khà-phay') ||
     cleanRom.includes('drorng') ||
-    (cleanThai === 'มัสยิด' && (cleanRom === 'mát-yít' || !cleanRom.includes('sà')))
+    (cleanThai.includes('มัสยิด') && (cleanRom.includes('mát-yít') || cleanRom.includes('mat-yit') || !cleanRom.includes('sà')))
   ) {
     if (cleanThai && THAI_DICTIONARY[cleanThai]) {
       return THAI_DICTIONARY[cleanThai];
@@ -1778,7 +1789,7 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
       .replace(/khà-phay/g, 'khăaw-à-phai')
       .replace(/thŏr-drorng/g, 'thòrt-rorng')
       .replace(/drorng/g, 'rorng')
-      .replace(/\bmát-yít\b/g, 'mát-sà-yít');
+      .replace(/\bm[áa]t-y[íi]t\b/gi, 'mát-sà-yít');
   }
 
   const parenContent = cleanThai.match(/\(([^)]+)\)/)?.[1]?.trim();

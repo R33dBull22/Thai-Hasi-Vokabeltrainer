@@ -163,6 +163,28 @@ function normalizeRomanPronouns(col: string): string {
   return col.replace(/(?:di[- ]?chan|di[- ]?chun|dichan|dichun|phom|pom|chan|chun)/gi, '@@PRON_1ST@@');
 }
 
+/**
+ * Strips dummy base consonant 'อ' from isolated vowels or tone marks
+ * e.g. "อิ" -> "ิ", "อี" -> "ี", "เอ" -> "เ", "แอ" -> "แ", "โอ" -> "โ", "อัว" -> "ัว", "อั" -> "ั", "อ่" -> "่"
+ */
+function stripDummyConsonantO(str: string): string {
+  if (!str) return '';
+  // 1. Leading vowel + อ -> leading vowel (e.g. เอ -> เ, แอ -> แ, โอ -> โ, เอา -> เา)
+  let s = str.replace(/^([เแโใไ])อ(?=[ะาำ\u0E30-\u0E3A\u0E47-\u0E4E]|$)/g, '$1');
+  // 2. Standalone อ followed by vowel mark or tone mark or compound vowel (e.g. อิ -> ิ, อี -> ี, อั -> ั, อัว -> ัว, อ่ -> ่)
+  s = s.replace(/^อ(?=[\u0E30-\u0E3A\u0E47-\u0E4Eัว])/g, '');
+  return s;
+}
+
+function stripSaraPrefix(str: string): string {
+  if (!str) return '';
+  return str.replace(/^สระ\s*/, '');
+}
+
+function normalizeVowelInput(str: string): string {
+  return stripDummyConsonantO(stripSaraPrefix(str));
+}
+
 function isThaiEquivalentMatch(userStr: string, targetStr: string): boolean {
   if (!userStr || !targetStr) return false;
 
@@ -201,6 +223,14 @@ function isThaiEquivalentMatch(userStr: string, targetStr: string): boolean {
   const uRawNorm = normalizeThaiPronouns(userStr);
   const tRawNorm = normalizeThaiPronouns(targetStr);
   if (uRawNorm && tRawNorm && uRawNorm === tRawNorm) return true;
+
+  // 6. Vowel or tone diacritic representation with/without dummy consonant อ or "สระ" prefix
+  // e.g. "อิ" vs "ิ" vs "สระอิ", "เอ" vs "เ" vs "สระเอ", "อัว" vs "ัว", "อั" vs "ั", "อ่" vs "่"
+  const uVowel = normalizeVowelInput(uCore || userStr);
+  const tVowel = normalizeVowelInput(tCore || targetStr);
+  if (uVowel && tVowel && uVowel === tVowel) return true;
+  if (uVowel && uVowel === targetStr) return true;
+  if (tVowel && userStr === tVowel) return true;
 
   return false;
 }
@@ -254,7 +284,7 @@ function isRomanEquivalentMatch(userCol: string, targetCol: string): boolean {
   return false;
 }
 
-function evaluateInput(
+export function evaluateInput(
   input: string,
   v: Vocabulary,
   isDeToTh: boolean,
@@ -410,9 +440,11 @@ function evaluateInput(
         .trim();
       if (strippedParentheses) addVariantForms(strippedParentheses);
 
-      // Also extract what is inside parentheses (e.g. "Huhn" from "gor gài (Huhn)")
-      const insideParen = opt.match(/[\(\[\{（【]([^\)\]\}）】]+)[\)\]\}）】]/)?.[1]?.trim();
-      if (insideParen) addVariantForms(insideParen);
+      // Also extract what is inside all parentheses (e.g. "Huhn" from "gor gài (Huhn)")
+      const insideParens = [...opt.matchAll(/[\(\[\{（【]([^\)\]\}）】]+)[\)\]\}）】]/g)];
+      for (const m of insideParens) {
+        if (m[1]?.trim()) addVariantForms(m[1].trim());
+      }
     }
 
     // For polite particle vocabulary (e.g. ครับ / ค่ะ), also accept common general German labels

@@ -287,9 +287,9 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
     }
     // Fix "มัสยิด" ("Moschee") romanization from mát-yít to mát-sà-yít (3 syllables)
     if (v.thai && v.thai.includes('มัสยิด')) {
-      if (!v.romanization || v.romanization === 'mát-yít' || !v.romanization.includes('sà')) {
+      if (!v.romanization || !v.romanization.includes('sà') || /\bm[áa]t-y[íi]t\b/i.test(v.romanization)) {
         const fixedRom = v.romanization
-          ? v.romanization.replace(/\bmát-yít\b/g, 'mát-sà-yít')
+          ? v.romanization.replace(/\bm[áa]t-y[íi]t\b/gi, 'mát-sà-yít')
           : 'mát-sà-yít';
         if (v.romanization !== fixedRom) {
           const updated = { ...v, romanization: fixedRom };
