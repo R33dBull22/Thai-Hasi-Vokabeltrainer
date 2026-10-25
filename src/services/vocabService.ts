@@ -333,12 +333,14 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
     return v;
   });
 
-  // If the user's collection contains the Alphabet lesson, ensure all 44 consonants exist
+  // If the user's collection contains the Alphabet lesson, ensure all 44 consonants, 4 tone marks and special signs exist
   const hasAlphabetLesson = cleaned.some((v) => v.lesson === 'Alphabet');
   if (hasAlphabetLesson) {
+    const existingThais = new Set<string>();
     const existingConsonants = new Set<string>();
     cleaned.forEach((v) => {
       if (v.lesson === 'Alphabet' && v.thai) {
+        existingThais.add(v.thai.trim());
         const first = v.thai.trim()[0];
         if (first) existingConsonants.add(first);
       }
@@ -362,6 +364,34 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
         cleaned.push(missingCard);
         needsCloudSync.push(missingCard);
         existingConsonants.add(c.letter);
+      }
+    }
+
+    // Special orthographic signs and tone marks
+    const specialSigns: Omit<Vocabulary, 'creatorId' | 'creatorName' | 'createdAt'>[] = [
+      { id: 'vocab_alpha_tone_1', thai: '่ (ไม้เอก)', romanization: 'mái èek', german: 'Mai Ek • 1. Tonzeichen (Tief / Fallend)', exampleThai: 'ไก่, พ่อ, วิ่ง', exampleGerman: 'Macht Silben tief (Mitte/Hoch) oder fallend (Tief)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_tone_2', thai: '้ (ไม้โท)', romanization: 'mái thoo', german: 'Mai Tho • 2. Tonzeichen (Fallend / Hoch)', exampleThai: 'ข้าว, บ้าน, น้ำ, ม้า', exampleGerman: 'Macht Silben fallend (Mitte/Hoch) oder hoch (Tief)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_tone_3', thai: '๊ (ไม้ตรี)', romanization: 'mái dtree', german: 'Mai Tri • 3. Tonzeichen (Hoch)', exampleThai: 'โต๊ะ, เกี๊ยว', exampleGerman: 'Macht Silben immer hoch (für mittlere Konsonanten)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_tone_4', thai: '๋ (ไม้จัตวา)', romanization: 'mái jàt-dtà-waa', german: 'Mai Chattawa • 4. Tonzeichen (Steigend)', exampleThai: 'ตั๋ว, ก๋วยเตี๋ยว', exampleGerman: 'Macht Silben steigend (Kreuzform ๋)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_taikhu', thai: '็ (ไม้ไต่คู้)', romanization: 'mái dtài-khôo', german: 'Mai Taikhu • Vokalverkürzungszeichen (Ziffer 8)', exampleThai: 'ก็, เป็น, เห็น, เป็ด', exampleGerman: 'Verkürzt den Vokal in geschlossenen Silben (z. B. เป็น = sein)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_paiyannoi', thai: 'ฯ (ไปยาลน้อย)', romanization: 'bpai-yaan nôi', german: 'Paiyan Noi • Abkürzungszeichen', exampleThai: 'กรุงเทพฯ', exampleGerman: 'Zeigt an, dass ein langer Name abgekürzt wurde (Bangkok)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_paiyanyai', thai: 'ฯลฯ (ไปยาลใหญ่)', romanization: 'bpai-yaan yài', german: 'Paiyan Yai • und so weiter / usw. (etc.)', exampleThai: 'ผลไม้ เช่น ส้ม กล้วย ฯลฯ', exampleGerman: 'Entspricht und so weiter (gesprochen: láe ùen-ùen)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_maihan_akat', thai: '◌ั (ไม้หันอากาศ)', romanization: 'mái hăn aa-gàat', german: 'Mai Han-Akat • Kurzes a über Konsonant', exampleThai: 'วัน, วัด, รัก', exampleGerman: 'Ersetzt das -ะ, wenn ein Endkonsonant folgt (w-a-n -> วัน)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_rue', thai: 'ฤ (ตัวรึ)', romanization: 'dtua rúe', german: 'Rue • Vokalisches R (aus Sanskrit)', exampleThai: 'ฤดู, พฤษภาคม', exampleGerman: 'Wird als ri oder rue gesprochen (z. B. ฤดู = Jahreszeit)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_ruue', thai: 'ฤๅ (ตัวรือ)', romanization: 'dtua ruue', german: 'Ruue • Langes vokalisches R', exampleThai: 'ฤๅษี', exampleGerman: 'Langes ruue, z. B. in ฤๅษี (Einsiedler / Yogi)', lesson: 'Alphabet' },
+    ];
+
+    for (const s of specialSigns) {
+      if (!existingThais.has(s.thai) && !cleaned.some((v) => v.id === s.id)) {
+        const fullItem: Vocabulary = {
+          ...s,
+          creatorId: 'system_alphabet',
+          creatorName: 'Thai Hasi Team',
+          createdAt: now,
+        };
+        cleaned.push(fullItem);
+        needsCloudSync.push(fullItem);
+        existingThais.add(s.thai);
       }
     }
   }
