@@ -71,7 +71,12 @@ export const THAI_TONES: Record<ThaiTone, ToneInfo> = {
 };
 
 // Rich dictionary of Thai words, compound nouns, verbs, and phrases
-const THAI_DICTIONARY: Record<string, string> = {
+export const THAI_DICTIONARY: Record<string, string> = {
+  // Orte, Gebäude, Religion & Transport
+  'มัสยิด': 'mát-sà-yít',
+  'โบสถ์': 'bòot',
+  'ศาลเจ้า': 'săan-jâo',
+  'สุเหร่า': 'sù-rào',
   // Reisen, Transport & Flugzeug (inklusive เครื่องบิน)
   'เครื่องบิน': 'khrûeang-bin',
   'เครื่อง': 'khrûeang',
@@ -855,11 +860,41 @@ export function canonicalizeThaiString(str: string): string {
 }
 
 /**
+ * Phonetic syllable splitting dictionary for Thai words with ambisyllabic
+ * consonants (ตัวสะกด 2 หน้า / ออกเสียงอะกึ่งเสียง) or irregular syllable boundaries.
+ */
+export const KNOWN_THAI_SYLLABLES: Record<string, string[]> = {
+  'มัสยิด': ['มัส', 'สะ', 'ยิด'],
+  'อุบัติเหตุ': ['อุ', 'บัติ', 'ติ', 'เหตุ'],
+  'ประวัติศาสตร์': ['ประ', 'วัติ', 'ศาสตร์'],
+  'ประวัติ': ['ประ', 'วัติ'],
+  'วิทยาศาสตร์': ['วิท', 'ยา', 'ศาสตร์'],
+  'วิทยา': ['วิท', 'ยา'],
+  'ธรรมชาติ': ['ธรรม', 'ชา', 'ติ'],
+  'ธรรมดา': ['ธรรม', 'ดา'],
+  'พฤหัสบดี': ['พฤ', 'หัส', 'บ', 'ดี'],
+  'วันพฤหัสบดี': ['วัน', 'พฤ', 'หัส', 'บ', 'ดี'],
+  'เทศบาล': ['เทศ', 'บาล'],
+  'รัฐบาล': ['รัฐ', 'บาล'],
+  'กิจกรรม': ['กิจ', 'กรรม'],
+  'กิจการ': ['กิจ', 'การ'],
+  'สุขภาพ': ['สุข', 'ภาพ'],
+  'สุขศึกษา': ['สุข', 'ศึก', 'ษา'],
+  'จักรยาน': ['จักร', 'ยาน'],
+  'ภัตตาคาร': ['ภัต', 'ตา', 'คาร'],
+};
+
+/**
  * Splits arbitrary Thai text into phonetic syllable chunks
  */
 export function splitThaiIntoSyllables(text: string): string[] {
-  const syllables: string[] = [];
   const normalizedText = canonicalizeThaiScript(text, true);
+  const cleanTrimmed = normalizedText.trim();
+  if (KNOWN_THAI_SYLLABLES[cleanTrimmed]) {
+    return [...KNOWN_THAI_SYLLABLES[cleanTrimmed]];
+  }
+
+  const syllables: string[] = [];
   const chars = Array.from(normalizedText);
   let i = 0;
 
@@ -1632,6 +1667,7 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
   // 2. วัด / coda split artifact before อยู่: 'wá-dà-yòo-glâi' or 'wá-dà-'
   // 3. ขออภัย artifact: 'khà-phay' -> 'khăaw-à-phai'
   // 4. ถอดรองเท้า / ดร cluster artifact: 'thŏr-drorng' -> 'thòrt-rorng' or 'drorng'
+  // 5. มัสยิด artifact: 'mát-yít' -> 'mát-sà-yít'
   if (
     cleanRom.includes('rorn') ||
     cleanRom === 'phá-rorn-yaa' ||
@@ -1639,7 +1675,8 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
     cleanRom === 'wá-dà-yòo-glâi' ||
     cleanRom === 'khà-phay' ||
     cleanRom.includes('khà-phay') ||
-    cleanRom.includes('drorng')
+    cleanRom.includes('drorng') ||
+    (cleanThai === 'มัสยิด' && (cleanRom === 'mát-yít' || !cleanRom.includes('sà')))
   ) {
     if (cleanThai && THAI_DICTIONARY[cleanThai]) {
       return THAI_DICTIONARY[cleanThai];
@@ -1653,17 +1690,25 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
       .replace(/wá-dà-/g, 'wát-')
       .replace(/khà-phay/g, 'khăaw-à-phai')
       .replace(/thŏr-drorng/g, 'thòrt-rorng')
-      .replace(/drorng/g, 'rorng');
+      .replace(/drorng/g, 'rorng')
+      .replace(/\bmát-yít\b/g, 'mát-sà-yít');
   }
 
   if (cleanThai && THAI_DICTIONARY[cleanThai]) {
+    const dictRom = THAI_DICTIONARY[cleanThai];
+    const dictSylCount = dictRom.split(/[-\s]+/).filter(Boolean).length;
+    const romSylCount = cleanRom ? cleanRom.split(/[-\s]+/).filter(Boolean).length : 0;
+    if (dictSylCount > romSylCount) {
+      return dictRom;
+    }
     // If dictionary has exact match and stored romanization was empty or matches legacy generation
     if (
       !cleanRom ||
       cleanRom === 'phá-rorn-yaa' ||
       cleanRom.includes('wá-dà-') ||
       cleanRom === 'khà-phay' ||
-      cleanRom.includes('drorng')
+      cleanRom.includes('drorng') ||
+      cleanRom === 'mát-yít'
     ) {
       return THAI_DICTIONARY[cleanThai];
     }

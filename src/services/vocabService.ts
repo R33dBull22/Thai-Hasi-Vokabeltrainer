@@ -284,6 +284,19 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
         return updated;
       }
     }
+    // Fix "มัสยิด" ("Moschee") romanization from mát-yít to mát-sà-yít (3 syllables)
+    if (v.thai && v.thai.includes('มัสยิด')) {
+      if (!v.romanization || v.romanization === 'mát-yít' || !v.romanization.includes('sà')) {
+        const fixedRom = v.romanization
+          ? v.romanization.replace(/\bmát-yít\b/g, 'mát-sà-yít')
+          : 'mát-sà-yít';
+        if (v.romanization !== fixedRom) {
+          const updated = { ...v, romanization: fixedRom };
+          needsCloudSync.push(updated);
+          return updated;
+        }
+      }
+    }
     return v;
   });
   return { cleaned, needsCloudSync };
