@@ -425,12 +425,25 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
                 className="p-3 bg-[#242426] rounded-2xl border border-[#323236] flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold font-thai text-amber-400 min-w-[55px] text-center bg-[#1C1C1E] py-1 px-2 rounded-xl border border-[#3A3A3D]">
+                  <button
+                    type="button"
+                    onClick={() => speakThai(v.nameThai)}
+                    className="text-2xl font-bold font-thai text-amber-400 min-w-[55px] text-center bg-[#1C1C1E] hover:bg-[#2A2A2D] py-1 px-2 rounded-xl border border-[#3A3A3D] cursor-pointer transition-colors"
+                    title={`Vokalname anhören (${v.nameThai})`}
+                  >
                     {v.symbol}
-                  </span>
+                  </button>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-white">{v.nameThai}</span>
+                      <button
+                        type="button"
+                        onClick={() => speakThai(v.nameThai)}
+                        className="font-bold text-xs text-white hover:text-amber-400 transition-colors flex items-center gap-1 cursor-pointer"
+                        title={`Vokalname anhören (${v.nameThai})`}
+                      >
+                        <span>{v.nameThai}</span>
+                        <Volume2 className="w-3 h-3 text-[#8E8E93]" />
+                      </button>
                       <span
                         className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
                           v.length === 'short'
