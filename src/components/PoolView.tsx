@@ -506,7 +506,7 @@ export const PoolView: React.FC<PoolViewProps> = ({
   const selectedNotInDeck = Array.from(selectedIds).filter((id) => !progressMap[id]).length;
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-3 pb-40 text-white">
+    <div className={`max-w-md mx-auto px-4 pt-3 text-white ${selectedCount > 0 ? 'pb-72 sm:pb-80' : 'pb-52 sm:pb-60'}`}>
       {/* Top Header matching IMG_6341.png with Lautschrift nachziehen button */}
       <div className="flex items-center justify-between py-2 mb-3 gap-2">
         <div>
@@ -1583,8 +1583,13 @@ export const PoolView: React.FC<PoolViewProps> = ({
         </div>
       )}
 
-      {/* Sticky Bottom Actions */}
-      <div className="fixed bottom-16 left-0 right-0 z-30 bg-[#121214]/95 backdrop-blur-md border-t border-[#2C2C2E] p-3 px-4">
+      {/* Sticky Bottom Actions positioned right above bottom navigation */}
+      <div
+        className="fixed left-0 right-0 z-30 bg-[#121214]/95 backdrop-blur-md border-t border-[#2C2C2E] p-3 px-4 shadow-[0_-8px_20px_rgba(0,0,0,0.5)]"
+        style={{
+          bottom: 'calc(max(env(safe-area-inset-bottom, 0px), 20px) + 52px)',
+        }}
+      >
         <div className="max-w-md mx-auto space-y-2">
           {/* Outlined button: + Vokabeln eingeben */}
           <button

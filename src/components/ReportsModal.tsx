@@ -133,8 +133,14 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-[#1C1C1E] border border-[#2C2C2E] rounded-t-3xl sm:rounded-3xl p-5 text-white max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col justify-between">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 pt-safe animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg bg-[#1C1C1E] border border-[#2C2C2E] rounded-t-3xl sm:rounded-3xl p-5 pb-safe sm:pb-5 text-white max-h-[92vh] overflow-y-auto overscroll-contain touch-scroll shadow-2xl flex flex-col justify-between"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div>
           {/* Header */}
           <div className="flex items-center justify-between pb-3.5 border-b border-[#2C2C2E] mb-4">

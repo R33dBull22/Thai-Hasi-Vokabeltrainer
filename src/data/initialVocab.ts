@@ -1,6 +1,193 @@
 import { Vocabulary } from '../types/vocab';
 import { THAI_CONSONANTS } from './thaiAlphabet';
 
+export interface QuestionWordVocabItem extends Omit<Vocabulary, 'id' | 'creatorId' | 'createdAt'> {
+  idSuffix: string;
+}
+
+export const QUESTION_WORDS_VOCABULARY: QuestionWordVocabItem[] = [
+  {
+    idSuffix: 'what',
+    german: 'Was?',
+    thai: 'อะไร',
+    romanization: 'à-rai',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'นี่คืออะไร? / คุณพูดอะไร?',
+    exampleGerman: 'Was ist das? / Was sagst du?',
+  },
+  {
+    idSuffix: 'who',
+    german: 'Wer? / Wen?',
+    thai: 'ใคร',
+    romanization: 'khrai',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'เขาคือใคร? / ใครมา?',
+    exampleGerman: 'Wer ist er/sie? / Wer kommt da?',
+  },
+  {
+    idSuffix: 'where',
+    german: 'Wo? / Wohin?',
+    thai: 'ที่ไหน',
+    romanization: 'thêe-năi',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คุณจะไปที่ไหน? / อยู่ที่ไหน?',
+    exampleGerman: 'Wohin gehst du? / Wo befindet es sich?',
+  },
+  {
+    idSuffix: 'when',
+    german: 'Wann?',
+    thai: 'เมื่อไหร่',
+    romanization: 'mûea-rài',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คุณจะมาเมื่อไหร่? / รถไฟออกเมื่อไหร่?',
+    exampleGerman: 'Wann kommst du? / Wann fährt der Zug ab?',
+  },
+  {
+    idSuffix: 'why',
+    german: 'Warum? / Weshalb?',
+    thai: 'ทำไม',
+    romanization: 'tham-mai',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'ทำไมคุณมาสาย? / ทำไมล่ะ?',
+    exampleGerman: 'Warum kommst du zu spät? / Warum denn?',
+  },
+  {
+    idSuffix: 'how_formal',
+    german: 'Wie? / Auf welche Weise? (formell)',
+    thai: 'อย่างไร',
+    romanization: 'yàang-rai',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คำนี้ออกเสียงอย่างไร? / ทำอย่างไร?',
+    exampleGerman: 'Wie spricht man dieses Wort aus? / Wie macht man das?',
+  },
+  {
+    idSuffix: 'how_casual',
+    german: 'Wie? (umgangssprachlich)',
+    thai: 'ยังไง',
+    romanization: 'yang-ngai',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'ไปยังไงดี? / เป็นยังไงบ้าง?',
+    exampleGerman: 'Wie kommen wir am besten hin? / Wie geht es dir so?',
+  },
+  {
+    idSuffix: 'how_much',
+    german: 'Wie viel? / Wie teuer?',
+    thai: 'เท่าไหร่',
+    romanization: 'thâo-rài',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'อันนี้ราคาเท่าไหร่ครับ?',
+    exampleGerman: 'Wie viel kostet dieses hier bitte?',
+  },
+  {
+    idSuffix: 'how_many',
+    german: 'Wie viele? (mit Zählwort) / Wie viel Uhr?',
+    thai: 'กี่',
+    romanization: 'gèe',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'ตอนนี้กี่โมงแล้ว? / มากี่คน?',
+    exampleGerman: 'Wie viel Uhr ist es? / Wie viele Personen seid ihr?',
+  },
+  {
+    idSuffix: 'which',
+    german: 'Welcher / Welche / Welches?',
+    thai: 'อันไหน',
+    romanization: 'an-năi',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คุณชอบอันไหน? / คันไหน?',
+    exampleGerman: 'Welches magst du? / Welches Fahrzeug?',
+  },
+  {
+    idSuffix: 'which_country',
+    german: 'Welches Land? (Woher?)',
+    thai: 'ประเทศไหน',
+    romanization: 'bprà-thêet năi',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คุณมาจากประเทศไหนครับ?',
+    exampleGerman: 'Aus welchem Land kommst du?',
+  },
+  {
+    idSuffix: 'question_particle',
+    german: '... oder nicht? (Ja/Nein-Fragepartikel)',
+    thai: 'ไหม',
+    romanization: 'măi',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'เผ็ดไหม? / อร่อยไหม?',
+    exampleGerman: 'Ist es scharf? / Schmeckt es dir?',
+  },
+  {
+    idSuffix: 'confirm_particle',
+    german: '... oder? / Nicht wahr? / Stimmt\'s?',
+    thai: 'ใช่ไหม',
+    romanization: 'châi măi',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คุณพูดภาษาไทยได้ใช่ไหม?',
+    exampleGerman: 'Du sprichst doch Thai, nicht wahr?',
+  },
+  {
+    idSuffix: 'already_or_not',
+    german: '... oder noch nicht? / Schon mal ...?',
+    thai: 'หรือยัง',
+    romanization: 'rǔue yang',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'กินข้าวหรือยัง? / เสร็จหรือยัง?',
+    exampleGerman: 'Hast du schon gegessen? / Bist du schon fertig?',
+  },
+  {
+    idSuffix: 'since_when',
+    german: 'Seit wann?',
+    thai: 'ตั้งแต่เมื่อไหร่',
+    romanization: 'dtâng-dtàae mûea-rài',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คุณอยู่ที่นี่ตั้งแต่เมื่อไหร่?',
+    exampleGerman: 'Seit wann lebst du hier?',
+  },
+  {
+    idSuffix: 'with_what',
+    german: 'Womit? / Mit welchem Verkehrsmittel?',
+    thai: 'ไปด้วยอะไร',
+    romanization: 'bpai dûai à-rai',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คุณจะไปด้วยอะไร? ไปรถไฟไหม?',
+    exampleGerman: 'Womit fährst du? Nimmst du den Zug?',
+  },
+  {
+    idSuffix: 'with_whom',
+    german: 'Mit wem?',
+    thai: 'กับใคร',
+    romanization: 'gàp khrai',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คุณไปเที่ยวกับใคร?',
+    exampleGerman: 'Mit wem verreist du?',
+  },
+  {
+    idSuffix: 'how_long',
+    german: 'Wie lange? (Zeitdauer)',
+    thai: 'นานเท่าไหร่',
+    romanization: 'naan thâo-rài',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'ต้องรอนานเท่าไหร่ครับ?',
+    exampleGerman: 'Wie lange muss ich warten?',
+  },
+  {
+    idSuffix: 'how_far',
+    german: 'Wie weit? (Distanz)',
+    thai: 'ไกลแค่ไหน',
+    romanization: 'glai khâae năi',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'จากที่นี่ไปสนามบินไกลแค่ไหน?',
+    exampleGerman: 'Wie weit ist es von hier zum Flughafen?',
+  },
+  {
+    idSuffix: 'for_what',
+    german: 'Wofür? / Zu welchem Zweck?',
+    thai: 'เพื่ออะไร',
+    romanization: 'phûea à-rai',
+    lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
+    exampleThai: 'คุณเรียนภาษาไทยเพื่ออะไร?',
+    exampleGerman: 'Wofür lernst du Thai?',
+  },
+];
+
 export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdAt'>[] = [
   // Lektion 1: Begrüßung & Höflichkeit
   {
@@ -203,6 +390,9 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
     exampleThai: 'คุณพูดภาษาอังกฤษได้ไหมครับ',
     exampleGerman: 'Sprechen Sie Englisch?',
   },
+
+  // Lektion 6: W-Fragewörter (คำถาม)
+  ...QUESTION_WORDS_VOCABULARY.map(({ idSuffix, ...item }) => item),
 
   // Lektion: Alphabet (44 Konsonanten mit Namen, Anfangs- und Endlauten)
   ...THAI_CONSONANTS.map((c) => ({

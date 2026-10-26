@@ -817,13 +817,6 @@ function AppContent() {
         onClose={() => setFontTrainerOpen(false)}
         colorCodingEnabled={colorCodingEnabled}
       />
-
-      {/* Interactive Thai Font Trainer (Klassisch vs. Modern / Loopless) */}
-      <ThaiFontTrainerModal
-        isOpen={fontTrainerOpen}
-        onClose={() => setFontTrainerOpen(false)}
-        colorCodingEnabled={colorCodingEnabled}
-      />
     </div>
   );
 }

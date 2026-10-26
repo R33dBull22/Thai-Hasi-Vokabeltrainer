@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { Vocabulary, UserProgress, DeletedVocabEntry, DirectionProgress, QueryDirection } from '../types/vocab';
-import { STARTER_VOCABULARY } from '../data/initialVocab';
+import { STARTER_VOCABULARY, QUESTION_WORDS_VOCABULARY } from '../data/initialVocab';
 import { calculateNextReviewDate, calculateResetReviewDate, getDirectionProgress } from '../utils/leitner';
 import { THAI_CONSONANTS } from '../data/thaiAlphabet';
 
@@ -396,6 +396,40 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
     }
   }
 
+  // Ensure Lektion 6: W-Fragewörter (คำถาม) is present unless user deleted it
+  const deletedLessons = new Set(getDeletedLessons().map((l) => l.trim().toLowerCase()));
+  const isQuestionLessonDeleted =
+    deletedLessons.has('lektion 6: w-fragewörter (คำถาม)') ||
+    deletedLessons.has('w-fragewörter') ||
+    deletedLessons.has('คำถาม');
+
+  if (!isQuestionLessonDeleted) {
+    const existingThais = new Set(cleaned.map((v) => v.thai.trim()));
+    const tombstones = new Set(getPermanentTombstones());
+    const now = new Date().toISOString();
+
+    for (const q of QUESTION_WORDS_VOCABULARY) {
+      const cardId = `thai_init_q_${q.idSuffix}`;
+      if (!tombstones.has(cardId) && !existingThais.has(q.thai.trim())) {
+        const fullItem: Vocabulary = {
+          id: cardId,
+          thai: q.thai,
+          romanization: q.romanization,
+          german: q.german,
+          exampleThai: q.exampleThai,
+          exampleGerman: q.exampleGerman,
+          lesson: q.lesson,
+          creatorId: 'system_starter',
+          creatorName: 'Thai Hasi Team',
+          createdAt: now,
+        };
+        cleaned.push(fullItem);
+        needsCloudSync.push(fullItem);
+        existingThais.add(q.thai.trim());
+      }
+    }
+  }
+
   return { cleaned, needsCloudSync };
 }
 
@@ -420,9 +454,21 @@ export async function fetchCommunityVocabularies(userId?: string): Promise<Vocab
       if (needsCloudSync.length > 0) {
         needsCloudSync.forEach(async (item) => {
           try {
-            await updateDoc(doc(db, VOCAB_COLLECTION, item.id), {
-              romanization: item.romanization,
-            });
+            await setDoc(
+              doc(db, VOCAB_COLLECTION, item.id),
+              {
+                german: item.german,
+                thai: item.thai,
+                romanization: item.romanization || '',
+                lesson: item.lesson || 'Allgemein',
+                exampleThai: item.exampleThai || '',
+                exampleGerman: item.exampleGerman || '',
+                creatorId: item.creatorId || 'system_starter',
+                creatorName: item.creatorName || 'Thai Hasi Team',
+                createdAt: item.createdAt || new Date().toISOString(),
+              },
+              { merge: true }
+            );
           } catch {}
         });
       }
@@ -481,9 +527,21 @@ export function subscribeToCommunityVocabularies(
         if (needsCloudSync.length > 0) {
           needsCloudSync.forEach(async (item) => {
             try {
-              await updateDoc(doc(db, VOCAB_COLLECTION, item.id), {
-                romanization: item.romanization,
-              });
+              await setDoc(
+                doc(db, VOCAB_COLLECTION, item.id),
+                {
+                  german: item.german,
+                  thai: item.thai,
+                  romanization: item.romanization || '',
+                  lesson: item.lesson || 'Allgemein',
+                  exampleThai: item.exampleThai || '',
+                  exampleGerman: item.exampleGerman || '',
+                  creatorId: item.creatorId || 'system_starter',
+                  creatorName: item.creatorName || 'Thai Hasi Team',
+                  createdAt: item.createdAt || new Date().toISOString(),
+                },
+                { merge: true }
+              );
             } catch {}
           });
         }

@@ -972,9 +972,9 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
       {/* Single Unified Card matching IMG_6357.png */}
       <div className="max-w-md w-full mx-auto flex-1 min-h-0 flex flex-col my-1">
-        <div className="relative bg-[#262628] border border-[#38383A] rounded-3xl p-5 flex flex-col justify-between flex-1 min-h-[200px] shadow-xl overflow-hidden">
+        <div className="relative bg-[#262628] border border-[#38383A] rounded-3xl p-4 sm:p-5 flex flex-col justify-between flex-1 min-h-[180px] shadow-xl overflow-hidden">
           {/* Card Top Row: Flag on left, 3-dots menu on right */}
-          <div className="flex items-center justify-between z-10">
+          <div className="flex items-center justify-between z-10 shrink-0 mb-1">
             <span
               className="text-2xl select-none"
               title={isDeToThai ? 'Deutsch ➔ Thai' : 'Thai ➔ Deutsch'}
@@ -1068,8 +1068,8 @@ export const StudySession: React.FC<StudySessionProps> = ({
             </div>
           </div>
 
-          {/* Center: The Word (e.g. "Weight" / "Größe / Körpergröße") */}
-          <div className="my-auto text-center px-4 py-2 z-10">
+          {/* Center: The Word (e.g. "Weight" / "Größe / Körpergröße") - smooth scrollable if long */}
+          <div className="flex-1 min-h-0 overflow-y-auto touch-scroll overscroll-contain text-center px-2 sm:px-4 py-2 z-10 flex flex-col justify-center">
             {/* Primary Question Prompt */}
             {isDeToThai ? (
               <div>
@@ -1286,17 +1286,17 @@ export const StudySession: React.FC<StudySessionProps> = ({
             )}
           </div>
 
-          {/* Right Chevron > inside card matching IMG_6357.png */}
-          <button
-            type="button"
-            onClick={() => {
-              if (!isRevealed) handleReveal();
-            }}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-2 text-[#8E8E93] hover:text-white transition-colors cursor-pointer"
-            title="Lösung anzeigen"
-          >
-            <ChevronRight className="w-5 h-5 stroke-[2]" />
-          </button>
+          {/* Right Chevron > inside card matching IMG_6357.png (shown only before reveal) */}
+          {!isRevealed && (
+            <button
+              type="button"
+              onClick={handleReveal}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-2 text-[#8E8E93] hover:text-white transition-colors cursor-pointer"
+              title="Lösung anzeigen"
+            >
+              <ChevronRight className="w-5 h-5 stroke-[2]" />
+            </button>
+          )}
         </div>
       </div>
 

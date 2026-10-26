@@ -144,7 +144,7 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
       </div>
 
       {/* Main Section Navigation Bar */}
-      <div className="flex items-center gap-1 bg-[#1C1C1E] p-1 rounded-2xl border border-[#2C2C2E] mb-4 overflow-x-auto text-xs">
+      <div className="flex items-center gap-1 bg-[#1C1C1E] p-1 rounded-2xl border border-[#2C2C2E] mb-4 overflow-x-auto no-scrollbar touch-scroll overscroll-contain text-xs">
         <button
           type="button"
           onClick={() => setActiveSection('consonants')}
@@ -623,7 +623,7 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
                     key={m.id}
                     type="button"
                     onClick={() => setSimToneMark(m.id as any)}
-                    className={`p-1.5 text-center rounded-xl border transition-colors cursor-pointer ${
+                    className={`min-w-0 p-1.5 text-center rounded-xl border transition-colors cursor-pointer ${
                       simToneMark === m.id
                         ? 'bg-[#FF7A00] text-black font-bold border-[#FF7A00]'
                         : 'bg-[#1C1C1E] text-[#A1A1AA] border-[#3A3A3D]'
@@ -810,11 +810,11 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
       {/* Modal: Consonant Detail View */}
       {selectedConsonant && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm animate-in fade-in"
           onClick={() => setSelectedConsonant(null)}
         >
           <div
-            className="bg-[#1C1C1E] border border-[#3A3A3D] rounded-3xl p-5 w-full max-w-sm text-white shadow-2xl space-y-4"
+            className="bg-[#1C1C1E] border border-[#3A3A3D] rounded-3xl p-5 w-full max-w-sm max-h-[88vh] overflow-y-auto overscroll-contain touch-scroll text-white shadow-2xl space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between border-b border-[#2C2C2E] pb-3">

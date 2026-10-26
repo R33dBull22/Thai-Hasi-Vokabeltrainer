@@ -209,9 +209,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isClosabl
   const currentError = localError || authError;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4 pt-safe pb-safe animate-in fade-in duration-200"
+      onClick={handleClose}
+    >
       <div
-        className="w-full max-w-sm bg-[#1C1C1E] border border-[#2C2C2E] rounded-t-3xl sm:rounded-3xl p-6 text-white shadow-2xl"
+        className="w-full max-w-sm bg-[#1C1C1E] border border-[#2C2C2E] rounded-t-3xl sm:rounded-3xl p-6 text-white shadow-2xl max-h-[90vh] overflow-y-auto touch-scroll overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

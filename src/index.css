@@ -4,7 +4,8 @@
   html, body {
     min-height: 100%;
     background-color: #121214;
-    overscroll-behavior-y: none;
+    overscroll-behavior-x: none;
+    -webkit-overflow-scrolling: touch;
   }
 
   body {
@@ -137,4 +138,20 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.7);
+}
+
+.overscroll-contain {
+  overscroll-behavior: contain;
+}
+
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

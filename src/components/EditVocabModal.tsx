@@ -182,9 +182,12 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm animate-in fade-in"
+      onClick={onClose}
+    >
       <div
-        className="bg-[#1C1C1E] border border-[#2C2C2E] rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto text-white shadow-2xl"
+        className="bg-[#1C1C1E] border border-[#2C2C2E] rounded-3xl w-full max-w-md max-h-[88vh] overflow-y-auto overscroll-contain touch-scroll text-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

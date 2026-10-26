@@ -202,7 +202,7 @@ export const ToneRulesCheatsheet: React.FC<ToneRulesCheatsheetProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-[#1C1C1E] p-1 rounded-2xl border border-[#2C2C2E] overflow-x-auto text-xs">
+      <div className="flex items-center gap-1 bg-[#1C1C1E] p-1 rounded-2xl border border-[#2C2C2E] overflow-x-auto no-scrollbar touch-scroll overscroll-contain text-xs">
         <button
           type="button"
           onClick={() => setActiveTab('matrix')}
@@ -267,7 +267,7 @@ export const ToneRulesCheatsheet: React.FC<ToneRulesCheatsheetProps> = ({
           </div>
 
           {/* Responsive Scrollable Matrix */}
-          <div className="overflow-x-auto rounded-2xl border border-[#2C2C2E] bg-[#18181A]">
+          <div className="overflow-x-auto touch-scroll overscroll-contain rounded-2xl border border-[#2C2C2E] bg-[#18181A]">
             <table className="w-full text-xs text-left border-collapse min-w-[560px]">
               <thead>
                 <tr className="border-b border-[#2C2C2E] bg-[#1F1F22] text-[#8E8E93]">

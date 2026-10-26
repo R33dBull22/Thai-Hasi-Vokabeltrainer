@@ -444,8 +444,14 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-lg bg-[#18181A] rounded-3xl border border-[#2C2C2E] shadow-2xl flex flex-col max-h-[94vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-4 pt-safe pb-safe overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg bg-[#18181A] rounded-3xl border border-[#2C2C2E] shadow-2xl flex flex-col max-h-[94vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Top Header */}
         <div className="p-4 border-b border-[#2C2C2E] flex items-center justify-between gap-3 bg-[#1C1C1E]">
           <div className="flex items-center gap-2.5">
@@ -649,7 +655,7 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-4 sm:p-5 flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-5 flex-1 overflow-y-auto touch-scroll overscroll-contain">
           {!isCompleted ? (
             <div className="space-y-4">
               {/* Question Progress Meta */}
@@ -1559,7 +1565,7 @@ export const ToneRuleTrainerModal: React.FC<ToneRuleTrainerModalProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto pt-2">
+            <div className="flex-1 overflow-y-auto touch-scroll overscroll-contain pt-2">
               <ToneRulesCheatsheet isModal onClose={() => setShowCheatsheetPeek(false)} />
             </div>
           </div>

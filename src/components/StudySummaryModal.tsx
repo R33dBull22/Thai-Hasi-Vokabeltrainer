@@ -65,7 +65,7 @@ export const StudySummaryModal: React.FC<StudySummaryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-4 sm:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-[#121214] text-white flex flex-col justify-between p-4 sm:p-6 pt-safe pb-safe overflow-y-auto overscroll-contain touch-scroll">
       {/* Top Bar matching IMG_6342.png */}
       <div className="max-w-md w-full mx-auto">
         <div className="flex items-center justify-between py-2 mb-4">
