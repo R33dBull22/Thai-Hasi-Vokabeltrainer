@@ -481,7 +481,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   },
   {
     german: 'Mai Han-Akat • Kurzes a über Konsonant',
-    thai: '◌ั (ไม้หันอากาศ)',
+    thai: '-ั (ไม้หันอากาศ)',
     romanization: 'mái hăn aa-gàat',
     lesson: 'Alphabet',
     exampleThai: 'วัน, วัด, รัก',

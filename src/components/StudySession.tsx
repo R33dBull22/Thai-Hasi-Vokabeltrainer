@@ -566,10 +566,26 @@ export const StudySession: React.FC<StudySessionProps> = ({
   const [showExample, setShowExample] = useState(false);
   const [showCardMenu, setShowCardMenu] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const cardMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setShowCardMenu(false);
   }, [currentIndex]);
+
+  useEffect(() => {
+    if (!showCardMenu) return;
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (cardMenuRef.current && !cardMenuRef.current.contains(e.target as Node)) {
+        setShowCardMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [showCardMenu]);
 
   // Typing state
   const [userInput, setUserInput] = useState('');
@@ -998,9 +1014,9 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
       {/* Single Unified Card matching IMG_6357.png */}
       <div className="max-w-md w-full mx-auto flex-1 min-h-0 flex flex-col my-1">
-        <div className="relative bg-[#262628] border border-[#38383A] rounded-3xl p-4 sm:p-5 flex flex-col justify-between flex-1 min-h-[180px] shadow-xl overflow-hidden">
-          {/* Card Top Row: Flag on left, 3-dots menu on right */}
-          <div className="flex items-center justify-between z-10 shrink-0 mb-1">
+        <div className="relative bg-[#262628] border border-[#38383A] rounded-3xl p-4 sm:p-5 flex flex-col justify-between flex-1 min-h-[180px] shadow-xl">
+          {/* Card Top Row: Flag on left, 3-dots menu & quick eye toggle on right */}
+          <div className="flex items-center justify-between relative z-40 shrink-0 mb-1">
             <span
               className="text-2xl select-none"
               title={isDeToThai ? 'Deutsch ➔ Thai' : 'Thai ➔ Deutsch'}
@@ -1027,92 +1043,112 @@ export const StudySession: React.FC<StudySessionProps> = ({
                 )}
               </button>
 
-              <div className="relative">
+              <div className="relative" ref={cardMenuRef}>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowCardMenu(!showCardMenu);
+                    setShowCardMenu((prev) => !prev);
                   }}
-                  className="p-1.5 rounded-full text-[#8E8E93] hover:text-white hover:bg-[#323236] transition-colors"
+                  className="p-2 -mr-1 rounded-full text-[#8E8E93] hover:text-white hover:bg-[#323236] active:bg-[#3E3E42] transition-colors cursor-pointer touch-manipulation flex items-center justify-center"
                   title="Optionen"
+                  aria-label="Optionen"
+                  aria-expanded={showCardMenu}
                 >
                   <MoreVertical className="w-5 h-5" />
                 </button>
 
-                {/* 3-dots Dropdown Menu */}
+                {/* 3-dots Dropdown Menu with Backdrop */}
                 {showCardMenu && (
-                  <div
-                    className="absolute right-0 top-9 z-30 bg-[#1C1C1E] border border-[#3A3A3D] rounded-2xl p-1.5 shadow-2xl min-w-[210px] text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {onUpdateVocab && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCardMenu(false);
+                      }}
+                    />
+                    <div
+                      className="absolute right-0 top-11 z-50 bg-[#1C1C1E] border border-[#3A3A3D] rounded-2xl p-1.5 shadow-2xl min-w-[210px] text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {onUpdateVocab && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowCardMenu(false);
+                            setEditingCurrentVocab(true);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-[#FF7A00]" />
+                          <span>Vokabel bearbeiten</span>
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => {
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayAudio();
                           setShowCardMenu(false);
-                          setEditingCurrentVocab(true);
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left cursor-pointer"
                       >
-                        <Pencil className="w-3.5 h-3.5 text-[#FF7A00]" />
-                        <span>Vokabel bearbeiten</span>
+                        <Volume2 className="w-3.5 h-3.5 text-[#FF7A00]" />
+                        <span>Aussprache abspielen</span>
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handlePlayAudio();
-                        setShowCardMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left"
-                    >
-                      <Volume2 className="w-3.5 h-3.5 text-[#FF7A00]" />
-                      <span>Aussprache abspielen</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleToggleRomanization();
-                        setShowCardMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left"
-                    >
-                      {hideRomanization ? (
-                        <>
-                          <Eye className="w-3.5 h-3.5 text-[#FF7A00]" />
-                          <span>Umschrift einblenden</span>
-                        </>
-                      ) : (
-                        <>
-                          <EyeOff className="w-3.5 h-3.5 text-[#FF7A00]" />
-                          <span>Umschrift ausblenden</span>
-                        </>
-                      )}
-                    </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentInputMethod(currentInputMethod === 'typing' ? 'flashcard' : 'typing');
-                      setShowCardMenu(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left"
-                  >
-                    <Keyboard className="w-3.5 h-3.5 text-[#FF7A00]" />
-                    <span>
-                      {currentInputMethod === 'typing'
-                        ? 'Zu Karteikarte wechseln'
-                        : 'Zu Tippen wechseln'}
-                    </span>
-                  </button>
-                  <div className="border-t border-[#2C2C2E] pt-1 px-3 py-1 text-[10px] text-[#8E8E93]">
-                    Lektion: {vocab.lesson} | Phase {currentPhase}
-                  </div>
-                </div>
-              )}
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleRomanization(e);
+                          setShowCardMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left cursor-pointer"
+                      >
+                        {hideRomanization ? (
+                          <>
+                            <Eye className="w-3.5 h-3.5 text-[#FF7A00]" />
+                            <span>Umschrift einblenden</span>
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="w-3.5 h-3.5 text-[#FF7A00]" />
+                            <span>Umschrift ausblenden</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentInputMethod(currentInputMethod === 'typing' ? 'flashcard' : 'typing');
+                          setShowCardMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left cursor-pointer"
+                      >
+                        <Keyboard className="w-3.5 h-3.5 text-[#FF7A00]" />
+                        <span>
+                          {currentInputMethod === 'typing'
+                            ? 'Zu Karteikarte wechseln'
+                            : 'Zu Tippen wechseln'}
+                        </span>
+                      </button>
+                      <div className="border-t border-[#2C2C2E] pt-1 px-3 py-1 text-[10px] text-[#8E8E93]">
+                        Lektion: {vocab.lesson} | Phase {currentPhase}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
           {/* Center: The Word (e.g. "Weight" / "Größe / Körpergröße") - smooth scrollable if long */}
           <div className="flex-1 min-h-0 overflow-y-auto touch-scroll overscroll-contain text-center px-2 sm:px-4 py-2 z-10 flex flex-col justify-center">
@@ -1206,7 +1242,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                     {consonantInfo && isAlphabetCard && !hideRomanization && (
                       <div className="mt-2.5 inline-flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-xl bg-[#202022] border border-[#323236] text-xs text-[#D1D1D6]">
                         <span className="text-[#8E8E93] text-[11px]">Name:</span>
-                        <span className="font-thai text-white font-bold">{consonantInfo.nameThai}</span>
+                        <span className={`${activeFontClass} text-white font-bold`}>{consonantInfo.nameThai}</span>
                         <span className="text-[#52525B]">·</span>
                         <span className="text-[#8E8E93] text-[11px]">An:</span>
                         <span className="font-mono text-amber-300 font-semibold text-[11px]">{consonantInfo.initialSound}</span>
@@ -1249,7 +1285,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                     {consonantInfo && isAlphabetCard && !hideRomanization && (
                       <div className="mt-2.5 inline-flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-xl bg-[#202022] border border-[#323236] text-xs text-[#D1D1D6]">
                         <span className="text-[#8E8E93] text-[11px]">Name:</span>
-                        <span className="font-thai text-white font-bold">{consonantInfo.nameThai}</span>
+                        <span className={`${activeFontClass} text-white font-bold`}>{consonantInfo.nameThai}</span>
                         <span className="text-[#52525B]">·</span>
                         <span className="text-[#8E8E93] text-[11px]">An:</span>
                         <span className="font-mono text-amber-300 font-semibold text-[11px]">{consonantInfo.initialSound}</span>

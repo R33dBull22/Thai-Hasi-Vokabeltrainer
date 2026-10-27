@@ -183,7 +183,7 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm animate-in fade-in"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm animate-in fade-in"
       onClick={onClose}
     >
       <div

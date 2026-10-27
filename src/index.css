@@ -87,7 +87,7 @@
 
 .font-thai-modern,
 .font-thai-kanit {
-  font-family: "Kanit", sans-serif;
+  font-family: "Kanit", "Prompt", "Mitr", "Noto Sans Thai", sans-serif;
   letter-spacing: 0.01em;
   line-height: 1.5;
   text-rendering: optimizeLegibility;

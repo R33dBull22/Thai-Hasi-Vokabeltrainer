@@ -298,6 +298,19 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
         }
       }
     }
+    // Standardize Alphabet lesson vowel/sign cards: replace U+25CC (◌) with standard '-' and normalize standalone ำ
+    if (v.thai && (v.thai.includes('◌') || v.thai === 'ำ' || v.thai === 'ำ (สระอำ)')) {
+      let fixedThai = v.thai.replace(/◌/g, '-');
+      if (fixedThai === 'ำ' || fixedThai === 'ำ (สระอำ)') {
+        fixedThai = '-ำ (สระอำ)';
+      }
+      if (v.thai !== fixedThai) {
+        const updated = { ...v, thai: fixedThai };
+        needsCloudSync.push(updated);
+        return updated;
+      }
+    }
+
     // Standardize Alphabet lesson consonant cards: ensure Thai letter name and initial/final sound details
     if (v.lesson === 'Alphabet' && v.thai) {
       const match = THAI_CONSONANTS.find(
@@ -376,7 +389,7 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
       { id: 'vocab_alpha_taikhu', thai: '็ (ไม้ไต่คู้)', romanization: 'mái dtài-khôo', german: 'Mai Taikhu • Vokalverkürzungszeichen (Ziffer 8)', exampleThai: 'ก็, เป็น, เห็น, เป็ด', exampleGerman: 'Verkürzt den Vokal in geschlossenen Silben (z. B. เป็น = sein)', lesson: 'Alphabet' },
       { id: 'vocab_alpha_paiyannoi', thai: 'ฯ (ไปยาลน้อย)', romanization: 'bpai-yaan nôi', german: 'Paiyan Noi • Abkürzungszeichen', exampleThai: 'กรุงเทพฯ', exampleGerman: 'Zeigt an, dass ein langer Name abgekürzt wurde (Bangkok)', lesson: 'Alphabet' },
       { id: 'vocab_alpha_paiyanyai', thai: 'ฯลฯ (ไปยาลใหญ่)', romanization: 'bpai-yaan yài', german: 'Paiyan Yai • und so weiter / usw. (etc.)', exampleThai: 'ผลไม้ เช่น ส้ม กล้วย ฯลฯ', exampleGerman: 'Entspricht und so weiter (gesprochen: láe ùen-ùen)', lesson: 'Alphabet' },
-      { id: 'vocab_alpha_maihan_akat', thai: '◌ั (ไม้หันอากาศ)', romanization: 'mái hăn aa-gàat', german: 'Mai Han-Akat • Kurzes a über Konsonant', exampleThai: 'วัน, วัด, รัก', exampleGerman: 'Ersetzt das -ะ, wenn ein Endkonsonant folgt (w-a-n -> วัน)', lesson: 'Alphabet' },
+      { id: 'vocab_alpha_maihan_akat', thai: '-ั (ไม้หันอากาศ)', romanization: 'mái hăn aa-gàat', german: 'Mai Han-Akat • Kurzes a über Konsonant', exampleThai: 'วัน, วัด, รัก', exampleGerman: 'Ersetzt das -ะ, wenn ein Endkonsonant folgt (w-a-n -> วัน)', lesson: 'Alphabet' },
       { id: 'vocab_alpha_rue', thai: 'ฤ (ตัวรึ)', romanization: 'dtua rúe', german: 'Rue • Vokalisches R (aus Sanskrit)', exampleThai: 'ฤดู, พฤษภาคม', exampleGerman: 'Wird als ri oder rue gesprochen (z. B. ฤดู = Jahreszeit)', lesson: 'Alphabet' },
       { id: 'vocab_alpha_ruue', thai: 'ฤๅ (ตัวรือ)', romanization: 'dtua ruue', german: 'Ruue • Langes vokalisches R', exampleThai: 'ฤๅษี', exampleGerman: 'Langes ruue, z. B. in ฤๅษี (Einsiedler / Yogi)', lesson: 'Alphabet' },
     ];
