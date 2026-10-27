@@ -53,6 +53,7 @@ interface StudySessionProps {
   onFinish: () => void;
   onAnswer: (vocabId: string, isCorrect: boolean, direction: QueryDirection) => Promise<UserProgress>;
   defaultHideRomanization?: boolean;
+  onToggleHideRomanization?: (val: boolean) => void;
   acceptRomanizationTyping?: boolean;
   onUpdateVocab?: (id: string, updatedData: Partial<Omit<Vocabulary, 'id' | 'createdAt'>>) => Promise<void>;
   existingLessons?: string[];
@@ -506,6 +507,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
   onFinish,
   onAnswer,
   defaultHideRomanization = false,
+  onToggleHideRomanization,
   acceptRomanizationTyping = true,
   onUpdateVocab,
   existingLessons = [],
@@ -536,7 +538,31 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
   const [currentInputMethod, setCurrentInputMethod] = useState<StudyInputMethod>(inputMethod);
   const [isRevealed, setIsRevealed] = useState(mode === 'preview_first');
-  const [hideRomanization, setHideRomanization] = useState(defaultHideRomanization);
+  const [hideRomanization, setHideRomanization] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('thai_hasis_hide_romanization') || localStorage.getItem('phase6_hide_romanization');
+      if (stored !== null) return stored === 'true';
+    } catch {}
+    return defaultHideRomanization;
+  });
+
+  // Sync if prop changes
+  useEffect(() => {
+    setHideRomanization(defaultHideRomanization);
+  }, [defaultHideRomanization]);
+
+  const handleToggleRomanization = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const nextVal = !hideRomanization;
+    setHideRomanization(nextVal);
+    try {
+      localStorage.setItem('thai_hasis_hide_romanization', String(nextVal));
+    } catch {}
+    if (onToggleHideRomanization) {
+      onToggleHideRomanization(nextVal);
+    }
+  };
+
   const [showExample, setShowExample] = useState(false);
   const [showCardMenu, setShowCardMenu] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -982,69 +1008,88 @@ export const StudySession: React.FC<StudySessionProps> = ({
               {isDeToThai ? '🇩🇪' : '🇹🇭'}
             </span>
 
-            <div className="relative">
+            <div className="flex items-center gap-1.5">
+              {/* Quick 1-Tap Toggle for Romanization / Umschrift */}
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowCardMenu(!showCardMenu);
-                }}
-                className="p-1.5 rounded-full text-[#8E8E93] hover:text-white hover:bg-[#323236] transition-colors"
-                title="Optionen"
+                onClick={handleToggleRomanization}
+                className={`p-1.5 rounded-full transition-colors cursor-pointer flex items-center justify-center ${
+                  hideRomanization
+                    ? 'text-[#8E8E93] bg-[#2C2C2E]/70 hover:text-white hover:bg-[#3A3A3D]'
+                    : 'text-[#FF7A00] bg-[#FF7A00]/15 hover:bg-[#FF7A00]/25'
+                }`}
+                title={hideRomanization ? 'Umschrift einblenden (derzeit verborgen)' : 'Umschrift ausblenden (derzeit sichtbar)'}
               >
-                <MoreVertical className="w-5 h-5" />
+                {hideRomanization ? (
+                  <EyeOff className="w-5 h-5 stroke-[2.2]" />
+                ) : (
+                  <Eye className="w-5 h-5 stroke-[2.2]" />
+                )}
               </button>
 
-              {/* 3-dots Dropdown Menu */}
-              {showCardMenu && (
-                <div
-                  className="absolute right-0 top-9 z-30 bg-[#1C1C1E] border border-[#3A3A3D] rounded-2xl p-1.5 shadow-2xl min-w-[210px] text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150"
-                  onClick={(e) => e.stopPropagation()}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowCardMenu(!showCardMenu);
+                  }}
+                  className="p-1.5 rounded-full text-[#8E8E93] hover:text-white hover:bg-[#323236] transition-colors"
+                  title="Optionen"
                 >
-                  {onUpdateVocab && (
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+
+                {/* 3-dots Dropdown Menu */}
+                {showCardMenu && (
+                  <div
+                    className="absolute right-0 top-9 z-30 bg-[#1C1C1E] border border-[#3A3A3D] rounded-2xl p-1.5 shadow-2xl min-w-[210px] text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {onUpdateVocab && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCardMenu(false);
+                          setEditingCurrentVocab(true);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-[#FF7A00]" />
+                        <span>Vokabel bearbeiten</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
+                        handlePlayAudio();
                         setShowCardMenu(false);
-                        setEditingCurrentVocab(true);
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left"
                     >
-                      <Pencil className="w-3.5 h-3.5 text-[#FF7A00]" />
-                      <span>Vokabel bearbeiten</span>
+                      <Volume2 className="w-3.5 h-3.5 text-[#FF7A00]" />
+                      <span>Aussprache abspielen</span>
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handlePlayAudio();
-                      setShowCardMenu(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left"
-                  >
-                    <Volume2 className="w-3.5 h-3.5 text-[#FF7A00]" />
-                    <span>Aussprache abspielen</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHideRomanization(!hideRomanization);
-                      setShowCardMenu(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left"
-                  >
-                    {hideRomanization ? (
-                      <>
-                        <Eye className="w-3.5 h-3.5 text-[#FF7A00]" />
-                        <span>Umschrift einblenden</span>
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="w-3.5 h-3.5 text-[#FF7A00]" />
-                        <span>Umschrift ausblenden</span>
-                      </>
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleToggleRomanization();
+                        setShowCardMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left"
+                    >
+                      {hideRomanization ? (
+                        <>
+                          <Eye className="w-3.5 h-3.5 text-[#FF7A00]" />
+                          <span>Umschrift einblenden</span>
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5 text-[#FF7A00]" />
+                          <span>Umschrift ausblenden</span>
+                        </>
+                      )}
+                    </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -1067,6 +1112,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               )}
             </div>
           </div>
+        </div>
 
           {/* Center: The Word (e.g. "Weight" / "Größe / Körpergröße") - smooth scrollable if long */}
           <div className="flex-1 min-h-0 overflow-y-auto touch-scroll overscroll-contain text-center px-2 sm:px-4 py-2 z-10 flex flex-col justify-center">
@@ -1078,11 +1124,15 @@ export const StudySession: React.FC<StudySessionProps> = ({
                 </h2>
                 {consonantInfo && isAlphabetCard && (
                   <div className="mt-2.5 inline-flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-xl bg-[#202022] border border-[#323236] text-xs text-[#D1D1D6]">
-                    <span className="text-[#8E8E93] text-[11px]">Laut:</span>
-                    <span className="font-mono text-amber-300 font-semibold text-[11px]">An: {consonantInfo.initialSound}</span>
-                    <span className="text-[#52525B]">·</span>
-                    <span className="font-mono text-amber-300 font-semibold text-[11px]">Aus: {consonantInfo.finalSound}</span>
-                    <span className="text-[#52525B]">·</span>
+                    {!hideRomanization && (
+                      <>
+                        <span className="text-[#8E8E93] text-[11px]">Laut:</span>
+                        <span className="font-mono text-amber-300 font-semibold text-[11px]">An: {consonantInfo.initialSound}</span>
+                        <span className="text-[#52525B]">·</span>
+                        <span className="font-mono text-amber-300 font-semibold text-[11px]">Aus: {consonantInfo.finalSound}</span>
+                        <span className="text-[#52525B]">·</span>
+                      </>
+                    )}
                     <span className={`text-[11px] font-semibold ${CONSONANT_CLASS_CONFIG[consonantInfo.class].colorClass}`}>
                       {CONSONANT_CLASS_CONFIG[consonantInfo.class].labelGerman}
                     </span>
@@ -1141,17 +1191,19 @@ export const StudySession: React.FC<StudySessionProps> = ({
                               {displayRom}
                             </p>
                           )}
-                          <div className="flex justify-center mt-2">
-                            <ToneVisualizer
-                              romanization={displayRom}
-                              thai={vocab.thai}
-                              showHelpIcon
-                            />
-                          </div>
+                          {!hideRomanization && (
+                            <div className="flex justify-center mt-2">
+                              <ToneVisualizer
+                                romanization={displayRom}
+                                thai={vocab.thai}
+                                showHelpIcon
+                              />
+                            </div>
+                          )}
                         </>
                       );
                     })()}
-                    {consonantInfo && isAlphabetCard && (
+                    {consonantInfo && isAlphabetCard && !hideRomanization && (
                       <div className="mt-2.5 inline-flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-xl bg-[#202022] border border-[#323236] text-xs text-[#D1D1D6]">
                         <span className="text-[#8E8E93] text-[11px]">Name:</span>
                         <span className="font-thai text-white font-bold">{consonantInfo.nameThai}</span>
@@ -1194,7 +1246,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                     <h3 className="text-2xl sm:text-3xl font-bold text-white mb-1">
                       {vocab.german}
                     </h3>
-                    {consonantInfo && isAlphabetCard && (
+                    {consonantInfo && isAlphabetCard && !hideRomanization && (
                       <div className="mt-2.5 inline-flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-xl bg-[#202022] border border-[#323236] text-xs text-[#D1D1D6]">
                         <span className="text-[#8E8E93] text-[11px]">Name:</span>
                         <span className="font-thai text-white font-bold">{consonantInfo.nameThai}</span>

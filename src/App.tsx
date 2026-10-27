@@ -585,6 +585,7 @@ function AppContent() {
         onFinish={() => setActiveSession(null)}
         onAnswer={handleAnswerReview}
         defaultHideRomanization={defaultHideRomanization}
+        onToggleHideRomanization={handleToggleHideRomanization}
         acceptRomanizationTyping={acceptRomanizationTyping}
         onUpdateVocab={handleUpdateVocab}
         existingLessons={existingLessons}
