@@ -16,6 +16,7 @@ import { Vocabulary, UserProgress, DeletedVocabEntry, DirectionProgress, QueryDi
 import { STARTER_VOCABULARY, QUESTION_WORDS_VOCABULARY } from '../data/initialVocab';
 import { calculateNextReviewDate, calculateResetReviewDate, getDirectionProgress } from '../utils/leitner';
 import { THAI_CONSONANTS } from '../data/thaiAlphabet';
+import { autocorrectThaiTypingOrder } from '../utils/thaiTones';
 
 const VOCAB_COLLECTION = 'vocabularies';
 const PROGRESS_COLLECTION = 'user_progress';
@@ -306,6 +307,17 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
       }
       if (v.thai !== fixedThai) {
         const updated = { ...v, thai: fixedThai };
+        needsCloudSync.push(updated);
+        return updated;
+      }
+    }
+
+    // Autocorrect Thai diacritic and tone mark stacking order (e.g. ท่ี -> ที่, ส้ั -> สั้)
+    if (v.thai) {
+      const canonThai = autocorrectThaiTypingOrder(v.thai);
+      const canonEx = v.exampleThai ? autocorrectThaiTypingOrder(v.exampleThai) : v.exampleThai;
+      if (canonThai !== v.thai || canonEx !== v.exampleThai) {
+        const updated = { ...v, thai: canonThai, exampleThai: canonEx };
         needsCloudSync.push(updated);
         return updated;
       }

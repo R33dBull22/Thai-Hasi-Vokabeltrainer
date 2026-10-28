@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
-import { generateRomanizationFromThai, getEffectiveRomanization } from '../utils/thaiTones';
+import { autocorrectThaiTypingOrder, generateRomanizationFromThai, getEffectiveRomanization } from '../utils/thaiTones';
 import { ToneVisualizer } from './ToneVisualizer';
 
 interface EditVocabModalProps {
@@ -282,7 +282,7 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
             <input
               type="text"
               value={thai}
-              onChange={(e) => setThai(e.target.value)}
+              onChange={(e) => setThai(autocorrectThaiTypingOrder(e.target.value))}
               placeholder="z. B. สวัสดีครับ"
               className="w-full bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl px-3 py-3 text-lg font-thai text-white focus:outline-none focus:border-[#FF7A00]"
             />
@@ -334,7 +334,7 @@ export const EditVocabModal: React.FC<EditVocabModalProps> = ({
             <input
               type="text"
               value={exampleThai}
-              onChange={(e) => setExampleThai(e.target.value)}
+              onChange={(e) => setExampleThai(autocorrectThaiTypingOrder(e.target.value))}
               placeholder="Thai-Satz"
               className="w-full bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl px-3 py-2 text-sm font-thai text-white focus:outline-none focus:border-[#FF7A00]"
             />

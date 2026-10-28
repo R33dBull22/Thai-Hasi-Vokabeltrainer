@@ -32,7 +32,7 @@ import { ToneVisualizer } from './ToneVisualizer';
 import { ThaiColorWord } from './ThaiColorWord';
 import { ThaiReferenceView } from './ThaiReferenceView';
 import { ToneRulesCheatsheet } from './ToneRulesCheatsheet';
-import { canonicalizeThaiString, generateRomanizationFromThai, getEffectiveRomanization } from '../utils/thaiTones';
+import { autocorrectThaiTypingOrder, canonicalizeThaiString, generateRomanizationFromThai, getEffectiveRomanization } from '../utils/thaiTones';
 import { THAI_CONSONANTS, CONSONANT_CLASS_CONFIG } from '../data/thaiAlphabet';
 
 export type StudyMode = 'preview_first' | 'skip_preview';
@@ -1414,7 +1414,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                   ref={inputRef}
                   type="text"
                   value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
+                  onChange={(e) => setUserInput(autocorrectThaiTypingOrder(e.target.value))}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();

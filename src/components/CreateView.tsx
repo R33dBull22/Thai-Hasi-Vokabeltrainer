@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Vocabulary } from '../types/vocab';
 import { speakThai } from '../utils/thaiAudio';
-import { generateRomanizationFromThai } from '../utils/thaiTones';
+import { autocorrectThaiTypingOrder, generateRomanizationFromThai } from '../utils/thaiTones';
 import { ToneVisualizer } from './ToneVisualizer';
 
 interface CreateViewProps {
@@ -206,7 +206,7 @@ export const CreateView: React.FC<CreateViewProps> = ({
           <input
             type="text"
             value={thai}
-            onChange={(e) => setThai(e.target.value)}
+            onChange={(e) => setThai(autocorrectThaiTypingOrder(e.target.value))}
             onBlur={handleThaiBlur}
             placeholder="z. B. สวัสดีครับ"
             className="w-full bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl px-3 py-3 text-lg font-thai text-white focus:outline-none focus:border-[#FF7A00]"
@@ -263,7 +263,7 @@ export const CreateView: React.FC<CreateViewProps> = ({
           <input
             type="text"
             value={exampleThai}
-            onChange={(e) => setExampleThai(e.target.value)}
+            onChange={(e) => setExampleThai(autocorrectThaiTypingOrder(e.target.value))}
             placeholder="Satz auf Thai (z. B. ยินดีที่ได้รู้จักครับ)"
             className="w-full bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl px-3 py-2 text-sm font-thai text-white focus:outline-none focus:border-[#FF7A00]"
           />
