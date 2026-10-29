@@ -127,7 +127,7 @@ export const QUESTION_WORDS_VOCABULARY: QuestionWordVocabItem[] = [
     idSuffix: 'already_or_not',
     german: '... oder noch nicht? / Schon mal ...?',
     thai: 'หรือยัง',
-    romanization: 'rǔue yang',
+    romanization: 'rŭe yang',
     lesson: 'Lektion 6: W-Fragewörter (คำถาม)',
     exampleThai: 'กินข้าวหรือยัง? / เสร็จหรือยัง?',
     exampleGerman: 'Hast du schon gegessen? / Bist du schon fertig?',
@@ -225,7 +225,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Vielen Dank',
     thai: 'ขอบคุณมาก',
-    romanization: 'kò̜ːp-kun mâak',
+    romanization: 'khò̜ːp-kun mâak',
     lesson: 'Lektion 1: Begrüßung & Höflichkeit',
     exampleThai: 'ขอบคุณมากสำหรับความช่วยเหลือ',
     exampleGerman: 'Vielen Dank für deine Hilfe.',
@@ -327,7 +327,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Wo ist die Toilette?',
     thai: 'ห้องน้ำอยู่ที่ไหน',
-    romanization: 'hông-nám yùu thîi-năi',
+    romanization: 'hông-nám yòo thêe-năi',
     lesson: 'Lektion 4: Unterwegs & Orientierung',
     exampleThai: 'ขอโทษครับ ห้องน้ำอยู่ที่ไหนครับ',
     exampleGerman: 'Entschuldigung, wo befindet sich die Toilette?',
@@ -361,7 +361,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Entschuldigung / Verzeihung',
     thai: 'ขอโทษ',
-    romanization: 'khǒ̜ː-thôot',
+    romanization: 'khăaw-thôot',
     lesson: 'Lektion 5: Wichtige Redewendungen',
     exampleThai: 'ขอโทษครับ ผมมาสาย',
     exampleGerman: 'Entschuldigung, ich bin zu spät gekommen.',

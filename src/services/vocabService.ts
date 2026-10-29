@@ -16,7 +16,7 @@ import { Vocabulary, UserProgress, DeletedVocabEntry, DirectionProgress, QueryDi
 import { STARTER_VOCABULARY, QUESTION_WORDS_VOCABULARY } from '../data/initialVocab';
 import { calculateNextReviewDate, calculateResetReviewDate, getDirectionProgress } from '../utils/leitner';
 import { THAI_CONSONANTS } from '../data/thaiAlphabet';
-import { autocorrectThaiTypingOrder } from '../utils/thaiTones';
+import { autocorrectThaiTypingOrder, getEffectiveRomanization } from '../utils/thaiTones';
 
 const VOCAB_COLLECTION = 'vocabularies';
 const PROGRESS_COLLECTION = 'user_progress';
@@ -299,6 +299,66 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
         }
       }
     }
+    // Standardize "ห้องน้ำอยู่ที่ไหน" romanization to 'hông-nám yòo thêe-năi'
+    if (v.thai && v.thai === 'ห้องน้ำอยู่ที่ไหน') {
+      const fixedRom = 'hông-nám yòo thêe-năi';
+      if (v.romanization !== fixedRom) {
+        const updated = { ...v, romanization: fixedRom };
+        needsCloudSync.push(updated);
+        return updated;
+      }
+    }
+
+    // Standardize "ขอโทษ" romanization to 'khăaw-thôot'
+    if (v.thai && v.thai === 'ขอโทษ') {
+      const fixedRom = 'khăaw-thôot';
+      if (v.romanization !== fixedRom) {
+        const updated = { ...v, romanization: fixedRom };
+        needsCloudSync.push(updated);
+        return updated;
+      }
+    }
+
+    // Standardize "ขอบคุณมาก" romanization to 'khò̜ːp-kun mâak'
+    if (v.thai && v.thai === 'ขอบคุณมาก') {
+      const fixedRom = 'khò̜ːp-kun mâak';
+      if (v.romanization !== fixedRom) {
+        const updated = { ...v, romanization: fixedRom };
+        needsCloudSync.push(updated);
+        return updated;
+      }
+    }
+
+    // Standardize "หรือยัง" romanization to 'rŭe yang'
+    if (v.thai && v.thai === 'หรือยัง') {
+      const fixedRom = 'rŭe yang';
+      if (v.romanization !== fixedRom) {
+        const updated = { ...v, romanization: fixedRom };
+        needsCloudSync.push(updated);
+        return updated;
+      }
+    }
+
+    // Standardize "เพื่ออะไร" romanization to 'phûea à-rai'
+    if (v.thai && v.thai === 'เพื่ออะไร') {
+      const fixedRom = 'phûea à-rai';
+      if (v.romanization !== fixedRom) {
+        const updated = { ...v, romanization: fixedRom };
+        needsCloudSync.push(updated);
+        return updated;
+      }
+    }
+
+    // Fix legacy delimiter generation artifacts in romanization (e.g. "gà ( gor gài )" -> "gor gài", "ì ( sà-rà ì )" -> "sà-rà ì")
+    if (v.romanization && (v.romanization.includes('(') || v.romanization.includes('rǔue') || v.romanization.includes('phûea-rai'))) {
+      const fixedRom = getEffectiveRomanization(v.thai, v.romanization);
+      if (fixedRom && fixedRom !== v.romanization) {
+        const updated = { ...v, romanization: fixedRom };
+        needsCloudSync.push(updated);
+        return updated;
+      }
+    }
+
     // Standardize Alphabet lesson vowel/sign cards: replace U+25CC (◌) with standard '-' and normalize standalone ำ
     if (v.thai && (v.thai.includes('◌') || v.thai === 'ำ' || v.thai === 'ำ (สระอำ)')) {
       let fixedThai = v.thai.replace(/◌/g, '-');

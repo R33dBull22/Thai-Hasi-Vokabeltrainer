@@ -150,10 +150,10 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'สบายดีไหม': 'sà-baai-dee măi',
   'สบายดี': 'sà-baai-dee',
   'สบาย': 'sà-baai',
-  'ขอบคุณมาก': 'kò̜ːp-kun mâak',
-  'ขอบคุณครับ': 'kò̜ːp-kun kráp',
-  'ขอบคุณค่ะ': 'kò̜ːp-kun khâ',
-  'ขอบคุณ': 'kò̜ːp-kun',
+  'ขอบคุณมาก': 'khò̜ːp-kun mâak',
+  'ขอบคุณครับ': 'khò̜ːp-kun kráp',
+  'ขอบคุณค่ะ': 'khò̜ːp-kun khâ',
+  'ขอบคุณ': 'khò̜ːp-kun',
   'ไม่เป็นไร': 'mâi pen rai',
   'ยินดีที่ได้รู้จัก': 'yin-dee thêe dâai róo-jàk',
   'ยินดี': 'yin-dee',
@@ -562,47 +562,65 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'อ อ่าง': 'aaw àang', 'อ (อ อ่าง)': 'aaw àang',
   'ฮ นกฮูก': 'haaw nók-hôok', 'ฮ (ฮ นกฮูก)': 'haaw nók-hôok',
   // Tonzeichen & Sonderzeichen
-  'ไม้เอก': 'mái èek', '่ (ไม้เอก)': 'mái èek',
-  'ไม้โท': 'mái thoo', '้ (ไม้โท)': 'mái thoo',
-  'ไม้ตรี': 'mái dtree', '๊ (ไม้ตรี)': 'mái dtree',
-  'ไม้จัตวา': 'mái jàt-dtà-waa', '๋ (ไม้จัตวา)': 'mái jàt-dtà-waa',
-  'การันต์': 'gaa-ran', 'ทัณฑฆาต': 'than-thá-khâat', '์ (ตัวการันต์ / ทัณฑฆาต)': 'gaa-ran / than-thá-khâat',
+  'ไม้เอก': 'mái èek', '่ (ไม้เอก)': 'mái èek', '-่ (ไม้เอก)': 'mái èek', '◌่ (ไม้เอก)': 'mái èek',
+  'ไม้โท': 'mái thoo', '้ (ไม้โท)': 'mái thoo', '-้ (ไม้โท)': 'mái thoo', '◌้ (ไม้โท)': 'mái thoo',
+  'ไม้ตรี': 'mái dtree', '๊ (ไม้ตรี)': 'mái dtree', '-๊ (ไม้ตรี)': 'mái dtree', '◌๊ (ไม้ตรี)': 'mái dtree',
+  'ไม้จัตวา': 'mái jàt-dtà-waa', '๋ (ไม้จัตวา)': 'mái jàt-dtà-waa', '-๋ (ไม้จัตวา)': 'mái jàt-dtà-waa', '◌๋ (ไม้จัตวา)': 'mái jàt-dtà-waa',
+  'การันต์': 'gaa-ran', 'ทัณฑฆาต': 'than-thá-khâat', '์ (ตัวการันต์ / ทัณฑฆาต)': 'gaa-ran / than-thá-khâat', 'ตัวการันต์': 'gaa-ran', 'ตัวการันต์ / ทัณฑฆาต': 'gaa-ran / than-thá-khâat',
   'ไม้ยมก': 'mái yá-mók', 'ๆ (ไม้ยมก)': 'mái yá-mók',
-  'ไม้ไต่คู้': 'mái dtài-khôo', '็ (ไม้ไต่คู้)': 'mái dtài-khôo',
+  'ไม้ไต่คู้': 'mái dtài-khôo', '็ (ไม้ไต่คู้)': 'mái dtài-khôo', '-็ (ไม้ไต่คู้)': 'mái dtài-khôo', '◌็ (ไม้ไต่คู้)': 'mái dtài-khôo',
   'ไปยาลน้อย': 'bpai-yaan nôi', 'ฯ (ไปยาลน้อย)': 'bpai-yaan nôi',
   'ไปยาลใหญ่': 'bpai-yaan yài', 'ฯลฯ (ไปยาลใหญ่)': 'bpai-yaan yài',
-  'ไม้หันอากาศ': 'mái hăn aa-gàat', '◌ั (ไม้หันอากาศ)': 'mái hăn aa-gàat',
+  'ไม้หันอากาศ': 'mái hăn aa-gàat', '-ั (ไม้หันอากาศ)': 'mái hăn aa-gàat', '◌ั (ไม้หันอากาศ)': 'mái hăn aa-gàat',
   'ตัวรึ': 'dtua rúe', 'ฤ (ตัวรึ)': 'dtua rúe',
   'ตัวรือ': 'dtua ruue', 'ฤๅ (ตัวรือ)': 'dtua ruue',
-  // Vokale
-  'สระอะ': 'sà-rà à', '-ะ (สระอะ)': 'sà-rà à',
-  'สระอา': 'sà-rà aa', '-า (สระอา)': 'sà-rà aa',
-  'สระอิ': 'sà-rà ì', '◌ิ (สระอิ)': 'sà-rà ì',
-  'สระอี': 'sà-rà ee', '◌ี (สระอี)': 'sà-rà ee',
-  'สระอึ': 'sà-rà ùe', '◌ึ (สระอึ)': 'sà-rà ùe',
-  'สระอือ': 'sà-rà uee', '◌ื (สระอือ)': 'sà-rà uee',
-  'สระอุ': 'sà-rà ù', '◌ุ (สระอุ)': 'sà-rà ù',
-  'สระอู': 'sà-rà oo', '◌ู (สระอู)': 'sà-rà oo',
-  'สระเอะ': 'sà-rà è', 'เ-ะ (สระเอะ)': 'sà-rà è',
-  'สระเอ': 'sà-rà ee', 'เ- (สระเอ)': 'sà-rà ee',
-  'สระแอะ': 'sà-rà àae', 'แ-ะ (สระแอะ)': 'sà-rà àae',
-  'สระแอ': 'sà-rà aae', 'แ- (สระแอ)': 'sà-rà aae',
-  'สระโอะ': 'sà-rà ò', 'โ-ะ (สระโอะ)': 'sà-rà ò',
-  'สระโอ': 'sà-rà oo', 'โ- (สระโอ)': 'sà-rà oo',
-  'สระเอาะ': 'sà-rà ò̜', 'เ-าะ (สระเอาะ)': 'sà-rà ò̜',
-  'สระออ': 'sà-rà ɔɔ', '-อ (สระออ)': 'sà-rà ɔɔ',
-  'สระเออะ': 'sà-rà òe', 'เ-อะ (สระเออะ)': 'sà-rà òe',
-  'สระเออ': 'sà-rà ooe', 'เ-อ (สระเออ)': 'sà-rà ooe',
-  'สระเอียะ': 'sà-rà ìa', 'เ-ียะ (สระเอียะ)': 'sà-rà ìa',
-  'สระเอีย': 'sà-rà ia', 'เ-ีย (สระเอีย)': 'sà-rà ia',
-  'สระเอือะ': 'sà-rà ùea', 'เ-ือะ (สระเอือะ)': 'sà-rà ùea',
-  'สระเอือ': 'sà-rà uea', 'เ-ือ (สระเอือ)': 'sà-rà uea',
-  'สระอัวะ': 'sà-rà ùa', '◌ัวะ (สระอัวะ)': 'sà-rà ùa',
-  'สระอัว': 'sà-rà ua', '◌ัว (สระอัว)': 'sà-rà ua',
-  'สระอำ': 'sà-rà am', '-ำ (สระอำ)': 'sà-rà am',
-  'สระใอม้วน': 'sà-rà ai máai-múuan', 'ใ- (สระใอม้วน)': 'sà-rà ai máai-múuan',
-  'สระไอไม้มลาย': 'sà-rà ai máai-má-laai', 'ไ- (สระไอไม้มลาย)': 'sà-rà ai máai-má-laai',
-  'สระเอา': 'sà-rà ao', 'เ-า (สระเอา)': 'sà-rà ao',
+  // Vokale (mit "-" und "◌" Notation)
+  'สระอะ': 'sà-rà à', '-ะ (สระอะ)': 'sà-rà à', '◌ะ (สระอะ)': 'sà-rà à',
+  'สระอา': 'sà-rà aa', '-า (สระอา)': 'sà-rà aa', '◌า (สระอา)': 'sà-rà aa',
+  'สระอิ': 'sà-rà ì', '-ิ (สระอิ)': 'sà-rà ì', '◌ิ (สระอิ)': 'sà-rà ì',
+  'สระอี': 'sà-rà ee', '-ี (สระอี)': 'sà-rà ee', '◌ี (สระอี)': 'sà-rà ee',
+  'สระอึ': 'sà-rà ùe', '-ึ (สระอึ)': 'sà-rà ùe', '◌ึ (สระอึ)': 'sà-rà ùe',
+  'สระอือ': 'sà-rà uee', '-ื (สระอือ)': 'sà-rà uee', '◌ื (สระอือ)': 'sà-rà uee',
+  'สระอุ': 'sà-rà ù', '-ุ (สระอุ)': 'sà-rà ù', '◌ุ (สระอุ)': 'sà-rà ù',
+  'สระอู': 'sà-rà oo', '-ู (สระอู)': 'sà-rà oo', '◌ู (สระอู)': 'sà-rà oo',
+  'สระเอะ': 'sà-rà è', 'เ-ะ (สระเอะ)': 'sà-rà è', 'เ◌ะ (สระเอะ)': 'sà-rà è',
+  'สระเอ': 'sà-rà ee', 'เ- (สระเอ)': 'sà-rà ee', 'เ◌ (สระเอ)': 'sà-rà ee',
+  'สระแอะ': 'sà-rà àae', 'แ-ะ (สระแอะ)': 'sà-rà àae', 'แ◌ะ (สระแอะ)': 'sà-rà àae',
+  'สระแอ': 'sà-rà aae', 'แ- (สระแอ)': 'sà-rà aae', 'แ◌ (สระแอ)': 'sà-rà aae',
+  'สระโอะ': 'sà-rà ò', 'โ-ะ (สระโอะ)': 'sà-rà ò', 'โ◌ะ (สระโอะ)': 'sà-rà ò',
+  'สระโอ': 'sà-rà oo', 'โ- (สระโอ)': 'sà-rà oo', 'โ◌ (สระโอ)': 'sà-rà oo',
+  'สระเอาะ': 'sà-rà ò̜', 'เ-าะ (สระเอาะ)': 'sà-rà ò̜', 'เ◌าะ (สระเอาะ)': 'sà-rà ò̜',
+  'สระออ': 'sà-rà ɔɔ', '-อ (สระออ)': 'sà-rà ɔɔ', '◌อ (สระออ)': 'sà-rà ɔɔ',
+  'สระเออะ': 'sà-rà òe', 'เ-อะ (สระเออะ)': 'sà-rà òe', 'เ◌อะ (สระเออะ)': 'sà-rà òe',
+  'สระเออ': 'sà-rà ooe', 'เ-อ (สระเออ)': 'sà-rà ooe', 'เ◌อ (สระเออ)': 'sà-rà ooe',
+  'สระเอียะ': 'sà-rà ìa', 'เ-ียะ (สระเอียะ)': 'sà-rà ìa', 'เ◌ียะ (สระเอียะ)': 'sà-rà ìa',
+  'สระเอีย': 'sà-rà ia', 'เ-ีย (สระเอีย)': 'sà-rà ia', 'เ◌ีย (สระเอีย)': 'sà-rà ia',
+  'สระเอือะ': 'sà-rà ùea', 'เ-ือะ (สระเอือะ)': 'sà-rà ùea', 'เ◌ือะ (สระเอือะ)': 'sà-rà ùea',
+  'สระเอือ': 'sà-rà uea', 'เ-ือ (สระเอือ)': 'sà-rà uea', 'เ◌ือ (สระเอือ)': 'sà-rà uea',
+  'สระอัวะ': 'sà-rà ùa', '-ัวะ (สระอัวะ)': 'sà-rà ùa', '◌ัวะ (สระอัวะ)': 'sà-rà ùa',
+  'สระอัว': 'sà-rà ua', '-ัว (สระอัว)': 'sà-rà ua', '◌ัว (สระอัว)': 'sà-rà ua',
+  'สระอำ': 'sà-rà am', '-ำ (สระอำ)': 'sà-rà am', '◌ำ (สระอำ)': 'sà-rà am',
+  'สระใอม้วน': 'sà-rà ai máai-múuan', 'ใ- (สระใอม้วน)': 'sà-rà ai máai-múuan', 'ใ◌ (สระใอม้วน)': 'sà-rà ai máai-múuan',
+  'สระไอไม้มลาย': 'sà-rà ai máai-má-laai', 'ไ- (สระไอไม้มลาย)': 'sà-rà ai máai-má-laai', 'ไ◌ (สระไอไม้มลาย)': 'sà-rà ai máai-má-laai',
+  'สระเอา': 'sà-rà ao', 'เ-า (สระเอา)': 'sà-rà ao', 'เ◌า (สระเอา)': 'sà-rà ao',
+  // Frage-Vokabular (Lektion 6) & gebräuchliche Wendungen
+  'เพื่ออะไร': 'phûea à-rai',
+  'หรือยัง': 'rŭe yang',
+  'ยังไง': 'yang-ngai',
+  'กี่': 'gèe',
+  'อันไหน': 'an-năi',
+  'ประเทศไหน': 'bprà-thêet năi',
+  'ใช่ไหม': 'châi măi',
+  'ตั้งแต่เมื่อไหร่': 'dtâng-dtàae mûea-rài',
+  'ไปด้วยอะไร': 'bpai dûai à-rai',
+  'กับใคร': 'gàp khrai',
+  'นานเท่าไหร่': 'naan thâo-rài',
+  'ไกลแค่ไหน': 'glai khâae năi',
+  'เข้าใจแล้ว': 'khâo-jai láaeo',
+  'พูดภาษาอังกฤษได้ไหม': 'phôot phaa-săa ang-grìt dâai măi',
+  'ภาษาอังกฤษ': 'phaa-săa ang-grìt',
+  'ภาษา': 'phaa-săa',
+  'พูด': 'phôot',
 };
 
 // Thai consonant classes
@@ -1111,6 +1129,7 @@ export function splitThaiIntoSyllables(text: string): string[] {
     let hasUpperI = false;
     let hasUpperUe = false;
     let hasSaraAa = false;
+    let hasConsumedGlide = false;
 
     while (end < chars.length) {
       const c = chars[end];
@@ -1121,10 +1140,12 @@ export function splitThaiIntoSyllables(text: string): string[] {
       if (isVowelOrTone(c) || c === '์') {
         end++;
       } else if (
-        (c === 'ย' && hasLeadingE && hasUpperI) || // sara ia (เ-ีย)
+        !hasConsumedGlide &&
+        ((c === 'ย' && hasLeadingE && hasUpperI) || // sara ia (เ-ีย)
         (c === 'อ' && hasLeadingE && hasUpperUe) || // sara uea (เ-ือ)
-        (c === 'ว' && !hasSaraAa && end + 1 < chars.length && isConsonant(chars[end + 1])) // sara ua (e.g. ร่วง)
+        (c === 'ว' && !hasSaraAa && end + 1 < chars.length && isConsonant(chars[end + 1]))) // sara ua (e.g. ร่วง)
       ) {
+        hasConsumedGlide = true;
         end++;
       } else {
         break;
@@ -1178,7 +1199,8 @@ export function splitThaiIntoSyllables(text: string): string[] {
     const isPotentialCoda =
       end < chars.length &&
       isConsonant(chars[end]) &&
-      Boolean(FINAL_CONSONANTS[chars[end]]);
+      Boolean(FINAL_CONSONANTS[chars[end]]) &&
+      !(hasConsumedGlide && chars[end] === 'อ');
 
     if (isPotentialCoda) {
 
@@ -1748,19 +1770,70 @@ export function generateRomanizationFromThai(thaiText: string): {
   const clean = thaiText.trim();
   if (!clean) return { romanization: '', syllables: [] };
 
-  // Handle delimiter segments cleanly (e.g. "อเมริกา / ประเทศอเมริกา", "คำ1, คำ2")
-  if (/[\/\,\(\)\[\];+&]/.test(clean)) {
-    const parts = clean.split(/(\s*[\/\,\(\)\[\];+&]\s*)/);
+  // 1. Check exact dictionary match
+  if (THAI_DICTIONARY[clean]) {
+    const dictRom = THAI_DICTIONARY[clean];
+    return {
+      romanization: dictRom,
+      syllables: extractTonesFromRomanization(dictRom),
+    };
+  }
+
+  // 2. Check canonicalized script match
+  const canon = canonicalizeThaiScript(clean, true);
+  if (canon && THAI_DICTIONARY[canon]) {
+    const dictRom = THAI_DICTIONARY[canon];
+    return {
+      romanization: dictRom,
+      syllables: extractTonesFromRomanization(dictRom),
+    };
+  }
+
+  // 3. Handle alphabet letter/vowel/sign cards formatted as "X (Name)" (e.g. "ก (ก ไก่)", "-ิ (สระอิ)", "่ (ไม้เอก)")
+  const parenMatch = clean.match(/^([^\(\[\{（【]+)[\(\[\{（【]([^\)\]\}）】]+)[\)\]\}）】]/);
+  if (parenMatch) {
+    const beforeParen = parenMatch[1].trim();
+    const insideParen = parenMatch[2].trim();
+    const cleanBefore = beforeParen.replace(/[\s\-\u25CC\u25CB]/g, '');
+
+    // If before parenthesis is a single letter or short vowel/sign symbol (<= 3 chars) and inside has Thai name:
+    if (cleanBefore.length <= 3 && /[ก-๙]/.test(insideParen)) {
+      if (THAI_DICTIONARY[insideParen]) {
+        const dictRom = THAI_DICTIONARY[insideParen];
+        return {
+          romanization: dictRom,
+          syllables: extractTonesFromRomanization(dictRom),
+        };
+      }
+      if (insideParen.includes('/') || insideParen.includes(',')) {
+        const subParts = insideParen.split(/[\/,]+/);
+        const subRoms = subParts.map((sp) => {
+          const subTrim = sp.trim();
+          return THAI_DICTIONARY[subTrim] || generateRomanizationFromThai(subTrim).romanization;
+        });
+        const combined = subRoms.filter(Boolean).join(' / ');
+        return {
+          romanization: combined,
+          syllables: extractTonesFromRomanization(combined),
+        };
+      }
+      return generateRomanizationFromThai(insideParen);
+    }
+  }
+
+  // 4. Handle slashes, commas, and semicolons cleanly without breaking words
+  if (/[\/\,;+&]/.test(clean)) {
+    const parts = clean.split(/(\s*[\/\,;+&]\s*)/);
     const romParts: string[] = [];
     for (const part of parts) {
-      if (/[\/\,\(\)\[\];+&]/.test(part)) {
+      if (/[\/\,;+&]/.test(part)) {
         romParts.push(part.trim());
       } else if (part.trim()) {
         const segRom = romanizeThaiSegment(part.trim());
         if (segRom) romParts.push(segRom);
       }
     }
-    const finalRom = romParts.join(' ').replace(/\s+([\/,\)\]])/g, ' $1').replace(/([\/,\(\[])\s+/g, '$1 ');
+    const finalRom = romParts.join(' ').replace(/\s+([\/,;])/g, ' $1').replace(/([\/,;])\s+/g, '$1 ');
     return {
       romanization: finalRom,
       syllables: extractTonesFromRomanization(finalRom),
@@ -1776,44 +1849,49 @@ export function generateRomanizationFromThai(thaiText: string): {
 
 /**
  * Resolves the cleanest, canonical romanization for a word:
- * - Fixes previously stored bugged artifacts (e.g. 'phá-rorn-yaa' -> 'phan-rá-yaa')
+ * - Fixes previously stored bugged artifacts (e.g. 'phá-rorn-yaa' -> 'phan-rá-yaa', 'yùu thîi-năi' -> 'yòo thêe-năi')
  * - Prefers curated dictionary mappings
  * - Falls back to dynamic generation from Thai script
  */
 export function getEffectiveRomanization(thai?: string, romanization?: string): string {
   const cleanThai = thai ? canonicalizeThaiScript(thai.trim(), true) : '';
-  const cleanRom = romanization?.trim() || '';
+  let cleanRom = romanization?.trim() || '';
 
-  // Auto-correct previously generated corrupted romanizations:
-  // 1. Ro Han artifact: 'phá-rorn-yaa' -> 'phan-rá-yaa' or any 'rorn'
-  // 2. วัด / coda split artifact before อยู่: 'wá-dà-yòo-glâi' or 'wá-dà-'
-  // 3. ขออภัย artifact: 'khà-phay' -> 'khăaw-à-phai'
-  // 4. ถอดรองเท้า / ดร cluster artifact: 'thŏr-drorng' -> 'thòrt-rorng' or 'drorng'
-  // 5. มัสยิด artifact: 'mát-yít' -> 'mát-sà-yít'
-  if (
-    cleanRom.includes('rorn') ||
-    cleanRom === 'phá-rorn-yaa' ||
-    cleanRom.includes('wá-dà-') ||
-    cleanRom === 'wá-dà-yòo-glâi' ||
-    cleanRom === 'khà-phay' ||
-    cleanRom.includes('khà-phay') ||
-    cleanRom.includes('drorng') ||
-    (cleanThai.includes('มัสยิด') && (cleanRom.includes('mát-yít') || cleanRom.includes('mat-yit') || !cleanRom.includes('sà')))
-  ) {
-    if (cleanThai && THAI_DICTIONARY[cleanThai]) {
-      return THAI_DICTIONARY[cleanThai];
-    }
-    if (cleanThai) {
-      return generateRomanizationFromThai(cleanThai).romanization;
-    }
-    return cleanRom
+  // Clean up known legacy formatting glitches or non-standard IPA artifacts
+  if (cleanRom) {
+    cleanRom = cleanRom
       .replace(/phá-rorn-yaa/g, 'phan-rá-yaa')
-      .replace(/rorn/g, 'ran')
+      .replace(/\brorn\b/g, 'ran')
       .replace(/wá-dà-/g, 'wát-')
       .replace(/khà-phay/g, 'khăaw-à-phai')
       .replace(/thŏr-drorng/g, 'thòrt-rorng')
       .replace(/drorng/g, 'rorng')
-      .replace(/\bm[áa]t-y[íi]t\b/gi, 'mát-sà-yít');
+      .replace(/\bm[áa]t-y[íi]t\b/gi, 'mát-sà-yít')
+      .replace(/\brǔue\b/gi, 'rŭe')
+      .replace(/\byùu thîi-năi\b/gi, 'yòo thêe-năi')
+      .replace(/\bkhǒ̜ː-thôot\b/gi, 'khăaw-thôot')
+      .replace(/\bkò̜ːp-kun\b/gi, 'khò̜ːp-kun')
+      .replace(/\bkò̜ːp\b/gi, 'khò̜ːp')
+      .replace(/\bphûea-rai\b/gi, 'phûea à-rai')
+      // Clean legacy delimiter generator artifacts like "gà ( gor gài )" -> "gor gài" or "ì ( sà-rà ì )" -> "sà-rà ì"
+      .replace(/^[a-zà-ÿ]+\s*\(\s*([a-zà-ÿ\s\-]+)\s*\)$/i, '$1')
+      .replace(/^[a-zà-ÿ]+\s*\(\s*sà-rà\s+([a-zà-ÿ]+)\s*\)/i, 'sà-rà $1');
+  }
+
+  // Parenthetical alphabet cards: e.g. "ก (ก ไก่)" or "-ิ (สระอิ)" or "่ (ไม้เอก)"
+  const parenMatch = cleanThai.match(/^([^\(\[\{（【]+)[\(\[\{（【]([^\)\]\}）】]+)[\)\]\}）】]/);
+  if (parenMatch) {
+    const beforeParen = parenMatch[1].trim();
+    const insideParen = parenMatch[2].trim();
+    const cleanBefore = beforeParen.replace(/[\s\-\u25CC\u25CB]/g, '');
+    if (cleanBefore.length <= 3 && /[ก-๙]/.test(insideParen)) {
+      if (THAI_DICTIONARY[insideParen]) {
+        return THAI_DICTIONARY[insideParen];
+      }
+      if (THAI_DICTIONARY[cleanThai]) {
+        return THAI_DICTIONARY[cleanThai];
+      }
+    }
   }
 
   const parenContent = cleanThai.match(/\(([^)]+)\)/)?.[1]?.trim();
@@ -1835,7 +1913,9 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
       cleanRom.includes('wá-dà-') ||
       cleanRom === 'khà-phay' ||
       cleanRom.includes('drorng') ||
-      cleanRom === 'mát-yít'
+      cleanRom === 'mát-yít' ||
+      cleanRom.includes('(') ||
+      cleanRom.includes(')')
     ) {
       return THAI_DICTIONARY[cleanThai];
     }
