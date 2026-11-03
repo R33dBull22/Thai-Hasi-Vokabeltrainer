@@ -73,6 +73,20 @@ export const THAI_TONES: Record<ThaiTone, ToneInfo> = {
 // Rich dictionary of Thai words, compound nouns, verbs, and phrases
 export const THAI_DICTIONARY: Record<string, string> = {
   // Orte, Gebäude, Religion & Transport
+  'พิพิธภัณฑ์': 'phí-phít-thá-phan',
+  'พิพิธภัณฑสถาน': 'phí-phít-thá-phan-thá-sà-thăan',
+  'อนุสาวรีย์': 'à-nú-săa-wá-ree',
+  'มหาวิทยาลัย': 'má-hăa-wít-thá-yaa-lai',
+  'สถานทูต': 'sà-thăan-thôot',
+  'สถานีตำรวจ': 'sà-thăa-nee dtam-rùat',
+  'ไปรษณีย์': 'bprai-sà-nee',
+  'ที่ทำการไปรษณีย์': 'thêe tham-gaan bprai-sà-nee',
+  'สวนสาธารณะ': 'sŭan săa-thaa-rá-ná',
+  'สาธารณะ': 'săa-thaa-rá-ná',
+  'สะพานลอย': 'sà-phaan-looi',
+  'สะพาน': 'sà-phaan',
+  'ท่าอากาศยาน': 'thâa-aa-gàat-sà-yaan',
+  'ทางม้าลาย': 'thaang-máa-laai',
   'มัสยิด': 'mát-sà-yít',
   'โบสถ์': 'bòot',
   'ศาลเจ้า': 'săan-jâo',
@@ -993,7 +1007,16 @@ export function canonicalizeThaiString(str: string): string {
  * consonants (ตัวสะกด 2 หน้า / ออกเสียงอะกึ่งเสียง) or irregular syllable boundaries.
  */
 export const KNOWN_THAI_SYLLABLES: Record<string, string[]> = {
+  'พิพิธภัณฑ์': ['พิ', 'พิด', 'ทะ', 'ภัณฑ์'],
+  'พิพิธภัณฑสถาน': ['พิ', 'พิด', 'ทะ', 'พัน', 'ทะ', 'สถาน'],
   'มัสยิด': ['มัส', 'สะ', 'ยิด'],
+  'อนุสาวรีย์': ['อะ', 'นุ', 'สา', 'วะ', 'รีย์'],
+  'มหาวิทยาลัย': ['มะ', 'หา', 'วิด', 'ทะ', 'ยา', 'ลัย'],
+  'ไปรษณีย์': ['ไปร', 'สะ', 'ณีย์'],
+  'สวนสาธารณะ': ['สวน', 'สา', 'ทา', 'ระ', 'ณะ'],
+  'สาธารณะ': ['สา', 'ทา', 'ระ', 'ณะ'],
+  'สะพานลอย': ['สะ', 'พาน', 'ลอย'],
+  'ท่าอากาศยาน': ['ท่า', 'อา', 'กาด', 'สะ', 'ยาน'],
   'อุบัติเหตุ': ['อุ', 'บัติ', 'ติ', 'เหตุ'],
   'ประวัติศาสตร์': ['ประ', 'วัติ', 'ศาสตร์'],
   'ประวัติ': ['ประ', 'วัติ'],
@@ -1873,6 +1896,13 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
       .replace(/\bkò̜ːp-kun\b/gi, 'khò̜ːp-kun')
       .replace(/\bkò̜ːp\b/gi, 'khò̜ːp')
       .replace(/\bphûea-rai\b/gi, 'phûea à-rai')
+      .replace(/\bphí-phít-phan\b/gi, 'phí-phít-thá-phan')
+      .replace(/\bphi-phit-phan\b/gi, 'phí-phít-thá-phan')
+      .replace(/\bà-nú-săaw-ree\b/gi, 'à-nú-săa-wá-ree')
+      .replace(/\bmá-hăa-wít-yaa-lay\b/gi, 'má-hăa-wít-thá-yaa-lai')
+      .replace(/\bbpai-rót-nee\b/gi, 'bprai-sà-nee')
+      .replace(/\bsŭan-săa-thaan-ná\b/gi, 'sŭan săa-thaa-rá-ná')
+      .replace(/\bsà-phaa-non-oy\b/gi, 'sà-phaan-looi')
       // Clean legacy delimiter generator artifacts like "gà ( gor gài )" -> "gor gài" or "ì ( sà-rà ì )" -> "sà-rà ì"
       .replace(/^[a-zà-ÿ]+\s*\(\s*([a-zà-ÿ\s\-]+)\s*\)$/i, '$1')
       .replace(/^[a-zà-ÿ]+\s*\(\s*sà-rà\s+([a-zà-ÿ]+)\s*\)/i, 'sà-rà $1');

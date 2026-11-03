@@ -299,6 +299,23 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
         }
       }
     }
+
+    // Standardize "พิพิธภัณฑ์" ("Museum") romanization from 3 syllables (phí-phít-phan) to 4 syllables (phí-phít-thá-phan)
+    if (v.thai && v.thai.includes('พิพิธภัณฑ์')) {
+      const fixedRom = 'phí-phít-thá-phan';
+      if (
+        !v.romanization ||
+        v.romanization.includes('phí-phít-phan') ||
+        v.romanization.includes('phi-phit-phan') ||
+        !v.romanization.includes('thá')
+      ) {
+        if (v.romanization !== fixedRom) {
+          const updated = { ...v, romanization: fixedRom };
+          needsCloudSync.push(updated);
+          return updated;
+        }
+      }
+    }
     // Standardize "ห้องน้ำอยู่ที่ไหน" romanization to 'hông-nám yòo thêe-năi'
     if (v.thai && v.thai === 'ห้องน้ำอยู่ที่ไหน') {
       const fixedRom = 'hông-nám yòo thêe-năi';
