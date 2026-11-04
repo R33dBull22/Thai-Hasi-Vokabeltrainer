@@ -35,6 +35,7 @@ interface ThaiReferenceViewProps {
   onNavigateLearn?: () => void;
   onOpenToneTrainer?: () => void;
   onOpenFontTrainer?: () => void;
+  onOpenConsonantTrainer?: () => void;
 }
 
 export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
@@ -43,6 +44,7 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
   onNavigateLearn,
   onOpenToneTrainer,
   onOpenFontTrainer,
+  onOpenConsonantTrainer,
 }) => {
   const [activeSection, setActiveSection] = useState<'consonants' | 'vowels' | 'tone_rules' | 'cheatsheet'>('consonants');
   const [previewFont, setPreviewFont] = useState<'classic' | 'modern'>('classic');
@@ -242,6 +244,28 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
               <span className="text-[9px] opacity-75">ค ง ช ซ ท น พ ...</span>
             </button>
           </div>
+
+          {/* Quick Launcher for Consonant Class Trainer */}
+          {onOpenConsonantTrainer && (
+            <button
+              type="button"
+              onClick={onOpenConsonantTrainer}
+              className="w-full py-2.5 px-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-sky-500/15 border border-amber-400/40 hover:border-amber-400 text-white text-xs font-semibold flex items-center justify-between transition-all cursor-pointer shadow-sm group active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-amber-400/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                  <Layers className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-left">
+                  <span className="block font-bold text-white">Konsonantenklassen trainieren</span>
+                  <span className="text-[10px] text-[#8E8E93]">Zufällige Buchstaben zu Mitte, Hoch & Tief zuordnen</span>
+                </div>
+              </div>
+              <span className="text-[11px] font-bold text-amber-400 px-2 py-0.5 rounded-lg bg-amber-400/10 border border-amber-400/30 group-hover:bg-amber-400 group-hover:text-black transition-colors">
+                Starten →
+              </span>
+            </button>
+          )}
 
           {/* Search Input & Font Preview Toggle */}
           <div className="space-y-2">

@@ -34,6 +34,7 @@ import { ListeningSession } from './components/ListeningSession';
 import { AuthModal } from './components/AuthModal';
 import { ToneRuleTrainerModal } from './components/ToneRuleTrainerModal';
 import { ThaiFontTrainerModal } from './components/ThaiFontTrainerModal';
+import { ConsonantClassTrainerModal } from './components/ConsonantClassTrainerModal';
 import { AdminView } from './components/AdminView';
 import { fetchAnnouncement, AdminAnnouncement } from './services/adminService';
 import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner';
@@ -47,6 +48,7 @@ function AppContent() {
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [toneTrainerOpen, setToneTrainerOpen] = useState<boolean>(false);
   const [fontTrainerOpen, setFontTrainerOpen] = useState<boolean>(false);
+  const [consonantTrainerOpen, setConsonantTrainerOpen] = useState<boolean>(false);
   const [announcement, setAnnouncement] = useState<AdminAnnouncement | null>(null);
 
   // Deck vocabularies
@@ -689,6 +691,7 @@ function AppContent() {
                 onNavigateStats={() => setActiveTab('stats')}
                 onOpenToneTrainer={() => setToneTrainerOpen(true)}
                 onOpenFontTrainer={() => setFontTrainerOpen(true)}
+                onOpenConsonantTrainer={() => setConsonantTrainerOpen(true)}
               />
             )}
 
@@ -699,6 +702,7 @@ function AppContent() {
                 onNavigateLearn={() => setActiveTab('learn')}
                 onOpenToneTrainer={() => setToneTrainerOpen(true)}
                 onOpenFontTrainer={() => setFontTrainerOpen(true)}
+                onOpenConsonantTrainer={() => setConsonantTrainerOpen(true)}
               />
             )}
 
@@ -816,6 +820,13 @@ function AppContent() {
       <ThaiFontTrainerModal
         isOpen={fontTrainerOpen}
         onClose={() => setFontTrainerOpen(false)}
+        colorCodingEnabled={colorCodingEnabled}
+      />
+
+      {/* Interactive Thai Consonant Class Trainer (Mitte / Hoch / Tief) */}
+      <ConsonantClassTrainerModal
+        isOpen={consonantTrainerOpen}
+        onClose={() => setConsonantTrainerOpen(false)}
         colorCodingEnabled={colorCodingEnabled}
       />
     </div>

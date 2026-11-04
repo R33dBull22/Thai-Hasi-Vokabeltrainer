@@ -44,6 +44,7 @@ interface LearnViewProps {
   onNavigateStats?: () => void;
   onOpenToneTrainer?: () => void;
   onOpenFontTrainer?: () => void;
+  onOpenConsonantTrainer?: () => void;
 }
 
 export const LearnView: React.FC<LearnViewProps> = ({
@@ -60,6 +61,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
   onNavigateStats,
   onOpenToneTrainer,
   onOpenFontTrainer,
+  onOpenConsonantTrainer,
 }) => {
   const [showReports, setShowReports] = useState(false);
   const [showListeningModal, setShowListeningModal] = useState(false);
@@ -431,6 +433,35 @@ export const LearnView: React.FC<LearnViewProps> = ({
             </div>
             <span className="text-xs font-bold text-[#FF7A00] px-2.5 py-1 rounded-full bg-[#FF7A00]/10 border border-[#FF7A00]/30 group-hover:bg-[#FF7A00] group-hover:text-black transition-all">
               Starten →
+            </span>
+          </button>
+        )}
+
+        {/* Konsonantenklassen-Trainer Banner */}
+        {onOpenConsonantTrainer && (
+          <button
+            type="button"
+            onClick={onOpenConsonantTrainer}
+            className="w-full py-3.5 px-4 rounded-full bg-gradient-to-r from-[#262018] via-[#1F1F22] to-[#1E2428] border border-amber-500/40 text-white font-semibold text-sm hover:border-amber-400 hover:from-[#2F261C] hover:to-[#222A30] transition-all flex items-center justify-between active:scale-[0.99] shadow-sm group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                <Layers className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="text-left">
+                <span className="block text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Konsonantenklassen trainieren</span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30">
+                    Mitte · Hoch · Tief
+                  </span>
+                </span>
+                <span className="block text-[10px] text-[#8E8E93]">
+                  Zufällige Konsonanten den 3 Tonklassen zuordnen
+                </span>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-amber-400 px-2.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 group-hover:bg-amber-400 group-hover:text-black transition-all">
+              Trainieren →
             </span>
           </button>
         )}
