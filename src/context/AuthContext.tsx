@@ -8,6 +8,8 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   sendPasswordResetEmail as fbSendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth, db, testConnection } from '../firebase/config';
@@ -168,6 +170,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Run connection test on boot
     testConnection().catch(() => {});
+
+    // Check for redirect result from Google sign-in (e.g. mobile browsers / iOS PWA)
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user && !result.user.isAnonymous) {
+          const authUser: AuthUser = {
+            uid: result.user.uid,
+            email: result.user.email,
+            displayName: result.user.displayName,
+            isAnonymous: false,
+            photoURL: result.user.photoURL,
+            isAdmin: checkIsAdmin(result.user.email),
+          };
+          setUser(authUser);
+          try {
+            localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(authUser));
+          } catch {}
+
+          if (result.user.email) {
+            try {
+              const docId = await getEmailDocId(result.user.email);
+              await setDoc(
+                doc(db, 'app_users', docId),
+                {
+                  uid: result.user.uid,
+                  email: result.user.email.toLowerCase(),
+                  displayName: result.user.displayName || result.user.email.split('@')[0],
+                  photoURL: result.user.photoURL || null,
+                  updatedAt: new Date().toISOString(),
+                },
+                { merge: true }
+              );
+            } catch {}
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Google redirect result error:', err);
+      });
 
     // Listen to Firebase auth changes
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -380,6 +421,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     setAuthError(null);
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    const isStandalone =
+      typeof window !== 'undefined' &&
+      (window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true);
+
+    const isMobile =
+      typeof navigator !== 'undefined' &&
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    // If running inside iOS standalone PWA, multi-window popups are restricted by WebKit.
+    // Use redirect flow directly for reliable experience.
+    if (isStandalone && isMobile) {
+      try {
+        await signInWithRedirect(auth, provider);
+        return;
+      } catch (redirectErr) {
+        console.warn('Direct signInWithRedirect error:', redirectErr);
+        throw redirectErr;
+      }
+    }
+
     try {
       const res = await signInWithPopup(auth, provider);
       const authUser: AuthUser = {
@@ -388,17 +452,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         displayName: res.user.displayName,
         isAnonymous: false,
         photoURL: res.user.photoURL,
+        isAdmin: checkIsAdmin(res.user.email),
       };
       setUser(authUser);
       try {
         localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(authUser));
       } catch {}
-    } catch (err: any) {
-      if (err?.code === 'auth/popup-closed-by-user') {
-        return;
+
+      if (res.user.email) {
+        try {
+          const docId = await getEmailDocId(res.user.email);
+          await setDoc(
+            doc(db, 'app_users', docId),
+            {
+              uid: res.user.uid,
+              email: res.user.email.toLowerCase(),
+              displayName: res.user.displayName || res.user.email.split('@')[0],
+              photoURL: res.user.photoURL || null,
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        } catch {}
       }
-      console.warn('Google sign-in error:', err);
-      const msg = err.message || 'Google-Anmeldung fehlgeschlagen.';
+    } catch (err: any) {
+      console.warn('Google sign-in popup error:', err);
+
+      // On mobile or when popups are blocked by browser, fallback seamlessly to redirect
+      if (
+        isMobile ||
+        err?.code === 'auth/popup-blocked' ||
+        err?.code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        try {
+          console.info('Attempting fallback to signInWithRedirect...');
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectErr) {
+          console.warn('Fallback signInWithRedirect failed:', redirectErr);
+        }
+      }
+
+      const msg = err?.message || 'Google-Anmeldung fehlgeschlagen.';
       setAuthError(msg);
       throw err;
     }
