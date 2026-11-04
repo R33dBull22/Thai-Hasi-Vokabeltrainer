@@ -657,11 +657,8 @@ export const ConsonantClassTrainerModal: React.FC<ConsonantClassTrainerModalProp
                         Taste 1
                       </span>
                     </div>
-                    <span className="text-[10px] opacity-75 font-thai leading-tight">
+                    <span className="text-[11px] opacity-80 font-thai leading-tight">
                       อักษรกลาง · 9 Konsonanten
-                    </span>
-                    <span className="text-[9px] text-[#8E8E93] mt-1.5 font-mono">
-                      ก จ ฎ ฏ ด ต บ ป อ
                     </span>
                   </button>
 
@@ -686,11 +683,8 @@ export const ConsonantClassTrainerModal: React.FC<ConsonantClassTrainerModalProp
                         Taste 2
                       </span>
                     </div>
-                    <span className="text-[10px] opacity-75 font-thai leading-tight">
+                    <span className="text-[11px] opacity-80 font-thai leading-tight">
                       อักษรสูง · 11 Konsonanten
-                    </span>
-                    <span className="text-[9px] text-[#8E8E93] mt-1.5 font-mono">
-                      ข ฃ ฉ ฐ ถ ผ ฝ ศ ษ ส ห
                     </span>
                   </button>
 
@@ -715,11 +709,8 @@ export const ConsonantClassTrainerModal: React.FC<ConsonantClassTrainerModalProp
                         Taste 3
                       </span>
                     </div>
-                    <span className="text-[10px] opacity-75 font-thai leading-tight">
+                    <span className="text-[11px] opacity-80 font-thai leading-tight">
                       อักษรต่ำ · 24 Konsonanten
-                    </span>
-                    <span className="text-[9px] text-[#8E8E93] mt-1.5 font-mono">
-                      ค ง ช ซ ท น พ ม ย ร ...
                     </span>
                   </button>
                 </div>
