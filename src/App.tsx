@@ -35,6 +35,7 @@ import { AuthModal } from './components/AuthModal';
 import { ToneRuleTrainerModal } from './components/ToneRuleTrainerModal';
 import { ThaiFontTrainerModal } from './components/ThaiFontTrainerModal';
 import { ConsonantClassTrainerModal } from './components/ConsonantClassTrainerModal';
+import { SyllableToneTrainerModal } from './components/SyllableToneTrainerModal';
 import { AdminView } from './components/AdminView';
 import { fetchAnnouncement, AdminAnnouncement } from './services/adminService';
 import { isCardDue, isAnyDirectionDue, shuffleStudyCards } from './utils/leitner';
@@ -49,6 +50,7 @@ function AppContent() {
   const [toneTrainerOpen, setToneTrainerOpen] = useState<boolean>(false);
   const [fontTrainerOpen, setFontTrainerOpen] = useState<boolean>(false);
   const [consonantTrainerOpen, setConsonantTrainerOpen] = useState<boolean>(false);
+  const [syllableTrainerOpen, setSyllableTrainerOpen] = useState<boolean>(false);
   const [announcement, setAnnouncement] = useState<AdminAnnouncement | null>(null);
 
   // Deck vocabularies
@@ -692,6 +694,7 @@ function AppContent() {
                 onOpenToneTrainer={() => setToneTrainerOpen(true)}
                 onOpenFontTrainer={() => setFontTrainerOpen(true)}
                 onOpenConsonantTrainer={() => setConsonantTrainerOpen(true)}
+                onOpenSyllableTrainer={() => setSyllableTrainerOpen(true)}
               />
             )}
 
@@ -703,6 +706,7 @@ function AppContent() {
                 onOpenToneTrainer={() => setToneTrainerOpen(true)}
                 onOpenFontTrainer={() => setFontTrainerOpen(true)}
                 onOpenConsonantTrainer={() => setConsonantTrainerOpen(true)}
+                onOpenSyllableTrainer={() => setSyllableTrainerOpen(true)}
               />
             )}
 
@@ -827,6 +831,13 @@ function AppContent() {
       <ConsonantClassTrainerModal
         isOpen={consonantTrainerOpen}
         onClose={() => setConsonantTrainerOpen(false)}
+        colorCodingEnabled={colorCodingEnabled}
+      />
+
+      {/* Interactive Thai Random Syllable Tone Trainer (5 Töne) */}
+      <SyllableToneTrainerModal
+        isOpen={syllableTrainerOpen}
+        onClose={() => setSyllableTrainerOpen(false)}
         colorCodingEnabled={colorCodingEnabled}
       />
     </div>

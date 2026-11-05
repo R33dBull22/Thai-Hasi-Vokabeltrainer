@@ -45,6 +45,7 @@ interface LearnViewProps {
   onOpenToneTrainer?: () => void;
   onOpenFontTrainer?: () => void;
   onOpenConsonantTrainer?: () => void;
+  onOpenSyllableTrainer?: () => void;
 }
 
 export const LearnView: React.FC<LearnViewProps> = ({
@@ -62,6 +63,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
   onOpenToneTrainer,
   onOpenFontTrainer,
   onOpenConsonantTrainer,
+  onOpenSyllableTrainer,
 }) => {
   const [showReports, setShowReports] = useState(false);
   const [showListeningModal, setShowListeningModal] = useState(false);
@@ -462,6 +464,35 @@ export const LearnView: React.FC<LearnViewProps> = ({
             </div>
             <span className="text-xs font-bold text-amber-400 px-2.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 group-hover:bg-amber-400 group-hover:text-black transition-all">
               Trainieren →
+            </span>
+          </button>
+        )}
+
+        {/* Zufalls-Silbentrainer: Töne bestimmen Banner */}
+        {onOpenSyllableTrainer && (
+          <button
+            type="button"
+            onClick={onOpenSyllableTrainer}
+            className="w-full py-3.5 px-4 rounded-full bg-gradient-to-r from-[#201826] via-[#1F1F22] to-[#1C1826] border border-violet-500/40 text-white font-semibold text-sm hover:border-violet-400 hover:from-[#281D30] hover:to-[#241E30] transition-all flex items-center justify-between active:scale-[0.99] shadow-sm group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-violet-400/20 flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
+                <Sparkles className="w-4 h-4 text-violet-400" />
+              </div>
+              <div className="text-left">
+                <span className="block text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Zufalls-Silbentrainer</span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-violet-400/20 text-violet-300 font-bold border border-violet-400/30">
+                    Tonlage bestimmen
+                  </span>
+                </span>
+                <span className="block text-[10px] text-[#8E8E93]">
+                  Immer neue Silben mit & ohne Tonzeichen (5 Töne)
+                </span>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-violet-400 px-2.5 py-1 rounded-full bg-violet-400/10 border border-violet-400/30 group-hover:bg-violet-400 group-hover:text-black transition-all">
+              Starten →
             </span>
           </button>
         )}

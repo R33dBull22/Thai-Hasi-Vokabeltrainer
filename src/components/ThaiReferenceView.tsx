@@ -36,6 +36,7 @@ interface ThaiReferenceViewProps {
   onOpenToneTrainer?: () => void;
   onOpenFontTrainer?: () => void;
   onOpenConsonantTrainer?: () => void;
+  onOpenSyllableTrainer?: () => void;
 }
 
 export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
@@ -45,6 +46,7 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
   onOpenToneTrainer,
   onOpenFontTrainer,
   onOpenConsonantTrainer,
+  onOpenSyllableTrainer,
 }) => {
   const [activeSection, setActiveSection] = useState<'consonants' | 'vowels' | 'tone_rules' | 'cheatsheet'>('consonants');
   const [previewFont, setPreviewFont] = useState<'classic' | 'modern'>('classic');
@@ -548,33 +550,63 @@ export const ThaiReferenceView: React.FC<ThaiReferenceViewProps> = ({
       {activeSection === 'tone_rules' && (
         <div className="space-y-4">
           {/* Interactive Ton-Detektiv Call-to-Action */}
-          {onOpenToneTrainer && (
-            <div className="bg-gradient-to-r from-[#FF7A00]/20 via-[#242426] to-[#242426] p-4 rounded-3xl border border-[#FF7A00]/40 flex items-center justify-between gap-3 shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#FF7A00] text-black flex items-center justify-center font-bold text-lg shadow-sm">
-                  🥋
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {onOpenToneTrainer && (
+              <div className="bg-gradient-to-r from-[#FF7A00]/20 via-[#242426] to-[#242426] p-4 rounded-3xl border border-[#FF7A00]/40 flex flex-col justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#FF7A00] text-black flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                    🥋
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>Ton-Detektiv: Vokabel-Quiz</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FF7A00] text-black font-extrabold uppercase">
+                        Wörter
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-[#A1A1A6] mt-0.5">
+                      Wörter sehen, Konsonantenklasse & Tonregeln spielerisch erkennen
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <span>Ton-Detektiv: Tonregeln trainieren</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FF7A00] text-black font-extrabold uppercase">
-                      Quiz
-                    </span>
-                  </h3>
-                  <p className="text-[11px] text-[#A1A1A6]">
-                    Wörter sehen, Konsonantenklasse & Tonregeln spielerisch erkennen
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={onOpenToneTrainer}
+                  className="w-full py-2 px-3 rounded-2xl bg-[#FF7A00] text-black font-bold text-xs hover:bg-[#FF881A] transition-colors shadow-sm active:scale-95 cursor-pointer text-center"
+                >
+                  Ton-Detektiv starten →
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={onOpenToneTrainer}
-                className="py-2.5 px-3.5 rounded-2xl bg-[#FF7A00] text-black font-bold text-xs hover:bg-[#FF881A] transition-colors shrink-0 shadow-sm active:scale-95 cursor-pointer"
-              >
-                Trainer starten →
-              </button>
-            </div>
-          )}
+            )}
+
+            {onOpenSyllableTrainer && (
+              <div className="bg-gradient-to-r from-emerald-500/20 via-[#242426] to-[#242426] p-4 rounded-3xl border border-emerald-500/40 flex flex-col justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-black flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                    🎲
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>Zufalls-Silbentrainer</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-400 text-black font-extrabold uppercase">
+                        Endlos
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-[#A1A1A6] mt-0.5">
+                      Endlos zufällige Silben mit & ohne Tonzeichen – Tonlage aus 5 Tönen bestimmen
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenSyllableTrainer}
+                  className="w-full py-2 px-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 text-black font-bold text-xs hover:brightness-110 transition-all shadow-sm active:scale-95 cursor-pointer text-center"
+                >
+                  Silbentrainer starten →
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Interactive Tone Simulator Card */}
           <div className="p-4 bg-gradient-to-br from-[#242426] to-[#1C1C1E] rounded-3xl border border-[#3A3A3D] space-y-3 shadow-xl">
