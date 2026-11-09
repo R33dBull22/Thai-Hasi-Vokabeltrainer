@@ -74,7 +74,7 @@ export const THAI_CONSONANTS: ThaiConsonant[] = [
   {
     letter: 'ก',
     nameThai: 'ก ไก่',
-    namePhonetic: 'gor gài',
+    namePhonetic: 'gaaw gài',
     meaningGerman: 'Huhn',
     class: 'mid',
     initialSound: 'g (hart)',
@@ -421,7 +421,7 @@ export const THAI_CONSONANTS: ThaiConsonant[] = [
   {
     letter: 'ษ',
     nameThai: 'ษ ฤๅษี',
-    namePhonetic: 'săaw rue-sĕe',
+    namePhonetic: 'săaw ruue-sĕe',
     meaningGerman: 'Einsiedler / Yogi',
     class: 'high',
     initialSound: 's',

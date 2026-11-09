@@ -225,7 +225,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Vielen Dank',
     thai: 'ขอบคุณมาก',
-    romanization: 'khò̜ːp-kun mâak',
+    romanization: 'khòop-khun mâak',
     lesson: 'Lektion 1: Begrüßung & Höflichkeit',
     exampleThai: 'ขอบคุณมากสำหรับความช่วยเหลือ',
     exampleGerman: 'Vielen Dank für deine Hilfe.',
@@ -243,7 +243,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Sehr lecker',
     thai: 'อร่อยมาก',
-    romanization: 'à-rò̜i mâak',
+    romanization: 'à-ròi mâak',
     lesson: 'Lektion 2: Essen & Trinken',
     exampleThai: 'อาหารไทยอร่อยมากจริงๆ',
     exampleGerman: 'Thailändisches Essen ist wirklich sehr lecker.',
@@ -251,7 +251,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Gebratener Reis',
     thai: 'ข้าวผัด',
-    romanization: 'khâao-pàt',
+    romanization: 'khâao-phàt',
     lesson: 'Lektion 2: Essen & Trinken',
     exampleThai: 'ขอข้าวผัดไก่หนึ่งจานครับ',
     exampleGerman: 'Einen Teller gebratenen Reis mit Hühnchen bitte.',
@@ -259,7 +259,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Ein bisschen scharf',
     thai: 'เผ็ดนิดหน่อย',
-    romanization: 'phèt nít-nò̜i',
+    romanization: 'phèt nít-nòi',
     lesson: 'Lektion 2: Essen & Trinken',
     exampleThai: 'เอาเผ็ดนิดหน่อยพอนะครับ',
     exampleGerman: 'Nur ein kleines bisschen scharf bitte.',
@@ -301,7 +301,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Geht ein kleiner Rabatt? / Etwas günstiger bitte',
     thai: 'ลดหน่อยได้ไหม',
-    romanization: 'lót nò̜i dâai măi',
+    romanization: 'lót nòi dâai măi',
     lesson: 'Lektion 3: Einkaufen & Zahlen',
     exampleThai: 'แพงไปนิดนึง ลดหน่อยได้ไหมครับ',
     exampleGerman: 'Ein bisschen teuer, können Sie etwas nachlassen?',
@@ -309,7 +309,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Sehr teuer',
     thai: 'แพงมาก',
-    romanization: 'phaaeng mâak',
+    romanization: 'phaeng mâak',
     lesson: 'Lektion 3: Einkaufen & Zahlen',
     exampleThai: 'ของชิ้นนี้แพงมาก',
     exampleGerman: 'Dieser Artikel ist sehr teuer.',
@@ -317,7 +317,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Einhundert Baht',
     thai: 'หนึ่งร้อยบาท',
-    romanization: 'nùeng ró̜i bàat',
+    romanization: 'nùeng rói bàat',
     lesson: 'Lektion 3: Einkaufen & Zahlen',
     exampleThai: 'ราคาทั้งหมดหนึ่งร้อยบาทครับ',
     exampleGerman: 'Der Gesamtpreis beträgt 100 Baht.',
@@ -369,7 +369,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Ich verstehe (habe verstanden)',
     thai: 'เข้าใจแล้ว',
-    romanization: 'khâo-jai láaeo',
+    romanization: 'khâo-jai láeo',
     lesson: 'Lektion 5: Wichtige Redewendungen',
     exampleThai: 'ผมเข้าใจแล้วครับ ขอบคุณที่อธิบาย',
     exampleGerman: 'Ich habe verstanden, danke für die Erklärung.',
@@ -458,7 +458,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Mai Taikhu • Vokalverkürzungszeichen (wie Ziffer 8)',
     thai: '็ (ไม้ไต่คู้)',
-    romanization: 'mái dtài-khôo',
+    romanization: 'mái dtài-khóo',
     lesson: 'Alphabet',
     exampleThai: 'ก็, เป็น, เห็น, เป็ด',
     exampleGerman: 'Verkürzt den Vokal in geschlossenen Silben (z. B. เป็น = sein)',
@@ -466,7 +466,7 @@ export const STARTER_VOCABULARY: Omit<Vocabulary, 'id' | 'creatorId' | 'createdA
   {
     german: 'Paiyan Noi • Abkürzungszeichen',
     thai: 'ฯ (ไปยาลน้อย)',
-    romanization: 'bpai-yaan nôi',
+    romanization: 'bpai-yaan nói',
     lesson: 'Alphabet',
     exampleThai: 'กรุงเทพฯ',
     exampleGerman: 'Zeigt an, dass ein langer Name abgekürzt wurde (Bangkok)',

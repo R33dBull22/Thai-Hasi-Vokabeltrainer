@@ -106,7 +106,7 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'ทาง': 'thaang',
   'ตั๋วเครื่องบิน': 'dtŭa khrûeang-bin',
   'ตั๋ว': 'dtŭa',
-  'พาสปอร์ต': 'pháat-sà-bpò̜ot',
+  'พาสปอร์ต': 'pháat-sà-bpòot',
   'หนังสือเดินทาง': 'năng-sŭe doen-thaang',
   'หนังสือ': 'năng-sŭe',
   'รถแท็กซี่': 'rót-tháaek-sêe',
@@ -164,10 +164,10 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'สบายดีไหม': 'sà-baai-dee măi',
   'สบายดี': 'sà-baai-dee',
   'สบาย': 'sà-baai',
-  'ขอบคุณมาก': 'khò̜ːp-kun mâak',
-  'ขอบคุณครับ': 'khò̜ːp-kun kráp',
-  'ขอบคุณค่ะ': 'khò̜ːp-kun khâ',
-  'ขอบคุณ': 'khò̜ːp-kun',
+  'ขอบคุณมาก': 'khòop-khun mâak',
+  'ขอบคุณครับ': 'khòop-khun kráp',
+  'ขอบคุณค่ะ': 'khòop-khun khâ',
+  'ขอบคุณ': 'khòop-khun',
   'ไม่เป็นไร': 'mâi pen rai',
   'ยินดีที่ได้รู้จัก': 'yin-dee thêe dâai róo-jàk',
   'ยินดี': 'yin-dee',
@@ -186,18 +186,18 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'รองเท้า': 'rorng-tháo',
   'ถอด': 'thòrt',
   'กรุณา': 'grù-naa',
-  'ลาก่อน': 'laa-gò̜on',
+  'ลาก่อน': 'laa-gòon',
   'เจอกันใหม่': 'jooe-gan mài',
 
   // Essen & Trinken & Restaurant
-  'อร่อยมาก': 'à-rò̜i mâak',
-  'อร่อย': 'à-rò̜i',
-  'ข้าวผัด': 'khâao-pàt',
-  'ข้าวผัดไก่': 'khâao-pàt gài',
-  'ข้าวผัดหมู': 'khâao-pàt mŏo',
+  'อร่อยมาก': 'à-ròi mâak',
+  'อร่อย': 'à-ròi',
+  'ข้าวผัด': 'khâao-phàt',
+  'ข้าวผัดไก่': 'khâao-phàt gài',
+  'ข้าวผัดหมู': 'khâao-phàt mŏo',
   'ข้าว': 'khâao',
-  'ผัด': 'pàt',
-  'เผ็ดนิดหน่อย': 'phèt nít-nò̜i',
+  'ผัด': 'phàt',
+  'เผ็ดนิดหน่อย': 'phèt nít-nòi',
   'ไม่เผ็ด': 'mâi phèt',
   'เผ็ด': 'phèt',
   'น้ำเปล่า': 'nám-bplào',
@@ -237,13 +237,13 @@ export const THAI_DICTIONARY: Record<string, string> = {
   // Einkaufen, Zahlen & Preise
   'อันนี้เท่าไหร่': 'an-née thâo-rài',
   'เท่าไหร่': 'thâo-rài',
-  'ลดหน่อยได้ไหม': 'lót nò̜i dâai măi',
+  'ลดหน่อยได้ไหม': 'lót nòi dâai măi',
   'ลดได้ไหม': 'lót dâai măi',
   'ราคา': 'raa-khaa',
-  'แพงมาก': 'phaaeng mâak',
-  'แพง': 'phaaeng',
+  'แพงมาก': 'phaeng mâak',
+  'แพง': 'phaeng',
   'ถูก': 'thòok',
-  'หนึ่งร้อยบาท': 'nùeng ró̜i bàat',
+  'หนึ่งร้อยบาท': 'nùeng rói bàat',
   'หนึ่ง': 'nùeng',
   'สอง': 'săawng',
   'สาม': 'săam',
@@ -255,7 +255,7 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'เก้า': 'gâao',
   'สิบ': 'sìp',
   'ยี่สิบ': 'yêe-sìp',
-  'ร้อย': 'ró̜i',
+  'ร้อย': 'rói',
   'พัน': 'phan',
   'บาท': 'bàat',
   '๐': 'sŭun',
@@ -369,7 +369,7 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'และ': 'láae',
   'กับ': 'gàp',
   'แต่': 'dtàae',
-  'เพราะ': 'phró̜',
+  'เพราะ': 'phró',
   'ทำไม': 'tham-mai',
   'อะไร': 'à-rai',
   'เมื่อไหร่': 'mûea-rài',
@@ -383,22 +383,22 @@ export const THAI_DICTIONARY: Record<string, string> = {
 
   // Eigenschaften & Gefühle
   'สวย': 'sŭai',
-  'หล่อ': 'lò̜ː',
+  'หล่อ': 'lòo',
   'น่ารัก': 'nâa-rák',
   'ดี': 'dee',
   'ไม่ดี': 'mâi dee',
-  'ชอบ': 'chô̜ːp',
-  'ไม่ชอบ': 'mâi chô̜ːp',
+  'ชอบ': 'chôop',
+  'ไม่ชอบ': 'mâi chôop',
   'รัก': 'rák',
   'สนุก': 'sà-nùk',
   'เหนื่อย': 'nùeai',
-  'ร้อน': 'ró̜ːn',
+  'ร้อน': 'róon',
   'หนาว': 'năao',
   'เย็น': 'yen',
   'เร็ว': 'reo',
   'ช้า': 'cháa',
   'มาก': 'mâak',
-  'น้อย': 'nó̜i',
+  'น้อย': 'nói',
   'ใหญ่': 'yài',
   'เล็ก': 'lék',
   'สูง': 'sŭung',
@@ -511,7 +511,7 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'สมุด': 'sà-mùt',
   'ฉลาม': 'chà-lăam',
   'ตลก': 'dtà-lòk',
-  'ก็': 'gô̜',
+  'ก็': 'gô',
   'เคย': 'khooei',
   'ไม่เคย': 'mâi khooei',
   'เลย': 'looei',
@@ -582,8 +582,8 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'ไม้จัตวา': 'mái jàt-dtà-waa', '๋ (ไม้จัตวา)': 'mái jàt-dtà-waa', '-๋ (ไม้จัตวา)': 'mái jàt-dtà-waa', '◌๋ (ไม้จัตวา)': 'mái jàt-dtà-waa',
   'การันต์': 'gaa-ran', 'ทัณฑฆาต': 'than-thá-khâat', '์ (ตัวการันต์ / ทัณฑฆาต)': 'gaa-ran / than-thá-khâat', 'ตัวการันต์': 'gaa-ran', 'ตัวการันต์ / ทัณฑฆาต': 'gaa-ran / than-thá-khâat',
   'ไม้ยมก': 'mái yá-mók', 'ๆ (ไม้ยมก)': 'mái yá-mók',
-  'ไม้ไต่คู้': 'mái dtài-khôo', '็ (ไม้ไต่คู้)': 'mái dtài-khôo', '-็ (ไม้ไต่คู้)': 'mái dtài-khôo', '◌็ (ไม้ไต่คู้)': 'mái dtài-khôo',
-  'ไปยาลน้อย': 'bpai-yaan nôi', 'ฯ (ไปยาลน้อย)': 'bpai-yaan nôi',
+  'ไม้ไต่คู้': 'mái dtài-khóo', '็ (ไม้ไต่คู้)': 'mái dtài-khóo', '-็ (ไม้ไต่คู้)': 'mái dtài-khóo', '◌็ (ไม้ไต่คู้)': 'mái dtài-khóo',
+  'ไปยาลน้อย': 'bpai-yaan nói', 'ฯ (ไปยาลน้อย)': 'bpai-yaan nói',
   'ไปยาลใหญ่': 'bpai-yaan yài', 'ฯลฯ (ไปยาลใหญ่)': 'bpai-yaan yài',
   'ไม้หันอากาศ': 'mái hăn aa-gàat', '-ั (ไม้หันอากาศ)': 'mái hăn aa-gàat', '◌ั (ไม้หันอากาศ)': 'mái hăn aa-gàat',
   'ตัวรึ': 'dtua rúe', 'ฤ (ตัวรึ)': 'dtua rúe',
@@ -603,8 +603,8 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'สระแอ': 'sà-rà aae', 'แ- (สระแอ)': 'sà-rà aae', 'แ◌ (สระแอ)': 'sà-rà aae',
   'สระโอะ': 'sà-rà ò', 'โ-ะ (สระโอะ)': 'sà-rà ò', 'โ◌ะ (สระโอะ)': 'sà-rà ò',
   'สระโอ': 'sà-rà oo', 'โ- (สระโอ)': 'sà-rà oo', 'โ◌ (สระโอ)': 'sà-rà oo',
-  'สระเอาะ': 'sà-rà ò̜', 'เ-าะ (สระเอาะ)': 'sà-rà ò̜', 'เ◌าะ (สระเอาะ)': 'sà-rà ò̜',
-  'สระออ': 'sà-rà ɔɔ', '-อ (สระออ)': 'sà-rà ɔɔ', '◌อ (สระออ)': 'sà-rà ɔɔ',
+  'สระเอาะ': 'sà-rà ò', 'เ-าะ (สระเอาะ)': 'sà-rà ò', 'เ◌าะ (สระเอาะ)': 'sà-rà ò',
+  'สระออ': 'sà-rà oo', '-อ (สระออ)': 'sà-rà oo', '◌อ (สระออ)': 'sà-rà oo',
   'สระเออะ': 'sà-rà òe', 'เ-อะ (สระเออะ)': 'sà-rà òe', 'เ◌อะ (สระเออะ)': 'sà-rà òe',
   'สระเออ': 'sà-rà ooe', 'เ-อ (สระเออ)': 'sà-rà ooe', 'เ◌อ (สระเออ)': 'sà-rà ooe',
   'สระเอียะ': 'sà-rà ìa', 'เ-ียะ (สระเอียะ)': 'sà-rà ìa', 'เ◌ียะ (สระเอียะ)': 'sà-rà ìa',
@@ -630,11 +630,11 @@ export const THAI_DICTIONARY: Record<string, string> = {
   'กับใคร': 'gàp khrai',
   'นานเท่าไหร่': 'naan thâo-rài',
   'ไกลแค่ไหน': 'glai khâae năi',
-  'เข้าใจแล้ว': 'khâo-jai láaeo',
-  'พูดภาษาอังกฤษได้ไหม': 'phôot phaa-săa ang-grìt dâai măi',
+  'เข้าใจแล้ว': 'khâo-jai láeo',
+  'พูดภาษาอังกฤษได้ไหม': 'phûut phaa-săa ang-grìt dâai măi',
   'ภาษาอังกฤษ': 'phaa-săa ang-grìt',
   'ภาษา': 'phaa-săa',
-  'พูด': 'phôot',
+  'พูด': 'phûut',
 };
 
 // Thai consonant classes
@@ -1395,10 +1395,10 @@ export function parseThaiSyllable(raw: string): ParsedThaiSyllable {
     return digitMap[s] || emptyResult;
   }
 
-  // Explicit handling for high-frequency irregular particle/conjunction ก็ (gô̜)
+  // Explicit handling for high-frequency irregular particle/conjunction ก็ (gô)
   if (s === 'ก็') {
     return {
-      roman: 'gô̜',
+      roman: 'gô',
       tone: 'falling',
       initial: 'g',
       initialChar: 'ก',
@@ -1893,8 +1893,29 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
       .replace(/\brǔue\b/gi, 'rŭe')
       .replace(/\byùu thîi-năi\b/gi, 'yòo thêe-năi')
       .replace(/\bkhǒ̜ː-thôot\b/gi, 'khăaw-thôot')
-      .replace(/\bkò̜ːp-kun\b/gi, 'khò̜ːp-kun')
-      .replace(/\bkò̜ːp\b/gi, 'khò̜ːp')
+      .replace(/\b(khò̜ːp|khò̜op|khòop|khàawp)-kun\b/gi, 'khòop-khun')
+      .replace(/\bkhò̜ːp\b/gi, 'khòop')
+      .replace(/\bkhò̜op\b/gi, 'khòop')
+      .replace(/à-rò̜i/g, 'à-ròi')
+      .replace(/nít-nò̜i/g, 'nít-nòi')
+      .replace(/lót nò̜i dâai măi/g, 'lót nòi dâai măi')
+      .replace(/ró̜i/g, 'rói')
+      .replace(/phró̜/g, 'phró')
+      .replace(/lò̜ː/g, 'lòo')
+      .replace(/chô̜ːp/g, 'chôop')
+      .replace(/ró̜ːn/g, 'róon')
+      .replace(/nó̜i/g, 'nói')
+      .replace(/gô̜/g, 'gô')
+      .replace(/sà-rà ò̜/g, 'sà-rà ò')
+      .replace(/sà-rà ɔɔ/g, 'sà-rà oo')
+      .replace(/bpò̜ot/g, 'bpòot')
+      .replace(/mái dtài-khôo/g, 'mái dtài-khóo')
+      .replace(/bpai-yaan nôi/g, 'bpai-yaan nói')
+      .replace(/\bkhâao-pàt\b/g, 'khâao-phàt')
+      .replace(/\bphaaeng\b/g, 'phaeng')
+      .replace(/\bláaeo\b/g, 'láeo')
+      .replace(/\bgor gài\b/g, 'gaaw gài')
+      .replace(/\bsăaw rue-sĕe\b/g, 'săaw ruue-sĕe')
       .replace(/\bphûea-rai\b/gi, 'phûea à-rai')
       .replace(/\bphí-phít-phan\b/gi, 'phí-phít-thá-phan')
       .replace(/\bphi-phit-phan\b/gi, 'phí-phít-thá-phan')
@@ -1903,7 +1924,9 @@ export function getEffectiveRomanization(thai?: string, romanization?: string): 
       .replace(/\bbpai-rót-nee\b/gi, 'bprai-sà-nee')
       .replace(/\bsŭan-săa-thaan-ná\b/gi, 'sŭan săa-thaa-rá-ná')
       .replace(/\bsà-phaa-non-oy\b/gi, 'sà-phaan-looi')
-      // Clean legacy delimiter generator artifacts like "gà ( gor gài )" -> "gor gài" or "ì ( sà-rà ì )" -> "sà-rà ì"
+      // Strip any lingering IPA open vowel or length marks
+      .replace(/[ː̜\u031c]/g, '')
+      // Clean legacy delimiter generator artifacts like "gà ( gor gài )" -> "gaaw gài" or "ì ( sà-rà ì )" -> "sà-rà ì"
       .replace(/^[a-zà-ÿ]+\s*\(\s*([a-zà-ÿ\s\-]+)\s*\)$/i, '$1')
       .replace(/^[a-zà-ÿ]+\s*\(\s*sà-rà\s+([a-zà-ÿ]+)\s*\)/i, 'sà-rà $1');
   }

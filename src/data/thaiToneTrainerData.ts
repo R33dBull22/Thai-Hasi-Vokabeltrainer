@@ -673,7 +673,7 @@ export const CURATED_TONE_LEVELS: ToneTrainerLevel[] = [
         id: 'c5-2',
         thai: 'ขอบคุณ',
         meaning: 'Danke',
-        romanization: 'khò̜op-khun',
+        romanization: 'khòop-khun',
         initialLetter: 'ข',
         initialClass: 'high',
         initialClassName: 'Hochklasse (ขอบ)',
@@ -685,7 +685,7 @@ export const CURATED_TONE_LEVELS: ToneTrainerLevel[] = [
         vowelLengthName: 'Langer Vokal (or) + b-Stop',
         tone: 'low',
         ruleFormula: 'Erste Silbe ขอบ: Hochklasse (ข) + Tot (บ) ➔ Tiefton',
-        ruleTip: 'Das Wort ขอบคุณ beginnt mit ขอบ: Hochklasse ข mit b-Stopplaut (tot) erzeugt den typischen Tiefton khò̜op.',
+        ruleTip: 'Das Wort ขอบคุณ beginnt mit ขอบ: Hochklasse ข mit b-Stopplaut (tot) erzeugt den typischen Tiefton khòop.',
         level: 5,
       },
       {
