@@ -20,9 +20,7 @@ export const ReviewForecastCard: React.FC<ReviewForecastCardProps> = ({
     return calculateReviewForecast(vocabularies, progressMap, studyDirection, 5);
   }, [vocabularies, progressMap, studyDirection]);
 
-  // Only show if there are words in deck or reviews scheduled
   const totalInDeck = Object.keys(progressMap).length;
-  if (totalInDeck === 0) return null;
 
   return (
     <div className="bg-[#1C1C1E] rounded-3xl p-4 border border-[#2C2C2E] shadow-lg mb-5 space-y-3">
