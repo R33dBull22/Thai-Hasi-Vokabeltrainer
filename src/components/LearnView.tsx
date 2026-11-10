@@ -11,6 +11,7 @@ import {
   Trophy,
   Headphones,
   Type,
+  Calendar,
 } from 'lucide-react';
 import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
 import { isCardDue, isDirectionDue, getDirectionProgress, shuffleStudyCards } from '../utils/leitner';
@@ -18,6 +19,8 @@ import { ReportsModal } from './ReportsModal';
 import { StudySummaryModal } from './StudySummaryModal';
 import { StudyMode, StudyDirection, StudyInputMethod, StudyCardItem } from './StudySession';
 import { ListeningSetupModal } from './ListeningSetupModal';
+import { ReviewForecastCard } from './ReviewForecastCard';
+import { ReviewForecastModal } from './ReviewForecastModal';
 import watArunJpg from '../assets/images/wat_arun_bangkok.jpg';
 import watArunWebp from '../assets/images/wat_arun_bangkok.webp';
 
@@ -67,6 +70,8 @@ export const LearnView: React.FC<LearnViewProps> = ({
 }) => {
   const [showReports, setShowReports] = useState(false);
   const [showListeningModal, setShowListeningModal] = useState(false);
+  const [showForecastModal, setShowForecastModal] = useState(false);
+  const [forecastDayOffset, setForecastDayOffset] = useState<number>(0);
   const [customizeModalCards, setCustomizeModalCards] = useState<StudyCardItem[] | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -201,6 +206,16 @@ export const LearnView: React.FC<LearnViewProps> = ({
               </button>
             )}
             <button
+              onClick={() => {
+                setForecastDayOffset(0);
+                setShowForecastModal(true);
+              }}
+              className="p-1 text-[#8E8E93] hover:text-[#FF7A00] transition-colors"
+              title="5-Tage-Abfrageplan"
+            >
+              <Calendar className="w-5 h-5" />
+            </button>
+            <button
               onClick={() => setShowReports(true)}
               className="p-1 text-[#8E8E93] hover:text-white transition-colors"
               title="Phasen-Übersicht"
@@ -300,6 +315,17 @@ export const LearnView: React.FC<LearnViewProps> = ({
             </button>
           </div>
         </div>
+
+        {/* 5-Tage-Abfrageplan / Wiederholungs-Prognose */}
+        <ReviewForecastCard
+          vocabularies={vocabularies}
+          progressMap={progressMap}
+          studyDirection={studyDirection}
+          onOpenForecastModal={(dayOffset = 0) => {
+            setForecastDayOffset(dayOffset);
+            setShowForecastModal(true);
+          }}
+        />
 
         {/* Learning Status overview & Saved settings badge */}
         <div className="bg-[#1C1C1E] rounded-2xl p-3.5 border border-[#2C2C2E] mb-5 flex items-center justify-between text-xs">
@@ -615,6 +641,21 @@ export const LearnView: React.FC<LearnViewProps> = ({
           vocabularies={vocabularies}
           progressMap={progressMap}
           onStart={onStartListeningSession}
+        />
+      )}
+
+      {/* 5-Tage-Abfrageplan / Wiederholungs-Modal */}
+      {showForecastModal && (
+        <ReviewForecastModal
+          isOpen={showForecastModal}
+          onClose={() => setShowForecastModal(false)}
+          vocabularies={vocabularies}
+          progressMap={progressMap}
+          initialDayOffset={forecastDayOffset}
+          initialDirection={studyDirection}
+          onStartSession={(cards, direction) => {
+            onStartSession(cards, studyMode, direction, defaultInputMethod);
+          }}
         />
       )}
     </div>

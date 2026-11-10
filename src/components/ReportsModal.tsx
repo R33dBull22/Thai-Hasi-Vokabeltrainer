@@ -14,7 +14,7 @@ import {
   Check,
 } from 'lucide-react';
 import { UserProgress, Vocabulary } from '../types/vocab';
-import { PHASES, formatDueDate, getDirectionProgress } from '../utils/leitner';
+import { PHASES, formatDueDate, getDirectionProgress, calculateReviewForecast } from '../utils/leitner';
 import { speakThai } from '../utils/thaiAudio';
 import { getEffectiveRomanization } from '../utils/thaiTones';
 
@@ -97,6 +97,10 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
 
     return map;
   }, [progressMap, vocabMap, selectedDirection]);
+
+  const forecast = useMemo(() => {
+    return calculateReviewForecast(vocabularies, progressMap, selectedDirection, 5);
+  }, [vocabularies, progressMap, selectedDirection]);
 
   if (!isOpen) return null;
 
@@ -217,6 +221,61 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
             <div className="bg-[#242426] p-2.5 rounded-2xl border border-[#323236] text-center">
               <span className="text-xl font-bold text-emerald-400 block">{accuracy}%</span>
               <p className="text-[10px] text-[#8E8E93] mt-0.5">Treffer</p>
+            </div>
+          </div>
+
+          {/* 5-Tage-Abfrageplan / Vorschau */}
+          <div className="mb-4 bg-[#242426] p-3 rounded-2xl border border-[#323236] space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-white">
+                <Calendar className="w-3.5 h-3.5 text-[#FF7A00]" />
+                <span>5-Tage-Abfrageplan</span>
+              </div>
+              <span className="text-[10px] text-[#FF7A00] font-semibold">
+                {forecast.totalForecastReviews} Abfragen insgesamt
+              </span>
+            </div>
+
+            <div className="grid grid-cols-5 gap-1.5 pt-1">
+              {forecast.days.map((day) => {
+                const barHeightPct = Math.max(10, Math.round((day.count / forecast.maxDayCount) * 100));
+                return (
+                  <div
+                    key={day.dayOffset}
+                    className={`p-1.5 rounded-xl text-center border flex flex-col items-center justify-between ${
+                      day.isToday
+                        ? 'bg-amber-400/10 border-amber-400/40 text-amber-300'
+                        : 'bg-[#1C1C1E] border-[#2C2C2E] text-[#8E8E93]'
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold block truncate w-full">
+                      {day.shortWeekday}
+                    </span>
+                    <span className="text-[8px] text-[#636366] block">
+                      {day.formattedDate}
+                    </span>
+                    <div className="w-2 h-6 bg-[#2C2C2E] rounded-full p-0.5 flex flex-col justify-end my-1 overflow-hidden">
+                      <div
+                        style={{ height: `${day.count > 0 ? barHeightPct : 0}%` }}
+                        className={`w-full rounded-full ${
+                          day.count > 0 ? (day.isToday ? 'bg-amber-400' : 'bg-emerald-400') : 'bg-transparent'
+                        }`}
+                      />
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold px-1 rounded ${
+                        day.count > 0
+                          ? day.isToday
+                            ? 'bg-amber-400 text-black font-extrabold'
+                            : 'bg-[#2C2C2E] text-white'
+                          : 'text-[#636366]'
+                      }`}
+                    >
+                      {day.count}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

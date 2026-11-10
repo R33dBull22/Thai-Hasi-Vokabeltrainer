@@ -1,4 +1,4 @@
-import { PhaseConfig, UserProgress, DirectionProgress, QueryDirection } from '../types/vocab';
+import { PhaseConfig, UserProgress, DirectionProgress, QueryDirection, Vocabulary } from '../types/vocab';
 
 export const PHASES: Record<number, PhaseConfig> = {
   1: {
@@ -331,5 +331,149 @@ export function shuffleStudyCards<T extends { vocab: { id: string }; direction?:
   }
 
   return result;
+}
+
+export interface ForecastVocabItem {
+  vocab: Vocabulary;
+  progress: UserProgress;
+  direction: QueryDirection;
+  phase: number;
+  scheduledDate: string;
+  daysDiff: number;
+}
+
+export interface DayForecast {
+  dayOffset: number; // 0 = heute (inkl. überfällig), 1 = morgen, 2, 3, 4 ...
+  date: Date;
+  dateStr: string;
+  formattedDate: string; // z. B. "10.11."
+  weekdayName: string; // "Heute", "Morgen", "Mittwoch", etc.
+  shortWeekday: string; // "Heute", "Mo", "Di", etc.
+  isToday: boolean;
+  count: number;
+  uniqueVocabsCount: number;
+  items: ForecastVocabItem[];
+}
+
+export interface ReviewForecastResult {
+  days: DayForecast[];
+  totalForecastReviews: number;
+  totalUniqueVocabs: number;
+  maxDayCount: number;
+}
+
+/**
+ * Calculates review workload forecast for the next N days (default: 5 days)
+ * per day, respecting directional spaced repetition intervals and midnight day boundaries.
+ */
+export function calculateReviewForecast(
+  vocabularies: Vocabulary[],
+  progressMap: Record<string, UserProgress>,
+  studyDirection: 'both' | 'de_to_th' | 'th_to_de' = 'both',
+  numberOfDays: number = 5
+): ReviewForecastResult {
+  const vocabMap = new Map(vocabularies.map((v) => [v.id, v]));
+  const now = new Date();
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+  // Initialize N days (Day 0 = Heute/überfällig, Day 1 = Morgen, etc.)
+  const days: DayForecast[] = [];
+  for (let offset = 0; offset < numberOfDays; offset++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+    const dateFormatted = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+
+    let weekdayName = '';
+    let shortWeekday = '';
+    if (offset === 0) {
+      weekdayName = 'Heute';
+      shortWeekday = 'Heute';
+    } else if (offset === 1) {
+      weekdayName = 'Morgen';
+      shortWeekday = 'Morgen';
+    } else {
+      weekdayName = d.toLocaleDateString('de-DE', { weekday: 'long' });
+      shortWeekday = d.toLocaleDateString('de-DE', { weekday: 'short' });
+    }
+
+    days.push({
+      dayOffset: offset,
+      date: d,
+      dateStr: d.toISOString().slice(0, 10),
+      formattedDate: dateFormatted,
+      weekdayName,
+      shortWeekday,
+      isToday: offset === 0,
+      count: 0,
+      uniqueVocabsCount: 0,
+      items: [],
+    });
+  }
+
+  const allForecastVocabIds = new Set<string>();
+
+  // Process all cards currently in active deck (has progress)
+  Object.values(progressMap).forEach((p) => {
+    const vocab = vocabMap.get(p.vocabId);
+    if (!vocab) return;
+
+    const checkDirection = (direction: QueryDirection) => {
+      const dirProg = getDirectionProgress(p, direction);
+      const targetStr = dirProg.nextReviewDate;
+      const target = targetStr ? new Date(targetStr) : new Date();
+      const targetMidnight = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+      const diffDays = Math.round((targetMidnight - nowMidnight) / (1000 * 60 * 60 * 24));
+
+      // Overdue or due today falls into Day 0 (Heute)
+      const dayIndex = diffDays <= 0 ? 0 : diffDays;
+
+      if (dayIndex < numberOfDays) {
+        days[dayIndex].items.push({
+          vocab,
+          progress: p,
+          direction,
+          phase: dirProg.phase,
+          scheduledDate: target.toISOString(),
+          daysDiff: diffDays,
+        });
+        allForecastVocabIds.add(vocab.id);
+      }
+    };
+
+    if (studyDirection === 'de_to_th') {
+      checkDirection('de_to_th');
+    } else if (studyDirection === 'th_to_de') {
+      checkDirection('th_to_de');
+    } else {
+      // Both directions
+      checkDirection('de_to_th');
+      checkDirection('th_to_de');
+    }
+  });
+
+  // Calculate counts and sort items within each day by phase then Thai
+  let totalForecastReviews = 0;
+  let maxDayCount = 0;
+
+  days.forEach((day) => {
+    day.count = day.items.length;
+    day.uniqueVocabsCount = new Set(day.items.map((i) => i.vocab.id)).size;
+    totalForecastReviews += day.count;
+    if (day.count > maxDayCount) {
+      maxDayCount = day.count;
+    }
+
+    // Sort: Phase 1 first, then ascending phase, then alphabetical
+    day.items.sort((a, b) => {
+      if (a.phase !== b.phase) return a.phase - b.phase;
+      return a.vocab.thai.localeCompare(b.vocab.thai);
+    });
+  });
+
+  return {
+    days,
+    totalForecastReviews,
+    totalUniqueVocabs: allForecastVocabIds.size,
+    maxDayCount: Math.max(maxDayCount, 1),
+  };
 }
 
