@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Sparkles,
@@ -14,6 +14,8 @@ import { speakThai } from '../utils/thaiAudio';
 import { autocorrectThaiTypingOrder, generateRomanizationFromThai } from '../utils/thaiTones';
 import { ToneVisualizer } from './ToneVisualizer';
 
+export const LAST_LESSON_STORAGE_KEY = 'thai_hasis_last_created_lesson';
+
 interface CreateViewProps {
   existingLessons: string[];
   onAddVocab: (vocab: Omit<Vocabulary, 'id' | 'createdAt'>) => Promise<void>;
@@ -28,7 +30,15 @@ export const CreateView: React.FC<CreateViewProps> = ({
   const [german, setGerman] = useState('');
   const [thai, setThai] = useState('');
   const [romanization, setRomanization] = useState('');
-  const [lesson, setLesson] = useState(existingLessons[0] || 'Lektion 1: Begrüßung');
+  const [lesson, setLesson] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(LAST_LESSON_STORAGE_KEY);
+      if (saved && saved.trim()) {
+        return saved.trim();
+      }
+    } catch (_) {}
+    return existingLessons[0] || 'Lektion 1: Begrüßung';
+  });
   const [customLesson, setCustomLesson] = useState('');
   const [exampleThai, setExampleThai] = useState('');
   const [exampleGerman, setExampleGerman] = useState('');
@@ -36,6 +46,23 @@ export const CreateView: React.FC<CreateViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Sync lesson if existingLessons loads or updates
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LAST_LESSON_STORAGE_KEY);
+      if (saved && saved.trim()) {
+        if (!lesson || lesson === 'Lektion 1: Begrüßung') {
+          setLesson(saved.trim());
+        }
+        return;
+      }
+    } catch (_) {}
+
+    if ((!lesson || lesson === 'Lektion 1: Begrüßung') && existingLessons.length > 0 && !existingLessons.includes(lesson)) {
+      setLesson(existingLessons[0]);
+    }
+  }, [existingLessons]);
 
   const finalLesson = lesson === '__new__' ? customLesson.trim() : lesson;
 
@@ -74,12 +101,19 @@ export const CreateView: React.FC<CreateViewProps> = ({
         creatorId: 'local_user',
       });
 
-      setSuccessMessage('Vokabelkarte erfolgreich im Deck angelegt!');
+      // Persist the last used lesson so subsequent inputs default to it
+      try {
+        localStorage.setItem(LAST_LESSON_STORAGE_KEY, finalLesson);
+      } catch (_) {}
+
+      setSuccessMessage(`Vokabelkarte erfolgreich zu "${finalLesson}" hinzugefügt!`);
       setGerman('');
       setThai('');
       setRomanization('');
       setExampleThai('');
       setExampleGerman('');
+      setLesson(finalLesson);
+      setCustomLesson('');
 
       setTimeout(() => {
         setSuccessMessage(null);
@@ -150,9 +184,20 @@ export const CreateView: React.FC<CreateViewProps> = ({
           </label>
           <select
             value={lesson}
-            onChange={(e) => setLesson(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setLesson(val);
+              if (val !== '__new__') {
+                try {
+                  localStorage.setItem(LAST_LESSON_STORAGE_KEY, val);
+                } catch (_) {}
+              }
+            }}
             className="w-full bg-[#1C1C1E] border border-[#3A3A3D] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF7A00]"
           >
+            {!existingLessons.includes(lesson) && lesson !== '__new__' && (
+              <option value={lesson}>{lesson}</option>
+            )}
             {existingLessons.map((l) => (
               <option key={l} value={l}>
                 {l}
