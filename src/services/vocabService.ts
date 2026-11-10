@@ -336,9 +336,9 @@ export function autoCorrectKnownVocabErrors(list: Vocabulary[]): {
       }
     }
 
-    // Standardize "ขอบคุณมาก" romanization to 'khò̜ːp-kun mâak'
+    // Standardize "ขอบคุณมาก" romanization to 'khòop-khun mâak'
     if (v.thai && v.thai === 'ขอบคุณมาก') {
-      const fixedRom = 'khò̜ːp-kun mâak';
+      const fixedRom = 'khòop-khun mâak';
       if (v.romanization !== fixedRom) {
         const updated = { ...v, romanization: fixedRom };
         needsCloudSync.push(updated);
@@ -625,28 +625,7 @@ export function subscribeToCommunityVocabularies(
           list.push({ id: d.id, ...(d.data() as Omit<Vocabulary, 'id'>) });
         });
         const activeList = filterOutUserDeletedVocabs(list, userId);
-        const { cleaned, needsCloudSync } = autoCorrectKnownVocabErrors(activeList);
-        if (needsCloudSync.length > 0) {
-          needsCloudSync.forEach(async (item) => {
-            try {
-              await setDoc(
-                doc(db, VOCAB_COLLECTION, item.id),
-                {
-                  german: item.german,
-                  thai: item.thai,
-                  romanization: item.romanization || '',
-                  lesson: item.lesson || 'Allgemein',
-                  exampleThai: item.exampleThai || '',
-                  exampleGerman: item.exampleGerman || '',
-                  creatorId: item.creatorId || 'system_starter',
-                  creatorName: item.creatorName || 'Thai Hasi Team',
-                  createdAt: item.createdAt || new Date().toISOString(),
-                },
-                { merge: true }
-              );
-            } catch {}
-          });
-        }
+        const { cleaned } = autoCorrectKnownVocabErrors(activeList);
         try {
           localStorage.setItem(LOCAL_VOCAB_KEY, JSON.stringify(cleaned));
         } catch {}
