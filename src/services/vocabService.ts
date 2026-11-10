@@ -1744,11 +1744,13 @@ export async function recordReviewResult(
     localStorage.setItem(key, JSON.stringify(map));
   } catch {}
 
-  // 2. Sync with Firestore
+  // 2. Sync with Firestore in background without blocking study transition
   try {
-    await setDoc(doc(db, PROGRESS_COLLECTION, updated.id), updated);
+    setDoc(doc(db, PROGRESS_COLLECTION, updated.id), sanitizeForFirestore(updated)).catch((error) => {
+      console.warn('Firestore progress sync warning (progress preserved in localStorage):', error);
+    });
   } catch (error) {
-    console.warn('Firestore progress sync warning (progress preserved in localStorage):', error);
+    console.warn('Firestore progress sync trigger error:', error);
   }
 
   return updated;

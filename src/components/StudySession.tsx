@@ -24,7 +24,13 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Vocabulary, UserProgress, QueryDirection, ThaiFontStyle } from '../types/vocab';
-import { PHASES, getDirectionProgress, shuffleStudyCards } from '../utils/leitner';
+import {
+  PHASES,
+  getDirectionProgress,
+  shuffleStudyCards,
+  calculateNextReviewDate,
+  calculateResetReviewDate,
+} from '../utils/leitner';
 import { speakThai } from '../utils/thaiAudio';
 import { EditVocabModal } from './EditVocabModal';
 import { saveStudySession } from '../services/statsService';
@@ -534,7 +540,23 @@ export const StudySession: React.FC<StudySessionProps> = ({
   const [editingCurrentVocab, setEditingCurrentVocab] = useState(false);
 
   // Total unique vocabs/directions to master in this session
-  const totalUniqueCount = initialCards.length;
+  const totalUniqueCount = useMemo(() => {
+    if (!initialCards || initialCards.length === 0) return 0;
+    const taskSet = new Set<string>();
+    initialCards.forEach((c, idx) => {
+      const dir =
+        c.direction ||
+        (direction === 'de_to_th'
+          ? 'de_to_th'
+          : direction === 'th_to_de'
+          ? 'th_to_de'
+          : idx % 2 === 0
+          ? 'de_to_th'
+          : 'th_to_de');
+      taskSet.add(`${c.vocab.id}_${dir}`);
+    });
+    return taskSet.size || initialCards.length;
+  }, [initialCards, direction]);
 
   const [currentInputMethod, setCurrentInputMethod] = useState<StudyInputMethod>(inputMethod);
   const [isRevealed, setIsRevealed] = useState(mode === 'preview_first');
@@ -720,16 +742,37 @@ export const StudySession: React.FC<StudySessionProps> = ({
     setIsSubmitting(true);
 
     try {
-      const updated = await onAnswer(vocab.id, isCorrect, activeDirection);
+      let updated: UserProgress;
+      try {
+        updated = await onAnswer(vocab.id, isCorrect, activeDirection);
+      } catch (answerErr) {
+        console.warn('onAnswer error, applying local progress fallback:', answerErr);
+        const curDirProg = getDirectionProgress(progress, activeDirection);
+        const nextPhase = isCorrect ? Math.min(6, curDirProg.phase + 1) : 1;
+        const now = new Date().toISOString();
+        updated = {
+          id: `${vocab.id}_fallback`,
+          userId: 'local_user',
+          vocabId: vocab.id,
+          phase: nextPhase,
+          nextReviewDate: isCorrect ? calculateNextReviewDate(nextPhase) : calculateResetReviewDate(),
+          lastReviewedAt: now,
+          updatedAt: now,
+          deToTh: activeDirection === 'de_to_th' ? { phase: nextPhase, nextReviewDate: isCorrect ? calculateNextReviewDate(nextPhase) : calculateResetReviewDate(), lastReviewedAt: now } : undefined,
+          thToDe: activeDirection === 'th_to_de' ? { phase: nextPhase, nextReviewDate: isCorrect ? calculateNextReviewDate(nextPhase) : calculateResetReviewDate(), lastReviewedAt: now } : undefined,
+        } as UserProgress;
+      }
 
       const updatedDirProg = getDirectionProgress(updated, activeDirection);
       const hitPhase6 = isCorrect && updatedDirProg.phase === 6 && currentPhase < 6;
       if (hitPhase6) {
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.7 },
-        });
+        try {
+          confetti({
+            particleCount: 50,
+            spread: 60,
+            origin: { y: 0.7 },
+          });
+        } catch {}
       }
 
       const isMasteredBefore = masteredTaskKeys.has(currentTaskKey);
@@ -762,21 +805,21 @@ export const StudySession: React.FC<StudySessionProps> = ({
       }
 
       // Check if session is complete:
-      // Session finishes when ALL unique cards in this session have been answered correctly at least once,
-      // and we have reached the end of the current queue (taking into account the freshly re-enqueued card if wrong).
       const newMasteredCount = (!isMasteredBefore && isCorrect)
         ? masteredTaskKeys.size + 1
         : masteredTaskKeys.size;
 
       const hasNextInQueue = !isCorrect || (currentIndex + 1 < cardQueue.length);
 
-      if (newMasteredCount >= totalUniqueCount && !hasNextInQueue) {
+      if (!hasNextInQueue || newMasteredCount >= totalUniqueCount) {
         saveCurrentSession();
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+        try {
+          confetti({
+            particleCount: 80,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+        } catch {}
         setIsSessionComplete(true);
       } else {
         setCurrentIndex((i) => i + 1);
@@ -787,7 +830,18 @@ export const StudySession: React.FC<StudySessionProps> = ({
         setShowExample(false);
       }
     } catch (err) {
-      console.error('Answer recording failed:', err);
+      console.error('Answer recording failed, advancing safely:', err);
+      // Failsafe: guarantee that the user never gets stuck on the same card
+      if (currentIndex + 1 < cardQueue.length) {
+        setCurrentIndex((i) => i + 1);
+        setIsRevealed(mode === 'preview_first');
+        setUserInput('');
+        setIsEvaluated(false);
+        setIsTypingCorrect(null);
+        setShowExample(false);
+      } else {
+        setIsSessionComplete(true);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -1459,7 +1513,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               type="button"
               onClick={() => handleRate(true)}
               disabled={isSubmitting}
-              className="w-full py-4 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-base shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.99] flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-base shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
             >
               <CheckCircle2 className="w-5 h-5 text-white stroke-[2.5]" />
               <span>Gewusst</span>
@@ -1472,7 +1526,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                 type="button"
                 onClick={() => handleRate(false)}
                 disabled={isSubmitting}
-                className="py-4 rounded-full bg-[#242426] border border-rose-500/40 text-rose-400 font-semibold text-sm hover:bg-[#2C2C2E] hover:border-rose-500 transition-colors active:scale-[0.99] flex items-center justify-center gap-2"
+                className="py-4 rounded-full bg-[#242426] border border-rose-500/40 text-rose-400 font-semibold text-sm hover:bg-[#2C2C2E] hover:border-rose-500 transition-colors active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
               >
                 <ArrowLeft className="w-4 h-4 text-rose-400 stroke-[2.5]" />
                 <span>Nicht gewusst</span>
@@ -1483,7 +1537,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
                 type="button"
                 onClick={() => handleRate(true)}
                 disabled={isSubmitting}
-                className="py-4 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold text-sm hover:bg-emerald-500/25 transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2"
+                className="py-4 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold text-sm hover:bg-emerald-500/25 transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
               >
                 <span>Gelten lassen</span>
                 <ArrowRight className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
@@ -1497,7 +1551,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
           <button
             type="button"
             onClick={handleReveal}
-            className="w-full py-4 rounded-full bg-[#FF7A00] text-black font-semibold text-base hover:bg-[#FF881A] transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-full bg-[#FF7A00] text-black font-semibold text-base hover:bg-[#FF881A] transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
           >
             <Eye className="w-4 h-4 text-black" />
             <span>Lösung anzeigen</span>
@@ -1511,7 +1565,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               type="button"
               onClick={() => handleRate(false)}
               disabled={isSubmitting}
-              className="py-4 rounded-full bg-[#242426] border border-rose-500/40 text-rose-400 font-semibold text-sm hover:bg-[#2C2C2E] hover:border-rose-500 transition-colors active:scale-[0.99] flex items-center justify-center gap-2"
+              className="py-4 rounded-full bg-[#242426] border border-rose-500/40 text-rose-400 font-semibold text-sm hover:bg-[#2C2C2E] hover:border-rose-500 transition-colors active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
             >
               <ArrowLeft className="w-4 h-4 text-rose-400 stroke-[2.5]" />
               <span>Nicht gewusst</span>
@@ -1522,7 +1576,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               type="button"
               onClick={() => handleRate(true)}
               disabled={isSubmitting}
-              className="py-4 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold text-sm hover:bg-emerald-500/25 transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2"
+              className="py-4 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold text-sm hover:bg-emerald-500/25 transition-colors shadow-lg active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
             >
               <span>Gewusst</span>
               <ArrowRight className="w-4 h-4 text-emerald-400 stroke-[2.5]" />

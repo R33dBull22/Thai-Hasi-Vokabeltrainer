@@ -293,8 +293,7 @@ function AppContent() {
     isCorrect: boolean,
     direction: QueryDirection = 'de_to_th'
   ): Promise<UserProgress> => {
-    if (!user) throw new Error('Nicht angemeldet');
-    const userId = user.uid;
+    const userId = user?.uid || 'local_user';
     const curProg = progressMap[vocabId];
     const updated = await recordReviewResult(userId, vocabId, curProg, isCorrect, direction);
     setProgressMap((prev) => ({
