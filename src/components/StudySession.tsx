@@ -22,7 +22,6 @@ import {
   GraduationCap,
   Zap,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import { Vocabulary, UserProgress, QueryDirection, ThaiFontStyle } from '../types/vocab';
 import {
   PHASES,
@@ -765,15 +764,6 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
       const updatedDirProg = getDirectionProgress(updated, activeDirection);
       const hitPhase6 = isCorrect && updatedDirProg.phase === 6 && currentPhase < 6;
-      if (hitPhase6) {
-        try {
-          confetti({
-            particleCount: 50,
-            spread: 60,
-            origin: { y: 0.7 },
-          });
-        } catch {}
-      }
 
       const isMasteredBefore = masteredTaskKeys.has(currentTaskKey);
 
@@ -813,13 +803,6 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
       if (!hasNextInQueue || newMasteredCount >= totalUniqueCount) {
         saveCurrentSession();
-        try {
-          confetti({
-            particleCount: 80,
-            spread: 70,
-            origin: { y: 0.6 },
-          });
-        } catch {}
         setIsSessionComplete(true);
       } else {
         setCurrentIndex((i) => i + 1);
