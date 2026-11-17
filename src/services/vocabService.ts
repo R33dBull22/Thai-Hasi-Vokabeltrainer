@@ -12,9 +12,16 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
-import { Vocabulary, UserProgress, DeletedVocabEntry, DirectionProgress, QueryDirection } from '../types/vocab';
+import { Vocabulary, UserProgress, DeletedVocabEntry, DirectionProgress, QueryDirection, UserPreferences, VacationModeState } from '../types/vocab';
 import { STARTER_VOCABULARY, QUESTION_WORDS_VOCABULARY } from '../data/initialVocab';
-import { calculateNextReviewDate, calculateResetReviewDate, getDirectionProgress } from '../utils/leitner';
+import {
+  calculateNextReviewDate,
+  calculateResetReviewDate,
+  getDirectionProgress,
+  getVacationDaysElapsed,
+  shiftUserProgressByDays,
+} from '../utils/leitner';
+import { isThaiAudioEnabled, setThaiAudioEnabled } from '../utils/thaiAudio';
 import { THAI_CONSONANTS } from '../data/thaiAlphabet';
 import { autocorrectThaiTypingOrder, getEffectiveRomanization } from '../utils/thaiTones';
 
@@ -1649,18 +1656,212 @@ export async function removeVocabFromUserDeck(userId: string, vocabId: string): 
   }
 }
 
+const LOCAL_VACATION_KEY = 'thai_hasis_vacation_mode_v1';
+
+function getSafeUserPrefsDocId(userId: string): string {
+  const cleaned = (userId || 'local_user').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  return `user_prefs_${cleaned}`.slice(0, 120);
+}
+
+export function getLocalUserPreferences(userId?: string): UserPreferences {
+  const audioEnabled = isThaiAudioEnabled();
+  let vacationMode: VacationModeState = { enabled: false, startedAt: null };
+  try {
+    const key = userId ? `${LOCAL_VACATION_KEY}_${userId}` : LOCAL_VACATION_KEY;
+    const raw = localStorage.getItem(key) || localStorage.getItem(LOCAL_VACATION_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.enabled === 'boolean') {
+        vacationMode = {
+          enabled: parsed.enabled,
+          startedAt: parsed.startedAt || null,
+        };
+      }
+    }
+  } catch {}
+  return {
+    audioEnabled,
+    vacationMode,
+  };
+}
+
+function saveLocalUserPreferences(userId: string, prefs: UserPreferences): void {
+  try {
+    setThaiAudioEnabled(prefs.audioEnabled);
+  } catch {}
+  try {
+    const key = userId ? `${LOCAL_VACATION_KEY}_${userId}` : LOCAL_VACATION_KEY;
+    localStorage.setItem(key, JSON.stringify(prefs.vacationMode));
+    if (prefs.updatedAt) {
+      localStorage.setItem(`${key}_updatedAt`, prefs.updatedAt);
+    }
+  } catch {}
+}
+
+/**
+ * Fetches user preferences (audioEnabled, vacationMode) from Firestore + localStorage
+ */
+export async function fetchUserPreferences(userId: string): Promise<UserPreferences> {
+  const localPrefs = getLocalUserPreferences(userId);
+  if (!userId) return localPrefs;
+
+  let localUpdatedAt = 0;
+  try {
+    const ts = localStorage.getItem(`${LOCAL_VACATION_KEY}_${userId}_updatedAt`);
+    if (ts) localUpdatedAt = new Date(ts).getTime() || 0;
+  } catch {}
+
+  try {
+    const docId = getSafeUserPrefsDocId(userId);
+    const snap = await getDoc(doc(db, 'admin_settings', docId));
+    if (snap.exists()) {
+      const data = snap.data() as Partial<UserPreferences>;
+      const remoteUpdatedAt = data.updatedAt ? new Date(data.updatedAt).getTime() || 0 : 0;
+
+      if (localUpdatedAt > remoteUpdatedAt && localUpdatedAt > 0) {
+        // Local is newer -> sync to cloud
+        const toPush: UserPreferences = {
+          ...localPrefs,
+          updatedAt: new Date(localUpdatedAt).toISOString(),
+        };
+        setDoc(doc(db, 'admin_settings', docId), sanitizeForFirestore(toPush), { merge: true }).catch(() => {});
+        return localPrefs;
+      }
+
+      const merged: UserPreferences = {
+        audioEnabled: typeof data.audioEnabled === 'boolean' ? data.audioEnabled : localPrefs.audioEnabled,
+        vacationMode: data.vacationMode && typeof data.vacationMode.enabled === 'boolean'
+          ? {
+              enabled: data.vacationMode.enabled,
+              startedAt: data.vacationMode.startedAt || null,
+            }
+          : localPrefs.vacationMode,
+        updatedAt: data.updatedAt || new Date().toISOString(),
+      };
+      saveLocalUserPreferences(userId, merged);
+      return merged;
+    }
+  } catch (err) {
+    console.warn('Could not fetch user preferences from Firestore (using local):', err);
+  }
+
+  return localPrefs;
+}
+
+/**
+ * Persists user preferences (audioEnabled, vacationMode) to localStorage and Firestore
+ */
+export async function saveUserPreferences(
+  userId: string,
+  partial: Partial<UserPreferences>
+): Promise<UserPreferences> {
+  const current = getLocalUserPreferences(userId);
+  const nowIso = new Date().toISOString();
+  const next: UserPreferences = {
+    audioEnabled: partial.audioEnabled !== undefined ? partial.audioEnabled : current.audioEnabled,
+    vacationMode: partial.vacationMode !== undefined ? partial.vacationMode : current.vacationMode,
+    updatedAt: nowIso,
+  };
+
+  saveLocalUserPreferences(userId, next);
+
+  if (userId) {
+    try {
+      const docId = getSafeUserPrefsDocId(userId);
+      await setDoc(doc(db, 'admin_settings', docId), sanitizeForFirestore(next), { merge: true });
+    } catch (err) {
+      console.warn('Could not save user preferences to Firestore (kept locally):', err);
+    }
+  }
+
+  return next;
+}
+
+/**
+ * Ends vacation mode, shifts all scheduled review dates forward by the number of paused calendar days,
+ * persists shifted progress locally and to Firestore, and clears vacation mode.
+ */
+export async function resumeFromVacation(
+  userId: string,
+  progressMap: Record<string, UserProgress>,
+  startedAtIso: string | null
+): Promise<{ updatedProgressMap: Record<string, UserProgress>; pausedDays: number }> {
+  const pausedDays = getVacationDaysElapsed(startedAtIso);
+  const updatedProgressMap =
+    pausedDays > 0 ? shiftUserProgressByDays(progressMap, pausedDays) : { ...progressMap };
+
+  if (pausedDays > 0 && userId) {
+    // 1. Update local storage immediately
+    try {
+      const key = `${LOCAL_PROGRESS_KEY}_${userId}`;
+      localStorage.setItem(key, JSON.stringify(updatedProgressMap));
+    } catch {}
+
+    // 2. Persist shifted review dates to Firestore in batches of 400
+    const docs = Object.values(updatedProgressMap);
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+      const chunk = docs.slice(i, i + BATCH_SIZE);
+      try {
+        const batch = writeBatch(db);
+        for (const p of chunk) {
+          const docId = p.id || `${userId}_${p.vocabId}`;
+          batch.set(doc(db, PROGRESS_COLLECTION, docId), sanitizeForFirestore({ ...p, id: docId }));
+        }
+        await batch.commit();
+      } catch (err) {
+        console.warn('Error shifting progress dates in Firestore after vacation:', err);
+      }
+    }
+  }
+
+  await saveUserPreferences(userId, {
+    vacationMode: { enabled: false, startedAt: null },
+  });
+
+  return { updatedProgressMap, pausedDays };
+}
+
 /**
  * Record Leitner spaced repetition review answer (Phase 1-6)
  * Supports independent progression for both directions ('de_to_th' and 'th_to_de').
+ * When `freezePhases` is true (Vacation Mode), phases and review dates remain completely frozen.
  */
 export async function recordReviewResult(
   userId: string,
   vocabId: string,
   currentProgress: UserProgress | undefined,
   isCorrect: boolean,
-  direction: QueryDirection = 'de_to_th'
+  direction: QueryDirection = 'de_to_th',
+  freezePhases: boolean = false
 ): Promise<UserProgress> {
   const now = new Date().toISOString();
+
+  if (freezePhases) {
+    if (currentProgress) {
+      return currentProgress;
+    }
+    const frozenDir: DirectionProgress = {
+      phase: 1,
+      nextReviewDate: now,
+      streak: 0,
+      correctCount: 0,
+      incorrectCount: 0,
+    };
+    return {
+      id: `${userId}_${vocabId}`,
+      userId,
+      vocabId,
+      phase: 1,
+      nextReviewDate: now,
+      streak: 0,
+      correctCount: 0,
+      incorrectCount: 0,
+      updatedAt: now,
+      deToTh: { ...frozenDir },
+      thToDe: { ...frozenDir },
+    };
+  }
 
   // Retrieve directional progress for both directions
   const curDirProg = getDirectionProgress(currentProgress, direction);

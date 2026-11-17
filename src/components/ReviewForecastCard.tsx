@@ -7,6 +7,7 @@ interface ReviewForecastCardProps {
   vocabularies: Vocabulary[];
   progressMap: Record<string, UserProgress>;
   studyDirection?: 'both' | 'de_to_th' | 'th_to_de';
+  vacationStartedAt?: string | null;
   onOpenForecastModal: (initialDayOffset?: number) => void;
 }
 
@@ -14,11 +15,12 @@ export const ReviewForecastCard: React.FC<ReviewForecastCardProps> = ({
   vocabularies,
   progressMap,
   studyDirection = 'both',
+  vacationStartedAt = null,
   onOpenForecastModal,
 }) => {
   const forecast = useMemo(() => {
-    return calculateReviewForecast(vocabularies, progressMap, studyDirection, 5);
-  }, [vocabularies, progressMap, studyDirection]);
+    return calculateReviewForecast(vocabularies, progressMap, studyDirection, 5, vacationStartedAt);
+  }, [vocabularies, progressMap, studyDirection, vacationStartedAt]);
 
   const totalInDeck = Object.keys(progressMap).length;
 
@@ -31,14 +33,22 @@ export const ReviewForecastCard: React.FC<ReviewForecastCardProps> = ({
             <Calendar className="w-4 h-4 text-[#FF7A00]" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
               <span>5-Tage-Abfrageplan</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#FF7A00]/15 text-[#FF7A00] font-bold border border-[#FF7A00]/30">
-                {forecast.totalForecastReviews} fällig
-              </span>
+              {vacationStartedAt ? (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sky-500/15 text-sky-300 font-bold border border-sky-400/35">
+                  ❄️ Eingefroren
+                </span>
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#FF7A00]/15 text-[#FF7A00] font-bold border border-[#FF7A00]/30">
+                  {forecast.totalForecastReviews} fällig
+                </span>
+              )}
             </h3>
             <p className="text-[10px] text-[#8E8E93]">
-              Geplante Wiederholungen der nächsten 5 Tage
+              {vacationStartedAt
+                ? 'Termine pausiert bis Urlaubsmodus endet'
+                : 'Geplante Wiederholungen der nächsten 5 Tage'}
             </p>
           </div>
         </div>

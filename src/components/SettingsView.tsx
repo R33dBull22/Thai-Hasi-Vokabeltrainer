@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   Volume2,
+  VolumeX,
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
@@ -26,10 +27,13 @@ import {
   Palette,
   Crown,
   Type,
+  Plane,
+  Snowflake,
 } from 'lucide-react';
 import { isLiveFirebaseApiKeyConfigured } from '../firebase/config';
-import { Vocabulary, UserProgress, DeletedVocabEntry, ThaiFontStyle } from '../types/vocab';
+import { Vocabulary, UserProgress, DeletedVocabEntry, ThaiFontStyle, VacationModeState } from '../types/vocab';
 import { StudyInputMethod, StudyMode, StudyDirection } from './StudySession';
+import { getVacationDaysElapsed } from '../utils/leitner';
 import {
   exportToCSV,
   exportToJSON,
@@ -72,6 +76,10 @@ interface SettingsViewProps {
   onToggleColorCoding?: (enabled: boolean) => void;
   thaiFontStyle?: ThaiFontStyle;
   onToggleThaiFontStyle?: (val: ThaiFontStyle) => void;
+  audioEnabled?: boolean;
+  onToggleAudioEnabled?: (val: boolean) => void;
+  vacationMode?: VacationModeState;
+  onToggleVacationMode?: (enabled: boolean) => Promise<{ enabled: boolean; pausedDays?: number } | void>;
   onNavigateAdmin?: () => void;
 }
 
@@ -98,10 +106,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onToggleColorCoding,
   thaiFontStyle = 'classic',
   onToggleThaiFontStyle,
+  audioEnabled = true,
+  onToggleAudioEnabled,
+  vacationMode = { enabled: false, startedAt: null },
+  onToggleVacationMode,
   onNavigateAdmin,
 }) => {
   const { user, isGuest, logout, isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isTogglingVacation, setIsTogglingVacation] = useState(false);
+  const [vacationToast, setVacationToast] = useState<string | null>(null);
 
   const [isSyncingAllRomanization, setIsSyncingAllRomanization] = useState(false);
   const [syncRomanizationToast, setSyncRomanizationToast] = useState<string | null>(null);
@@ -364,6 +379,108 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               Öffnen →
             </button>
+          </div>
+        )}
+
+        {/* Urlaubsmodus (Phasen einfrieren) Card */}
+        {onToggleVacationMode && (
+          <div
+            className={`rounded-2xl p-4 border transition-colors ${
+              vacationMode.enabled
+                ? 'bg-gradient-to-br from-sky-950/40 via-[#242426] to-[#1C1C1E] border-sky-400/50 shadow-lg'
+                : 'bg-[#242426] border-[#323236]'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    vacationMode.enabled
+                      ? 'bg-sky-500/20 text-sky-400 border border-sky-400/40'
+                      : 'bg-[#1C1C1E] text-[#8E8E93] border border-[#3A3A3D]'
+                  }`}
+                >
+                  {vacationMode.enabled ? (
+                    <Snowflake className="w-5 h-5 text-sky-400" />
+                  ) : (
+                    <Plane className="w-5 h-5 text-[#FF7A00]" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm font-bold text-white">Urlaubsmodus</h2>
+                    {vacationMode.enabled && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/40">
+                        Phasen eingefroren
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#A1A1AA] mt-0.5 leading-relaxed">
+                    Friert alle Vokabeln in ihrer aktuellen Leitner-Phase ein und pausiert fällige Wiederholungen. Beim Beenden werden alle Termine um die pausierten Tage nach hinten verschoben.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isTogglingVacation}
+                onClick={async () => {
+                  setIsTogglingVacation(true);
+                  setVacationToast(null);
+                  try {
+                    const nextVal = !vacationMode.enabled;
+                    const res = await onToggleVacationMode(nextVal);
+                    if (nextVal) {
+                      setVacationToast('❄️ Urlaubsmodus aktiviert – alle Phasen & Termine sind eingefroren.');
+                    } else {
+                      const days = res && typeof res.pausedDays === 'number' ? res.pausedDays : 0;
+                      setVacationToast(
+                        days > 0
+                          ? `✓ Urlaubsmodus beendet – alle Termine um ${days} ${days === 1 ? 'Tag' : 'Tage'} verschoben!`
+                          : '✓ Urlaubsmodus beendet – du kannst direkt weiterlernen!'
+                      );
+                    }
+                    setTimeout(() => setVacationToast(null), 5000);
+                  } finally {
+                    setIsTogglingVacation(false);
+                  }
+                }}
+                aria-label="Urlaubsmodus umschalten"
+                className={`w-12 h-6 rounded-full transition-colors p-0.5 flex items-center shrink-0 cursor-pointer disabled:opacity-50 ${
+                  vacationMode.enabled ? 'bg-sky-400 justify-end' : 'bg-[#3A3A3D] justify-start'
+                }`}
+              >
+                <div className="w-5 h-5 rounded-full bg-white shadow-md" />
+              </button>
+            </div>
+
+            {vacationMode.enabled && vacationMode.startedAt && (
+              <div className="mt-3 p-2.5 rounded-xl bg-sky-500/10 border border-sky-400/30 flex items-center justify-between text-[11px] text-sky-200">
+                <span>
+                  Aktiv seit{' '}
+                  <strong className="text-white">
+                    {new Date(vacationMode.startedAt).toLocaleDateString('de-DE', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })}
+                  </strong>
+                </span>
+                <span className="font-semibold text-sky-300">
+                  {(() => {
+                    const d = getVacationDaysElapsed(vacationMode.startedAt);
+                    return d === 0 ? 'Heute gestartet' : `${d} ${d === 1 ? 'Tag' : 'Tage'} pausiert`;
+                  })()}
+                </span>
+              </div>
+            )}
+
+            {vacationToast && (
+              <div className="mt-3 p-2.5 rounded-xl bg-[#1C1C1E] border border-sky-500/40 text-xs text-sky-200 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+                <span>{vacationToast}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -966,6 +1083,37 @@ Lecker;อร่อย;a-roi;Essen & Trinken;อาหารนี้อร่�
           <h2 className="text-xs font-semibold text-[#8E8E93] uppercase tracking-wider mb-3">
             Lern- & Abfrage-Präferenzen
           </h2>
+
+          {/* Aussprache (Sprachausgabe) Toggle */}
+          {onToggleAudioEnabled && (
+            <div className="flex items-center justify-between py-2.5 border-b border-[#323236]/60">
+              <div className="pr-2">
+                <p className="text-sm font-medium text-white flex items-center gap-1.5">
+                  {audioEnabled ? (
+                    <Volume2 className="w-4 h-4 text-[#FF7A00]" />
+                  ) : (
+                    <VolumeX className="w-4 h-4 text-[#8E8E93]" />
+                  )}
+                  <span>Aussprache (Sprachausgabe)</span>
+                </p>
+                <p className="text-xs text-[#8E8E93] mt-0.5">
+                  {audioEnabled
+                    ? 'Thai-Aussprache wird beim Aufdecken & Tippen abgespielt'
+                    : 'Stummgeschaltet – kein Ton bei Abfragen oder Karten'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onToggleAudioEnabled(!audioEnabled)}
+                aria-label="Aussprache ein- oder ausschalten"
+                className={`w-12 h-6 rounded-full transition-colors p-0.5 flex items-center shrink-0 ml-3 cursor-pointer ${
+                  audioEnabled ? 'bg-[#FF7A00] justify-end' : 'bg-[#3A3A3D] justify-start'
+                }`}
+              >
+                <div className="w-5 h-5 rounded-full bg-white shadow-md" />
+              </button>
+            </div>
+          )}
 
           {/* Standard-Lernrichtung */}
           <div className="py-2.5 border-b border-[#323236]/60">

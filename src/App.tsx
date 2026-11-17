@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ActiveTab, Vocabulary, UserProgress, QueryDirection, ThaiFontStyle } from './types/vocab';
+import { ActiveTab, Vocabulary, UserProgress, QueryDirection, ThaiFontStyle, VacationModeState } from './types/vocab';
 import {
   fetchCommunityVocabularies,
   fetchUserProgress,
@@ -21,7 +21,12 @@ import {
   resetVocabsToPhaseOne,
   stepBackLessonPhase,
   batchUpdateVocabulariesRomanization,
+  fetchUserPreferences,
+  saveUserPreferences,
+  resumeFromVacation,
+  getLocalUserPreferences,
 } from './services/vocabService';
+import { isThaiAudioEnabled, setThaiAudioEnabled } from './utils/thaiAudio';
 import { Navigation } from './components/Navigation';
 import { LearnView } from './components/LearnView';
 import { PoolView } from './components/PoolView';
@@ -140,6 +145,66 @@ function AppContent() {
     }
   });
 
+  // User preference: pronunciation audio enabled
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => isThaiAudioEnabled());
+
+  // User preference: vacation mode (freezes phases and pauses due dates)
+  const [vacationMode, setVacationMode] = useState<VacationModeState>(
+    () => getLocalUserPreferences().vacationMode
+  );
+
+  // Sync audio state across components/tabs
+  useEffect(() => {
+    const handleAudioChanged = (e: Event) => {
+      const custom = e as CustomEvent<boolean>;
+      if (typeof custom.detail === 'boolean') {
+        setAudioEnabled(custom.detail);
+      } else {
+        setAudioEnabled(isThaiAudioEnabled());
+      }
+    };
+    window.addEventListener('thai-hasis-audio-changed', handleAudioChanged);
+    return () => window.removeEventListener('thai-hasis-audio-changed', handleAudioChanged);
+  }, []);
+
+  const handleToggleAudioEnabled = (val: boolean) => {
+    setAudioEnabled(val);
+    setThaiAudioEnabled(val);
+    if (user?.uid) {
+      saveUserPreferences(user.uid, { audioEnabled: val }).catch(() => {});
+    }
+  };
+
+  const handleToggleVacationMode = async (
+    enabled: boolean
+  ): Promise<{ enabled: boolean; pausedDays?: number }> => {
+    if (enabled) {
+      const nextState: VacationModeState = {
+        enabled: true,
+        startedAt: new Date().toISOString(),
+      };
+      setVacationMode(nextState);
+      if (user?.uid) {
+        await saveUserPreferences(user.uid, { vacationMode: nextState });
+      }
+      return { enabled: true };
+    } else {
+      const startedAt = vacationMode.startedAt;
+      if (user?.uid) {
+        const { updatedProgressMap, pausedDays } = await resumeFromVacation(
+          user.uid,
+          progressMap,
+          startedAt
+        );
+        setProgressMap(updatedProgressMap);
+        setVacationMode({ enabled: false, startedAt: null });
+        return { enabled: false, pausedDays };
+      }
+      setVacationMode({ enabled: false, startedAt: null });
+      return { enabled: false, pausedDays: 0 };
+    }
+  };
+
   const handleToggleThaiFontStyle = (style: ThaiFontStyle) => {
     setThaiFontStyle(style);
     try {
@@ -224,8 +289,13 @@ function AppContent() {
       const vocabs = await fetchCommunityVocabularies(userId);
       setVocabularies(vocabs);
 
-      const prog = await fetchUserProgress(userId);
+      const [prog, prefs] = await Promise.all([
+        fetchUserProgress(userId),
+        fetchUserPreferences(userId),
+      ]);
       setProgressMap(prog);
+      setAudioEnabled(prefs.audioEnabled);
+      setVacationMode(prefs.vacationMode);
 
       // If user progress is completely empty on fresh install, auto-enroll initial cards into deck
       if (Object.keys(prog).length === 0 && vocabs.length > 0) {
@@ -279,15 +349,16 @@ function AppContent() {
     return Array.from(set);
   }, [vocabularies]);
 
-  // Due count for badge (cards due in at least one direction)
+  // Due count for badge (paused at 0 during Vacation Mode)
   const dueCount = useMemo(() => {
+    if (vacationMode.enabled) return 0;
     return vocabularies.filter((v) => {
       const prog = progressMap[v.id];
       return prog && isAnyDirectionDue(prog);
     }).length;
-  }, [vocabularies, progressMap]);
+  }, [vocabularies, progressMap, vacationMode.enabled]);
 
-  // Answer handler in active study session (tracks direction independently)
+  // Answer handler in active study session (tracks direction independently; frozen during Vacation Mode)
   const handleAnswerReview = async (
     vocabId: string,
     isCorrect: boolean,
@@ -295,7 +366,14 @@ function AppContent() {
   ): Promise<UserProgress> => {
     const userId = user?.uid || 'local_user';
     const curProg = progressMap[vocabId];
-    const updated = await recordReviewResult(userId, vocabId, curProg, isCorrect, direction);
+    const updated = await recordReviewResult(
+      userId,
+      vocabId,
+      curProg,
+      isCorrect,
+      direction,
+      vacationMode.enabled
+    );
     setProgressMap((prev) => ({
       ...prev,
       [vocabId]: updated,
@@ -594,6 +672,9 @@ function AppContent() {
         existingLessons={existingLessons}
         colorCodingEnabled={colorCodingEnabled}
         fontStyle={thaiFontStyle}
+        audioEnabled={audioEnabled}
+        onToggleAudioEnabled={handleToggleAudioEnabled}
+        isVacationMode={vacationMode.enabled}
       />
     );
   }
@@ -605,6 +686,8 @@ function AppContent() {
         cards={activeListeningSession.cards}
         poolVocabularies={vocabularies}
         onFinish={() => setActiveListeningSession(null)}
+        audioEnabled={audioEnabled}
+        onToggleAudioEnabled={handleToggleAudioEnabled}
       />
     );
   }
@@ -694,6 +777,10 @@ function AppContent() {
                 onOpenFontTrainer={() => setFontTrainerOpen(true)}
                 onOpenConsonantTrainer={() => setConsonantTrainerOpen(true)}
                 onOpenSyllableTrainer={() => setSyllableTrainerOpen(true)}
+                vacationMode={vacationMode}
+                onToggleVacationMode={handleToggleVacationMode}
+                audioEnabled={audioEnabled}
+                onToggleAudioEnabled={handleToggleAudioEnabled}
               />
             )}
 
@@ -744,6 +831,8 @@ function AppContent() {
                 onUpdateSinglePhase={handleUpdateSinglePhase}
                 onBatchUpdateRomanization={handleBatchUpdateRomanization}
                 existingLessons={existingLessons}
+                audioEnabled={audioEnabled}
+                vacationStartedAt={vacationMode.enabled ? vacationMode.startedAt : null}
               />
             )}
 
@@ -777,6 +866,10 @@ function AppContent() {
                 onToggleStudyMode={handleToggleStudyMode}
                 studyDirection={studyDirection}
                 onToggleStudyDirection={handleToggleStudyDirection}
+                audioEnabled={audioEnabled}
+                onToggleAudioEnabled={handleToggleAudioEnabled}
+                vacationMode={vacationMode}
+                onToggleVacationMode={handleToggleVacationMode}
                 onOpenAuthModal={() => setAuthModalOpen(true)}
                 onRefreshData={loadAllData}
                 onNavigateAdmin={() => setActiveTab('admin')}

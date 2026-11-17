@@ -6,6 +6,7 @@ import {
   Plus,
   Check,
   Volume2,
+  VolumeX,
   FolderPlus,
   BookOpen,
   Filter,
@@ -22,7 +23,7 @@ import {
   GraduationCap,
 } from 'lucide-react';
 import { Vocabulary, UserProgress } from '../types/vocab';
-import { speakThai } from '../utils/thaiAudio';
+import { speakThai, isThaiAudioEnabled } from '../utils/thaiAudio';
 import { PHASES, formatDueDate, isCardDue, getDirectionProgress, isAnyDirectionDue } from '../utils/leitner';
 import { EditVocabModal } from './EditVocabModal';
 import { ToneVisualizer } from './ToneVisualizer';
@@ -50,6 +51,8 @@ interface PoolViewProps {
   onBatchUpdateRomanization?: (updates: { id: string; romanization: string }[]) => Promise<number>;
   existingLessons?: string[];
   colorCodingEnabled?: boolean;
+  audioEnabled?: boolean;
+  vacationStartedAt?: string | null;
 }
 
 export const PoolView: React.FC<PoolViewProps> = ({
@@ -73,7 +76,10 @@ export const PoolView: React.FC<PoolViewProps> = ({
   onBatchUpdateRomanization,
   existingLessons = [],
   colorCodingEnabled = true,
+  audioEnabled,
+  vacationStartedAt = null,
 }) => {
+  const effectiveAudioEnabled = audioEnabled !== undefined ? audioEnabled : isThaiAudioEnabled();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedLessons, setExpandedLessons] = useState<Record<string, boolean>>({});
@@ -82,16 +88,16 @@ export const PoolView: React.FC<PoolViewProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
 
-  // Due vocabs count (cards due in at least one direction)
+  // Due vocabs count (cards due in at least one direction, respecting vacation freeze)
   const dueVocabsCount = useMemo(() => {
     const seenIds = new Set<string>();
     return vocabularies.filter((v) => {
       if (seenIds.has(v.id)) return false;
       seenIds.add(v.id);
       const prog = progressMap[v.id];
-      return prog && isAnyDirectionDue(prog);
+      return prog && isAnyDirectionDue(prog, vacationStartedAt);
     }).length;
-  }, [vocabularies, progressMap]);
+  }, [vocabularies, progressMap, vacationStartedAt]);
 
   // In deck count based on actual pool vocabularies
   const inDeckCount = useMemo(() => {
@@ -148,14 +154,14 @@ export const PoolView: React.FC<PoolViewProps> = ({
       const inDeck = Boolean(progressMap[v.id]);
       if (filterMode === 'in_deck' && !inDeck) return;
       if (filterMode === 'not_in_deck' && inDeck) return;
-      if (filterMode === 'due' && (!inDeck || !isAnyDirectionDue(progressMap[v.id]))) return;
+      if (filterMode === 'due' && (!inDeck || !isAnyDirectionDue(progressMap[v.id], vacationStartedAt))) return;
 
       const lessonName = v.lesson || 'Allgemein';
       if (!map[lessonName]) map[lessonName] = [];
       map[lessonName].push(v);
     });
     return map;
-  }, [vocabularies, searchQuery, filterMode, progressMap]);
+  }, [vocabularies, searchQuery, filterMode, progressMap, vacationStartedAt]);
 
   const allLessonsList = useMemo(() => {
     const set = new Set<string>();
@@ -864,10 +870,22 @@ export const PoolView: React.FC<PoolViewProps> = ({
                             <button
                               type="button"
                               onClick={() => speakThai(vocab.thai)}
-                              className="p-1 rounded-full text-[#71717A] hover:text-white transition-colors cursor-pointer"
-                              title="Aussprache anhören"
+                              className={`p-1 rounded-full transition-colors cursor-pointer ${
+                                effectiveAudioEnabled
+                                  ? 'text-[#71717A] hover:text-white'
+                                  : 'text-[#52525B]'
+                              }`}
+                              title={
+                                effectiveAudioEnabled
+                                  ? 'Aussprache anhören'
+                                  : 'Aussprache in den Einstellungen deaktiviert'
+                              }
                             >
-                              <Volume2 className="w-3.5 h-3.5" />
+                              {effectiveAudioEnabled ? (
+                                <Volume2 className="w-3.5 h-3.5" />
+                              ) : (
+                                <VolumeX className="w-3.5 h-3.5" />
+                              )}
                             </button>
 
                             {/* Phase pills if in deck (independent for both directions) */}
@@ -876,8 +894,8 @@ export const PoolView: React.FC<PoolViewProps> = ({
                                 {(() => {
                                   const deProg = getDirectionProgress(prog, 'de_to_th');
                                   const thProg = getDirectionProgress(prog, 'th_to_de');
-                                  const deDue = formatDueDate(deProg.nextReviewDate);
-                                  const thDue = formatDueDate(thProg.nextReviewDate);
+                                  const deDue = formatDueDate(deProg.nextReviewDate, vacationStartedAt);
+                                  const thDue = formatDueDate(thProg.nextReviewDate, vacationStartedAt);
                                   const isAnyDue = deDue.isDue || thDue.isDue;
 
                                   return (
@@ -903,13 +921,21 @@ export const PoolView: React.FC<PoolViewProps> = ({
 
                                       <span
                                         className={`text-[9px] mt-0.5 font-medium whitespace-nowrap ${
-                                          isAnyDue
+                                          vacationStartedAt
+                                            ? 'text-sky-400 font-semibold'
+                                            : isAnyDue
                                             ? 'text-amber-400 font-semibold'
                                             : 'text-[#8E8E93]'
                                         }`}
                                         title={`Nächste Abfrage: DE➔TH (${deDue.label}), TH➔DE (${thDue.label})`}
                                       >
-                                        {isAnyDue ? 'Fällig' : deDue.daysDiff <= thDue.daysDiff ? deDue.label : thDue.label}
+                                        {vacationStartedAt
+                                          ? '❄️ Eingefroren'
+                                          : isAnyDue
+                                          ? 'Fällig'
+                                          : deDue.daysDiff <= thDue.daysDiff
+                                          ? deDue.label
+                                          : thDue.label}
                                       </span>
                                     </>
                                   );

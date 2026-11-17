@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Volume2,
+  VolumeX,
   Headphones,
   Check,
   X,
@@ -13,13 +14,15 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Vocabulary } from '../types/vocab';
-import { speakThai, stopThaiSpeech } from '../utils/thaiAudio';
+import { speakThai, stopThaiSpeech, isThaiAudioEnabled, setThaiAudioEnabled } from '../utils/thaiAudio';
 import { ToneVisualizer } from './ToneVisualizer';
 
 interface ListeningSessionProps {
   cards: Vocabulary[];
   poolVocabularies: Vocabulary[];
   onFinish: () => void;
+  audioEnabled?: boolean;
+  onToggleAudioEnabled?: (val: boolean) => void;
 }
 
 interface QuestionOption {
@@ -31,7 +34,21 @@ export const ListeningSession: React.FC<ListeningSessionProps> = ({
   cards,
   poolVocabularies,
   onFinish,
+  audioEnabled,
+  onToggleAudioEnabled,
 }) => {
+  const [localAudioEnabled, setLocalAudioEnabled] = useState<boolean>(() =>
+    audioEnabled !== undefined ? audioEnabled : isThaiAudioEnabled()
+  );
+
+  useEffect(() => {
+    if (audioEnabled !== undefined) {
+      setLocalAudioEnabled(audioEnabled);
+    }
+  }, [audioEnabled]);
+
+  const effectiveAudioEnabled = audioEnabled !== undefined ? audioEnabled : localAudioEnabled;
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -103,27 +120,48 @@ export const ListeningSession: React.FC<ListeningSessionProps> = ({
 
   // Play audio for current card
   const handlePlayAudio = useCallback(() => {
-    if (!currentCard) return;
+    if (!currentCard || !effectiveAudioEnabled) return;
     setIsPlayingAudio(true);
     speakThai(currentCard.thai, () => {
       setIsPlayingAudio(false);
     });
     // Safety fallback timer
     setTimeout(() => setIsPlayingAudio(false), 2000);
-  }, [currentCard]);
+  }, [currentCard, effectiveAudioEnabled]);
+
+  const handleEnableAudio = () => {
+    setLocalAudioEnabled(true);
+    setThaiAudioEnabled(true);
+    if (onToggleAudioEnabled) {
+      onToggleAudioEnabled(true);
+    }
+    if (currentCard) {
+      setIsPlayingAudio(true);
+      speakThai(
+        currentCard.thai,
+        () => {
+          setIsPlayingAudio(false);
+        },
+        0.95,
+        { force: true }
+      );
+      setTimeout(() => setIsPlayingAudio(false), 2000);
+    }
+  };
 
   // Autoplay audio on new card
   useEffect(() => {
     if (currentCard && !isCompleted) {
       setSelectedOptionIndex(null);
       setIsAnswered(false);
+      if (!effectiveAudioEnabled) return;
       // Small delay for smooth mounting transition
       const timer = setTimeout(() => {
         handlePlayAudio();
       }, 250);
       return () => clearTimeout(timer);
     }
-  }, [currentIndex, currentCard, isCompleted, handlePlayAudio]);
+  }, [currentIndex, currentCard, isCompleted, effectiveAudioEnabled, handlePlayAudio]);
 
   // Handle option selection
   const handleSelectOption = (index: number) => {
@@ -320,24 +358,48 @@ export const ListeningSession: React.FC<ListeningSessionProps> = ({
 
       {/* Card Content Area */}
       <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-center py-2 space-y-4">
+        {!effectiveAudioEnabled && (
+          <div className="bg-amber-500/15 border border-amber-400/40 rounded-2xl p-3 flex items-center justify-between gap-2.5 text-xs">
+            <div className="flex items-center gap-2 min-w-0 text-amber-200">
+              <VolumeX className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="truncate font-medium">Aussprache ist aktuell deaktiviert</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleEnableAudio}
+              className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs shrink-0 cursor-pointer transition-colors"
+            >
+              Ton jetzt aktivieren
+            </button>
+          </div>
+        )}
+
         {/* Central Audio Card */}
         <div className="bg-[#1C1C1E] border border-[#2C2C2E] rounded-3xl p-6 text-center shadow-xl relative overflow-hidden">
           {/* Subtle audio waves decoration */}
           <div className="relative inline-block mb-3">
             <button
               type="button"
-              onClick={handlePlayAudio}
-              className={`w-24 h-24 rounded-full bg-gradient-to-br from-[#2A201A] to-[#1C1C1E] border-2 border-[#FF7A00] flex flex-col items-center justify-center text-[#FF7A00] shadow-lg active:scale-95 transition-all cursor-pointer relative group ${
-                isPlayingAudio ? 'ring-8 ring-[#FF7A00]/20 scale-105' : 'hover:scale-105'
+              onClick={effectiveAudioEnabled ? handlePlayAudio : handleEnableAudio}
+              className={`w-24 h-24 rounded-full bg-gradient-to-br from-[#2A201A] to-[#1C1C1E] border-2 flex flex-col items-center justify-center shadow-lg active:scale-95 transition-all cursor-pointer relative group ${
+                !effectiveAudioEnabled
+                  ? 'border-[#52525B] text-[#8E8E93] hover:border-[#FF7A00] hover:text-[#FF7A00]'
+                  : isPlayingAudio
+                  ? 'border-[#FF7A00] text-[#FF7A00] ring-8 ring-[#FF7A00]/20 scale-105'
+                  : 'border-[#FF7A00] text-[#FF7A00] hover:scale-105'
               }`}
             >
-              <Volume2
-                className={`w-10 h-10 transition-transform ${
-                  isPlayingAudio ? 'scale-115 text-[#FFA040]' : 'group-hover:scale-110'
-                }`}
-              />
-              <span className="text-[10px] font-semibold text-[#FF7A00] mt-1">
-                {isPlayingAudio ? 'Spielt...' : 'Anhören'}
+              {effectiveAudioEnabled ? (
+                <Volume2
+                  className={`w-10 h-10 transition-transform ${
+                    isPlayingAudio ? 'scale-115 text-[#FFA040]' : 'group-hover:scale-110'
+                  }`}
+                />
+              ) : (
+                <VolumeX className="w-10 h-10" />
+              )}
+              <span className="text-[10px] font-semibold mt-1">
+                {!effectiveAudioEnabled ? 'Ton aktivieren' : isPlayingAudio ? 'Spielt...' : 'Anhören'}
               </span>
             </button>
           </div>

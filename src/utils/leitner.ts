@@ -87,18 +87,26 @@ export function calculateResetReviewDate(): string {
   return new Date(Date.now() - 1000).toISOString();
 }
 
+function getReferenceDate(referenceDateStr?: string | null): Date {
+  if (referenceDateStr) {
+    const ref = new Date(referenceDateStr);
+    if (!isNaN(ref.getTime())) return ref;
+  }
+  return new Date();
+}
+
 /**
  * Check if a card is currently due for review.
  * In Leitner spaced repetition, any card whose scheduled review date is today
  * or in the past (calendar day / midnight comparison) is due today.
- * We do not block cards based on the exact minute or second they were reviewed yesterday.
+ * Supports an optional frozen referenceDateStr (e.g. vacation start date).
  */
-export function isCardDue(nextReviewDateStr: string): boolean {
+export function isCardDue(nextReviewDateStr: string, referenceDateStr?: string | null): boolean {
   if (!nextReviewDateStr) return true;
   const target = new Date(nextReviewDateStr);
   if (isNaN(target.getTime())) return true;
 
-  const now = new Date();
+  const now = getReferenceDate(referenceDateStr);
   const targetMidnight = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
   const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   return targetMidnight <= nowMidnight;
@@ -107,7 +115,10 @@ export function isCardDue(nextReviewDateStr: string): boolean {
 /**
  * Format relative due time and calendar date (e.g., "Heute fällig", "Morgen fällig (13.10.)", "In 3 Tagen (15.10.)", "Überfällig (seit 2 Tagen)")
  */
-export function formatDueDate(dateStr?: string): {
+export function formatDueDate(
+  dateStr?: string,
+  referenceDateStr?: string | null
+): {
   label: string;
   isDue: boolean;
   dateFormatted: string;
@@ -123,7 +134,7 @@ export function formatDueDate(dateStr?: string): {
   }
 
   const target = new Date(dateStr);
-  const now = new Date();
+  const now = getReferenceDate(referenceDateStr);
   const dateFormatted = target.toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
@@ -210,19 +221,26 @@ export function getDirectionProgress(
  */
 export function isDirectionDue(
   prog: UserProgress | undefined,
-  direction: QueryDirection
+  direction: QueryDirection,
+  referenceDateStr?: string | null
 ): boolean {
   if (!prog) return false;
   const dirProg = getDirectionProgress(prog, direction);
-  return isCardDue(dirProg.nextReviewDate);
+  return isCardDue(dirProg.nextReviewDate, referenceDateStr);
 }
 
 /**
  * Checks whether a vocabulary item is due in either direction
  */
-export function isAnyDirectionDue(prog: UserProgress | undefined): boolean {
+export function isAnyDirectionDue(
+  prog: UserProgress | undefined,
+  referenceDateStr?: string | null
+): boolean {
   if (!prog) return false;
-  return isDirectionDue(prog, 'de_to_th') || isDirectionDue(prog, 'th_to_de');
+  return (
+    isDirectionDue(prog, 'de_to_th', referenceDateStr) ||
+    isDirectionDue(prog, 'th_to_de', referenceDateStr)
+  );
 }
 
 /**
@@ -370,10 +388,11 @@ export function calculateReviewForecast(
   vocabularies: Vocabulary[],
   progressMap: Record<string, UserProgress>,
   studyDirection: 'both' | 'de_to_th' | 'th_to_de' = 'both',
-  numberOfDays: number = 5
+  numberOfDays: number = 5,
+  referenceDateStr?: string | null
 ): ReviewForecastResult {
   const vocabMap = new Map(vocabularies.map((v) => [v.id, v]));
-  const now = new Date();
+  const now = getReferenceDate(referenceDateStr);
   const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
   // Initialize N days (Day 0 = Heute/überfällig, Day 1 = Morgen, etc.)
@@ -385,14 +404,18 @@ export function calculateReviewForecast(
     let weekdayName = '';
     let shortWeekday = '';
     if (offset === 0) {
-      weekdayName = 'Heute';
-      shortWeekday = 'Heute';
+      weekdayName = referenceDateStr ? 'Eingefroren (Tag 0)' : 'Heute';
+      shortWeekday = referenceDateStr ? 'Tag 0' : 'Heute';
     } else if (offset === 1) {
-      weekdayName = 'Morgen';
-      shortWeekday = 'Morgen';
+      weekdayName = referenceDateStr ? 'Nach Rückkehr +1' : 'Morgen';
+      shortWeekday = referenceDateStr ? '+1 T.' : 'Morgen';
     } else {
-      weekdayName = d.toLocaleDateString('de-DE', { weekday: 'long' });
-      shortWeekday = d.toLocaleDateString('de-DE', { weekday: 'short' });
+      weekdayName = referenceDateStr
+        ? `Nach Rückkehr +${offset}`
+        : d.toLocaleDateString('de-DE', { weekday: 'long' });
+      shortWeekday = referenceDateStr
+        ? `+${offset} T.`
+        : d.toLocaleDateString('de-DE', { weekday: 'short' });
     }
 
     days.push({
@@ -419,7 +442,7 @@ export function calculateReviewForecast(
     const checkDirection = (direction: QueryDirection) => {
       const dirProg = getDirectionProgress(p, direction);
       const targetStr = dirProg.nextReviewDate;
-      const target = targetStr ? new Date(targetStr) : new Date();
+      const target = targetStr ? new Date(targetStr) : now;
       const targetMidnight = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
       const diffDays = Math.round((targetMidnight - nowMidnight) / (1000 * 60 * 60 * 24));
 
@@ -477,3 +500,72 @@ export function calculateReviewForecast(
   };
 }
 
+/**
+ * Calculates how many full local calendar days have elapsed since vacation started.
+ */
+export function getVacationDaysElapsed(
+  startedAtIso: string | null | undefined,
+  endedAtIso?: string
+): number {
+  if (!startedAtIso) return 0;
+  const start = new Date(startedAtIso);
+  if (isNaN(start.getTime())) return 0;
+
+  const end = endedAtIso ? new Date(endedAtIso) : new Date();
+  if (isNaN(end.getTime())) return 0;
+
+  const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+  const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+  return Math.max(0, Math.round((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)));
+}
+
+/**
+ * Shifts an ISO date string forward by a whole number of calendar days.
+ */
+export function shiftIsoDateByDays(dateStr: string | undefined, days: number): string | undefined {
+  if (!dateStr || days <= 0) return dateStr;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+}
+
+/**
+ * Shifts all nextReviewDate values across a UserProgress map forward by `days` calendar days,
+ * leaving phases, streaks, and stats untouched.
+ */
+export function shiftUserProgressByDays(
+  progressMap: Record<string, UserProgress>,
+  days: number
+): Record<string, UserProgress> {
+  if (days <= 0) return { ...progressMap };
+
+  const nowIso = new Date().toISOString();
+  const result: Record<string, UserProgress> = {};
+
+  for (const [vocabId, prog] of Object.entries(progressMap)) {
+    const shiftedDeToTh = prog.deToTh
+      ? {
+          ...prog.deToTh,
+          nextReviewDate: shiftIsoDateByDays(prog.deToTh.nextReviewDate, days) || prog.deToTh.nextReviewDate,
+        }
+      : undefined;
+
+    const shiftedThToDe = prog.thToDe
+      ? {
+          ...prog.thToDe,
+          nextReviewDate: shiftIsoDateByDays(prog.thToDe.nextReviewDate, days) || prog.thToDe.nextReviewDate,
+        }
+      : undefined;
+
+    result[vocabId] = {
+      ...prog,
+      nextReviewDate: shiftIsoDateByDays(prog.nextReviewDate, days) || prog.nextReviewDate,
+      updatedAt: nowIso,
+      ...(shiftedDeToTh ? { deToTh: shiftedDeToTh } : {}),
+      ...(shiftedThToDe ? { thToDe: shiftedThToDe } : {}),
+    };
+  }
+
+  return result;
+}

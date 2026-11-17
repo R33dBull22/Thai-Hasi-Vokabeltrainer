@@ -65,3 +65,15 @@ export interface PhaseConfig {
   bgLight: string;
   description: string;
 }
+
+export interface VacationModeState {
+  enabled: boolean;
+  startedAt: string | null; // ISO timestamp when vacation mode was activated
+}
+
+export interface UserPreferences {
+  audioEnabled: boolean;
+  vacationMode: VacationModeState;
+  updatedAt?: string;
+}
+

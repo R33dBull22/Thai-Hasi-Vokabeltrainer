@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X,
   Volume2,
+  VolumeX,
   Eye,
   EyeOff,
   MessageSquare,
@@ -21,6 +22,7 @@ import {
   Send,
   GraduationCap,
   Zap,
+  Snowflake,
 } from 'lucide-react';
 import { Vocabulary, UserProgress, QueryDirection, ThaiFontStyle } from '../types/vocab';
 import {
@@ -30,7 +32,7 @@ import {
   calculateNextReviewDate,
   calculateResetReviewDate,
 } from '../utils/leitner';
-import { speakThai } from '../utils/thaiAudio';
+import { speakThai, isThaiAudioEnabled, setThaiAudioEnabled } from '../utils/thaiAudio';
 import { EditVocabModal } from './EditVocabModal';
 import { saveStudySession } from '../services/statsService';
 import { ToneVisualizer } from './ToneVisualizer';
@@ -64,6 +66,9 @@ interface StudySessionProps {
   existingLessons?: string[];
   colorCodingEnabled?: boolean;
   fontStyle?: ThaiFontStyle;
+  audioEnabled?: boolean;
+  onToggleAudioEnabled?: (val: boolean) => void;
+  isVacationMode?: boolean;
 }
 
 function normalizeGerman(str: string): string {
@@ -518,6 +523,9 @@ export const StudySession: React.FC<StudySessionProps> = ({
   existingLessons = [],
   colorCodingEnabled = true,
   fontStyle = 'classic',
+  audioEnabled,
+  onToggleAudioEnabled,
+  isVacationMode = false,
 }) => {
   // Session queue: intelligently shuffled so opposing directions of the same vocab never appear back-to-back
   const [cardQueue, setCardQueue] = useState<StudyCardItem[]>(() => shuffleStudyCards(initialCards));
@@ -571,6 +579,28 @@ export const StudySession: React.FC<StudySessionProps> = ({
   useEffect(() => {
     setHideRomanization(defaultHideRomanization);
   }, [defaultHideRomanization]);
+
+  const [localAudioEnabled, setLocalAudioEnabled] = useState<boolean>(() =>
+    audioEnabled !== undefined ? audioEnabled : isThaiAudioEnabled()
+  );
+
+  useEffect(() => {
+    if (audioEnabled !== undefined) {
+      setLocalAudioEnabled(audioEnabled);
+    }
+  }, [audioEnabled]);
+
+  const effectiveAudioEnabled = audioEnabled !== undefined ? audioEnabled : localAudioEnabled;
+
+  const handleToggleAudio = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const nextVal = !effectiveAudioEnabled;
+    setLocalAudioEnabled(nextVal);
+    setThaiAudioEnabled(nextVal);
+    if (onToggleAudioEnabled) {
+      onToggleAudioEnabled(nextVal);
+    }
+  };
 
   const handleToggleRomanization = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -708,6 +738,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
   }, [currentIndex, currentInputMethod, isEvaluated]);
 
   const handlePlayAudio = () => {
+    if (!effectiveAudioEnabled) return;
     if (vocab?.thai) {
       speakThai(vocab.thai);
     }
@@ -746,20 +777,24 @@ export const StudySession: React.FC<StudySessionProps> = ({
         updated = await onAnswer(vocab.id, isCorrect, activeDirection);
       } catch (answerErr) {
         console.warn('onAnswer error, applying local progress fallback:', answerErr);
-        const curDirProg = getDirectionProgress(progress, activeDirection);
-        const nextPhase = isCorrect ? Math.min(6, curDirProg.phase + 1) : 1;
-        const now = new Date().toISOString();
-        updated = {
-          id: `${vocab.id}_fallback`,
-          userId: 'local_user',
-          vocabId: vocab.id,
-          phase: nextPhase,
-          nextReviewDate: isCorrect ? calculateNextReviewDate(nextPhase) : calculateResetReviewDate(),
-          lastReviewedAt: now,
-          updatedAt: now,
-          deToTh: activeDirection === 'de_to_th' ? { phase: nextPhase, nextReviewDate: isCorrect ? calculateNextReviewDate(nextPhase) : calculateResetReviewDate(), lastReviewedAt: now } : undefined,
-          thToDe: activeDirection === 'th_to_de' ? { phase: nextPhase, nextReviewDate: isCorrect ? calculateNextReviewDate(nextPhase) : calculateResetReviewDate(), lastReviewedAt: now } : undefined,
-        } as UserProgress;
+        if (isVacationMode && progress) {
+          updated = progress;
+        } else {
+          const curDirProg = getDirectionProgress(progress, activeDirection);
+          const nextPhase = isCorrect ? Math.min(6, curDirProg.phase + 1) : 1;
+          const now = new Date().toISOString();
+          updated = {
+            id: `${vocab.id}_fallback`,
+            userId: 'local_user',
+            vocabId: vocab.id,
+            phase: nextPhase,
+            nextReviewDate: isCorrect ? calculateNextReviewDate(nextPhase) : calculateResetReviewDate(),
+            lastReviewedAt: now,
+            updatedAt: now,
+            deToTh: activeDirection === 'de_to_th' ? { phase: nextPhase, nextReviewDate: isCorrect ? calculateNextReviewDate(nextPhase) : calculateResetReviewDate(), lastReviewedAt: now } : undefined,
+            thToDe: activeDirection === 'th_to_de' ? { phase: nextPhase, nextReviewDate: isCorrect ? calculateNextReviewDate(nextPhase) : calculateResetReviewDate(), lastReviewedAt: now } : undefined,
+          } as UserProgress;
+        }
       }
 
       const updatedDirProg = getDirectionProgress(updated, activeDirection);
@@ -907,9 +942,16 @@ export const StudySession: React.FC<StudySessionProps> = ({
           </div>
 
           <h2 className="text-2xl font-bold tracking-tight mb-2">Abfrage abgeschlossen!</h2>
-          <p className="text-sm text-[#8E8E93] mb-8">
+          <p className="text-sm text-[#8E8E93] mb-4">
             Du hast alle {totalUniqueCount} {totalUniqueCount === 1 ? 'Vokabel' : 'Vokabeln'} erfolgreich gemeistert.
           </p>
+          {isVacationMode && (
+            <div className="mb-6 px-3 py-2 rounded-xl bg-sky-500/15 border border-sky-400/35 text-xs text-sky-200 inline-flex items-center gap-1.5">
+              <Snowflake className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span>Urlaubsmodus aktiv – alle Phasen blieben unverändert eingefroren.</span>
+            </div>
+          )}
+          {!isVacationMode && <div className="mb-4" />}
 
           <div className="grid grid-cols-3 gap-3 w-full mb-8">
             <div className="bg-[#242426] p-4 rounded-2xl border border-[#323236]">
@@ -1052,16 +1094,50 @@ export const StudySession: React.FC<StudySessionProps> = ({
       {/* Single Unified Card matching IMG_6357.png */}
       <div className="max-w-md w-full mx-auto flex-1 min-h-0 flex flex-col my-1">
         <div className="relative bg-[#262628] border border-[#38383A] rounded-3xl p-4 sm:p-5 flex flex-col justify-between flex-1 min-h-[180px] shadow-xl">
-          {/* Card Top Row: Flag on left, 3-dots menu & quick eye toggle on right */}
+          {/* Card Top Row: Flag + optional Vacation badge on left, audio/eye/menu toggles on right */}
           <div className="flex items-center justify-between relative z-40 shrink-0 mb-1">
-            <span
-              className="text-2xl select-none"
-              title={isDeToThai ? 'Deutsch ➔ Thai' : 'Thai ➔ Deutsch'}
-            >
-              {isDeToThai ? '🇩🇪' : '🇹🇭'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className="text-2xl select-none"
+                title={isDeToThai ? 'Deutsch ➔ Thai' : 'Thai ➔ Deutsch'}
+              >
+                {isDeToThai ? '🇩🇪' : '🇹🇭'}
+              </span>
+              {isVacationMode && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/15 border border-sky-400/35 text-[10px] font-semibold text-sky-300"
+                  title="Urlaubsmodus aktiv: Phasen und Fälligkeiten werden bei dieser Übung nicht verändert"
+                >
+                  <Snowflake className="w-3 h-3 text-sky-400" />
+                  <span>Eingefroren</span>
+                </span>
+              )}
+            </div>
 
             <div className="flex items-center gap-1.5">
+              {/* Quick 1-Tap Toggle for Thai Audio Pronunciation */}
+              <button
+                type="button"
+                onClick={handleToggleAudio}
+                className={`p-1.5 rounded-full transition-colors cursor-pointer flex items-center justify-center ${
+                  effectiveAudioEnabled
+                    ? 'text-[#FF7A00] bg-[#FF7A00]/15 hover:bg-[#FF7A00]/25'
+                    : 'text-[#8E8E93] bg-[#2C2C2E]/70 hover:text-white hover:bg-[#3A3A3D]'
+                }`}
+                title={
+                  effectiveAudioEnabled
+                    ? 'Aussprache ausschalten (derzeit aktiv)'
+                    : 'Aussprache einschalten (derzeit stumm)'
+                }
+                aria-label={effectiveAudioEnabled ? 'Aussprache ausschalten' : 'Aussprache einschalten'}
+              >
+                {effectiveAudioEnabled ? (
+                  <Volume2 className="w-5 h-5 stroke-[2.2]" />
+                ) : (
+                  <VolumeX className="w-5 h-5 stroke-[2.2]" />
+                )}
+              </button>
+
               {/* Quick 1-Tap Toggle for Romanization / Umschrift */}
               <button
                 type="button"
@@ -1125,18 +1201,42 @@ export const StudySession: React.FC<StudySessionProps> = ({
                           <span>Vokabel bearbeiten</span>
                         </button>
                       )}
+                      {effectiveAudioEnabled && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlayAudio();
+                            setShowCardMenu(false);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left cursor-pointer"
+                        >
+                          <Volume2 className="w-3.5 h-3.5 text-[#FF7A00]" />
+                          <span>Aussprache abspielen</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handlePlayAudio();
+                          handleToggleAudio(e);
                           setShowCardMenu(false);
                         }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#2C2C2E] text-white transition-colors text-left cursor-pointer"
                       >
-                        <Volume2 className="w-3.5 h-3.5 text-[#FF7A00]" />
-                        <span>Aussprache abspielen</span>
+                        {effectiveAudioEnabled ? (
+                          <>
+                            <VolumeX className="w-3.5 h-3.5 text-[#8E8E93]" />
+                            <span>Aussprache ausschalten</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5 text-[#FF7A00]" />
+                            <span>Aussprache einschalten</span>
+                          </>
+                        )}
                       </button>
                       <button
                         type="button"
@@ -1296,11 +1396,23 @@ export const StudySession: React.FC<StudySessionProps> = ({
                     <div className="flex items-center justify-center gap-3 mt-2">
                       <button
                         type="button"
-                        onClick={handlePlayAudio}
-                        className="p-1.5 rounded-full bg-[#323236] text-[#D1D1D6] hover:text-white hover:bg-[#3E3E42] transition-colors"
-                        title="Aussprache anhören"
+                        onClick={effectiveAudioEnabled ? handlePlayAudio : handleToggleAudio}
+                        className={`p-1.5 rounded-full transition-colors ${
+                          effectiveAudioEnabled
+                            ? 'bg-[#323236] text-[#D1D1D6] hover:text-white hover:bg-[#3E3E42]'
+                            : 'bg-[#2C2C2E]/70 text-[#71717A] hover:text-[#FF7A00]'
+                        }`}
+                        title={
+                          effectiveAudioEnabled
+                            ? 'Aussprache anhören'
+                            : 'Aussprache deaktiviert (antippen zum Aktivieren)'
+                        }
                       >
-                        <Volume2 className="w-4 h-4" />
+                        {effectiveAudioEnabled ? (
+                          <Volume2 className="w-4 h-4" />
+                        ) : (
+                          <VolumeX className="w-4 h-4" />
+                        )}
                       </button>
                       {isEvaluated && !isTyping && (
                         <span className="text-xl" title={isTypingCorrect ? 'Richtig' : 'Abweichung'}>
@@ -1338,11 +1450,23 @@ export const StudySession: React.FC<StudySessionProps> = ({
                     <div className="flex items-center justify-center gap-3 mt-2">
                       <button
                         type="button"
-                        onClick={handlePlayAudio}
-                        className="p-1.5 rounded-full bg-[#323236] text-[#D1D1D6] hover:text-white hover:bg-[#3E3E42] transition-colors"
-                        title="Aussprache anhören"
+                        onClick={effectiveAudioEnabled ? handlePlayAudio : handleToggleAudio}
+                        className={`p-1.5 rounded-full transition-colors ${
+                          effectiveAudioEnabled
+                            ? 'bg-[#323236] text-[#D1D1D6] hover:text-white hover:bg-[#3E3E42]'
+                            : 'bg-[#2C2C2E]/70 text-[#71717A] hover:text-[#FF7A00]'
+                        }`}
+                        title={
+                          effectiveAudioEnabled
+                            ? 'Aussprache anhören'
+                            : 'Aussprache deaktiviert (antippen zum Aktivieren)'
+                        }
                       >
-                        <Volume2 className="w-4 h-4" />
+                        {effectiveAudioEnabled ? (
+                          <Volume2 className="w-4 h-4" />
+                        ) : (
+                          <VolumeX className="w-4 h-4" />
+                        )}
                       </button>
                       {isEvaluated && !isTyping && (
                         <span className="text-xl" title={isTypingCorrect ? 'Richtig' : 'Abweichung'}>

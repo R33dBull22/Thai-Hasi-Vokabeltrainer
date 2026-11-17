@@ -1,5 +1,29 @@
 import { autocorrectThaiTypingOrder } from './thaiTones';
 
+export const AUDIO_ENABLED_KEY = 'thai_hasis_audio_enabled';
+
+export function isThaiAudioEnabled(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    return localStorage.getItem(AUDIO_ENABLED_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+export function setThaiAudioEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(AUDIO_ENABLED_KEY, String(enabled));
+  } catch {}
+  if (!enabled) {
+    stopThaiSpeech();
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('thai-hasis-audio-changed', { detail: enabled }));
+  } catch {}
+}
+
 let cachedThaiVoice: SpeechSynthesisVoice | null = null;
 
 function findBestThaiVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
@@ -246,9 +270,25 @@ const TTS_PHONETIC_REPLACEMENTS: Array<[RegExp, string]> = [
 export function speakThai(
   text: string,
   onEndOrRate?: (() => void) | number,
-  rateParam: number = 0.95
+  rateParam: number = 0.95,
+  options?: { force?: boolean }
 ): boolean {
+  if (!options?.force && !isThaiAudioEnabled()) {
+    stopThaiSpeech();
+    if (typeof onEndOrRate === 'function') {
+      try {
+        onEndOrRate();
+      } catch {}
+    }
+    return false;
+  }
+
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (typeof onEndOrRate === 'function') {
+      try {
+        onEndOrRate();
+      } catch {}
+    }
     return false;
   }
 

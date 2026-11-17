@@ -30,6 +30,7 @@ interface ReviewForecastModalProps {
   progressMap: Record<string, UserProgress>;
   initialDayOffset?: number;
   initialDirection?: 'both' | 'de_to_th' | 'th_to_de';
+  vacationStartedAt?: string | null;
   onStartSession?: (cards: StudyCardItem[], direction: QueryDirection) => void;
 }
 
@@ -40,6 +41,7 @@ export const ReviewForecastModal: React.FC<ReviewForecastModalProps> = ({
   progressMap,
   initialDayOffset = 0,
   initialDirection = 'both',
+  vacationStartedAt = null,
   onStartSession,
 }) => {
   const [selectedDirection, setSelectedDirection] = useState<'both' | 'de_to_th' | 'th_to_de'>(initialDirection);
@@ -47,8 +49,8 @@ export const ReviewForecastModal: React.FC<ReviewForecastModalProps> = ({
   const [dayRange, setDayRange] = useState<5 | 7>(5);
 
   const forecast = useMemo(() => {
-    return calculateReviewForecast(vocabularies, progressMap, selectedDirection, dayRange);
-  }, [vocabularies, progressMap, selectedDirection, dayRange]);
+    return calculateReviewForecast(vocabularies, progressMap, selectedDirection, dayRange, vacationStartedAt);
+  }, [vocabularies, progressMap, selectedDirection, dayRange, vacationStartedAt]);
 
   // Ensure active day is within range
   const activeDay: DayForecast =
@@ -106,14 +108,21 @@ export const ReviewForecastModal: React.FC<ReviewForecastModalProps> = ({
                 <Calendar className="w-5 h-5 text-black" />
               </div>
               <div>
-                <h2 className="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
+                <h2 className="text-base font-bold tracking-tight text-white flex items-center gap-1.5 flex-wrap">
                   <span>Wiederholungs-Vorschau</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FF7A00]/20 text-[#FF7A00] font-bold border border-[#FF7A00]/40">
                     {dayRange} Tage
                   </span>
+                  {vacationStartedAt && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-bold border border-sky-400/40">
+                      ❄️ Eingefroren
+                    </span>
+                  )}
                 </h2>
                 <p className="text-xs text-[#8E8E93]">
-                  Wie viele Vokabeln stehen an den nächsten Tagen an?
+                  {vacationStartedAt
+                    ? 'Termine pausiert – Stand bleibt bis zum Ende des Urlaubsmodus eingefroren'
+                    : 'Wie viele Vokabeln stehen an den nächsten Tagen an?'}
                 </p>
               </div>
             </div>

@@ -12,9 +12,17 @@ import {
   Headphones,
   Type,
   Calendar,
+  Snowflake,
+  Plane,
+  VolumeX,
 } from 'lucide-react';
-import { Vocabulary, UserProgress, QueryDirection } from '../types/vocab';
-import { isCardDue, isDirectionDue, getDirectionProgress, shuffleStudyCards } from '../utils/leitner';
+import { Vocabulary, UserProgress, QueryDirection, VacationModeState } from '../types/vocab';
+import {
+  isDirectionDue,
+  getDirectionProgress,
+  shuffleStudyCards,
+  getVacationDaysElapsed,
+} from '../utils/leitner';
 import { ReportsModal } from './ReportsModal';
 import { StudySummaryModal } from './StudySummaryModal';
 import { StudyMode, StudyDirection, StudyInputMethod, StudyCardItem } from './StudySession';
@@ -49,6 +57,10 @@ interface LearnViewProps {
   onOpenFontTrainer?: () => void;
   onOpenConsonantTrainer?: () => void;
   onOpenSyllableTrainer?: () => void;
+  vacationMode?: VacationModeState;
+  onToggleVacationMode?: (enabled: boolean) => Promise<{ enabled: boolean; pausedDays?: number } | void>;
+  audioEnabled?: boolean;
+  onToggleAudioEnabled?: (val: boolean) => void;
 }
 
 export const LearnView: React.FC<LearnViewProps> = ({
@@ -67,6 +79,10 @@ export const LearnView: React.FC<LearnViewProps> = ({
   onOpenFontTrainer,
   onOpenConsonantTrainer,
   onOpenSyllableTrainer,
+  vacationMode = { enabled: false, startedAt: null },
+  onToggleVacationMode,
+  audioEnabled = true,
+  onToggleAudioEnabled,
 }) => {
   const [showReports, setShowReports] = useState(false);
   const [showListeningModal, setShowListeningModal] = useState(false);
@@ -74,30 +90,34 @@ export const LearnView: React.FC<LearnViewProps> = ({
   const [forecastDayOffset, setForecastDayOffset] = useState<number>(0);
   const [customizeModalCards, setCustomizeModalCards] = useState<StudyCardItem[] | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isEndingVacation, setIsEndingVacation] = useState(false);
+
+  const isVacationActive = Boolean(vacationMode?.enabled);
+  const frozenRef = isVacationActive ? vacationMode.startedAt : null;
 
   // Cards in deck
   const deckVocabs = vocabularies.filter((v) => progressMap[v.id]);
 
-  // Due cards: each direction is evaluated independently!
+  // Due cards: each direction is evaluated independently (frozen at vacation start if active)!
   const dueCards: StudyCardItem[] = [];
   deckVocabs.forEach((v) => {
     const prog = progressMap[v.id];
     if (!prog) return;
 
     if (studyDirection === 'de_to_th') {
-      if (isDirectionDue(prog, 'de_to_th')) {
+      if (isDirectionDue(prog, 'de_to_th', frozenRef)) {
         dueCards.push({ vocab: v, progress: prog, direction: 'de_to_th' });
       }
     } else if (studyDirection === 'th_to_de') {
-      if (isDirectionDue(prog, 'th_to_de')) {
+      if (isDirectionDue(prog, 'th_to_de', frozenRef)) {
         dueCards.push({ vocab: v, progress: prog, direction: 'th_to_de' });
       }
     } else {
       // Both directions: check both independently
-      if (isDirectionDue(prog, 'de_to_th')) {
+      if (isDirectionDue(prog, 'de_to_th', frozenRef)) {
         dueCards.push({ vocab: v, progress: prog, direction: 'de_to_th' });
       }
-      if (isDirectionDue(prog, 'th_to_de')) {
+      if (isDirectionDue(prog, 'th_to_de', frozenRef)) {
         dueCards.push({ vocab: v, progress: prog, direction: 'th_to_de' });
       }
     }
@@ -108,14 +128,14 @@ export const LearnView: React.FC<LearnViewProps> = ({
   if (studyDirection === 'de_to_th') {
     deckVocabs.forEach((v) => {
       const prog = progressMap[v.id];
-      if (prog && isDirectionDue(prog, 'th_to_de')) {
+      if (prog && isDirectionDue(prog, 'th_to_de', frozenRef)) {
         otherDueCards.push({ vocab: v, progress: prog, direction: 'th_to_de' });
       }
     });
   } else if (studyDirection === 'th_to_de') {
     deckVocabs.forEach((v) => {
       const prog = progressMap[v.id];
-      if (prog && isDirectionDue(prog, 'de_to_th')) {
+      if (prog && isDirectionDue(prog, 'de_to_th', frozenRef)) {
         otherDueCards.push({ vocab: v, progress: prog, direction: 'de_to_th' });
       }
     });
@@ -129,13 +149,13 @@ export const LearnView: React.FC<LearnViewProps> = ({
 
     if (studyDirection === 'de_to_th' || studyDirection === 'both') {
       const deProg = getDirectionProgress(prog, 'de_to_th');
-      if (deProg.phase === 1 && (!deProg.lastReviewedAt || deProg.streak === 0) && isDirectionDue(prog, 'de_to_th')) {
+      if (deProg.phase === 1 && (!deProg.lastReviewedAt || deProg.streak === 0) && isDirectionDue(prog, 'de_to_th', frozenRef)) {
         newVocabCards.push({ vocab: v, progress: prog, direction: 'de_to_th' });
       }
     }
     if (studyDirection === 'th_to_de' || studyDirection === 'both') {
       const thProg = getDirectionProgress(prog, 'th_to_de');
-      if (thProg.phase === 1 && (!thProg.lastReviewedAt || thProg.streak === 0) && isDirectionDue(prog, 'th_to_de')) {
+      if (thProg.phase === 1 && (!thProg.lastReviewedAt || thProg.streak === 0) && isDirectionDue(prog, 'th_to_de', frozenRef)) {
         newVocabCards.push({ vocab: v, progress: prog, direction: 'th_to_de' });
       }
     }
@@ -233,6 +253,63 @@ export const LearnView: React.FC<LearnViewProps> = ({
           </div>
         )}
 
+        {/* Active Vacation Mode Banner */}
+        {isVacationActive && (
+          <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-sky-950/60 via-[#1E242B] to-sky-950/60 border border-sky-400/45 shadow-lg flex items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center shrink-0">
+                <Plane className="w-4 h-4 text-sky-300" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Urlaubsmodus aktiv</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sky-400/20 text-sky-300 border border-sky-400/30 font-semibold">
+                    ❄️ Eingefroren
+                  </span>
+                </p>
+                <p className="text-[11px] text-sky-200/80 truncate mt-0.5">
+                  {(() => {
+                    const days = getVacationDaysElapsed(vacationMode.startedAt);
+                    const dateStr = vacationMode.startedAt
+                      ? new Date(vacationMode.startedAt).toLocaleDateString('de-DE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                        })
+                      : '';
+                    return days > 0
+                      ? `Seit ${dateStr} (${days} ${days === 1 ? 'Tag' : 'Tage'}) • Phasen pausiert`
+                      : 'Alle Phasen & Termine bleiben eingefroren';
+                  })()}
+                </p>
+              </div>
+            </div>
+
+            {onToggleVacationMode && (
+              <button
+                type="button"
+                disabled={isEndingVacation}
+                onClick={async () => {
+                  setIsEndingVacation(true);
+                  try {
+                    const res = await onToggleVacationMode(false);
+                    const days = res && typeof res.pausedDays === 'number' ? res.pausedDays : 0;
+                    showToast(
+                      days > 0
+                        ? `Urlaubsmodus beendet – alle Termine um ${days} ${days === 1 ? 'Tag' : 'Tage'} verschoben!`
+                        : 'Urlaubsmodus beendet – du bist wieder im regulären Lernplan!'
+                    );
+                  } finally {
+                    setIsEndingVacation(false);
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl bg-sky-400 hover:bg-sky-300 text-black font-bold text-xs transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                {isEndingVacation ? '...' : 'Beenden'}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Hero Section matching IMG_6334.png */}
         <div className="grid grid-cols-12 gap-3 mb-5">
           {/* Left Course Card */}
@@ -279,23 +356,41 @@ export const LearnView: React.FC<LearnViewProps> = ({
 
           {/* Right Stacked Tiles matching IMG_6334.png */}
           <div className="col-span-5 flex flex-col gap-3">
-            {/* Top Tile: Circular reload badge with count & "Heute" */}
+            {/* Top Tile: Circular reload badge with count & "Heute" (paused in Vacation Mode) */}
             <button
-              onClick={() => handleDirectStart(dueCards)}
-              className="flex-1 bg-[#242426] rounded-3xl p-4 border border-[#323236] flex flex-col items-center justify-center text-center hover:bg-[#2A2A2E] transition-all active:scale-[0.98] shadow-md relative group"
+              onClick={() => handleDirectStart(isVacationActive ? allDeckCards : dueCards)}
+              className={`flex-1 bg-[#242426] rounded-3xl p-4 border flex flex-col items-center justify-center text-center hover:bg-[#2A2A2E] transition-all active:scale-[0.98] shadow-md relative group ${
+                isVacationActive ? 'border-sky-400/40' : 'border-[#323236]'
+              }`}
             >
-              <div className="relative w-14 h-14 rounded-full border-2 border-[#FF7A00] flex items-center justify-center mb-2">
-                <span className="text-xl font-bold text-[#FF7A00]">
-                  {dueCount > 0 ? dueCount : totalDeckCount > 0 ? '✓' : '0'}
-                </span>
-                <RotateCcw className="w-3.5 h-3.5 text-[#FF7A00] absolute -top-1.5 -right-1" />
-              </div>
-              <span className="text-xs font-semibold text-[#FF7A00]">
-                Heute
-              </span>
-              <span className="text-[10px] text-[#8E8E93] mt-0.5">
-                {dueCount > 0 ? `${dueCount} fällig` : 'Auf dem Stand'}
-              </span>
+              {isVacationActive ? (
+                <>
+                  <div className="relative w-14 h-14 rounded-full border-2 border-sky-400 bg-sky-500/10 flex items-center justify-center mb-2">
+                    <Snowflake className="w-6 h-6 text-sky-400" />
+                  </div>
+                  <span className="text-xs font-semibold text-sky-300">
+                    Pausiert
+                  </span>
+                  <span className="text-[10px] text-[#8E8E93] mt-0.5">
+                    Eingefroren
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="relative w-14 h-14 rounded-full border-2 border-[#FF7A00] flex items-center justify-center mb-2">
+                    <span className="text-xl font-bold text-[#FF7A00]">
+                      {dueCount > 0 ? dueCount : totalDeckCount > 0 ? '✓' : '0'}
+                    </span>
+                    <RotateCcw className="w-3.5 h-3.5 text-[#FF7A00] absolute -top-1.5 -right-1" />
+                  </div>
+                  <span className="text-xs font-semibold text-[#FF7A00]">
+                    Heute
+                  </span>
+                  <span className="text-[10px] text-[#8E8E93] mt-0.5">
+                    {dueCount > 0 ? `${dueCount} fällig` : 'Auf dem Stand'}
+                  </span>
+                </>
+              )}
             </button>
 
             {/* Bottom Tile: Reports */}
@@ -321,6 +416,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
           vocabularies={vocabularies}
           progressMap={progressMap}
           studyDirection={studyDirection}
+          vacationStartedAt={frozenRef}
           onOpenForecastModal={(dayOffset = 0) => {
             setForecastDayOffset(dayOffset);
             setShowForecastModal(true);
@@ -328,16 +424,27 @@ export const LearnView: React.FC<LearnViewProps> = ({
         />
 
         {/* Learning Status overview & Saved settings badge */}
-        <div className="bg-[#1C1C1E] rounded-2xl p-3.5 border border-[#2C2C2E] mb-5 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#FF7A00] animate-pulse" />
-            <span className="text-[#D1D1D6]">
+        <div className="bg-[#1C1C1E] rounded-2xl p-3.5 border border-[#2C2C2E] mb-5 flex items-center justify-between text-xs gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${isVacationActive ? 'bg-sky-400' : 'bg-[#FF7A00] animate-pulse'}`} />
+            <span className="text-[#D1D1D6] truncate">
               {totalDeckCount} Vokabeln im Lernprozess
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!audioEnabled && onToggleAudioEnabled && (
+              <button
+                type="button"
+                onClick={() => onToggleAudioEnabled(true)}
+                className="text-[10px] text-[#8E8E93] hover:text-white bg-[#242426] px-2 py-0.5 rounded-md border border-[#323236] flex items-center gap-1 cursor-pointer"
+                title="Aussprache ist ausgeschaltet – antippen zum Aktivieren"
+              >
+                <VolumeX className="w-3 h-3 text-[#8E8E93]" />
+                <span>Ton aus</span>
+              </button>
+            )}
             <span className="text-[10px] text-[#A1A1AA] bg-[#242426] px-2 py-0.5 rounded-md border border-[#323236]">
-              {studyDirection === 'both' ? 'Beide Richtungen' : studyDirection === 'de_to_th' ? 'DE ➔ TH' : 'TH ➔ DE'}
+              {studyDirection === 'both' ? 'Beide' : studyDirection === 'de_to_th' ? 'DE ➔ TH' : 'TH ➔ DE'}
             </span>
             <button
               onClick={() => setCustomizeModalCards(dueCards.length > 0 ? dueCards : allDeckCards)}
@@ -387,8 +494,34 @@ export const LearnView: React.FC<LearnViewProps> = ({
           <span>Tests und Aufgaben ({totalDeckCount})</span>
         </button>
 
-        {/* Solid Orange button: Reguläre Übung & Einstellungen */}
-        {dueCount > 0 ? (
+        {/* Solid Orange button: Reguläre Übung & Einstellungen (or Vacation Mode paused state) */}
+        {isVacationActive ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 py-3.5 px-4 rounded-full bg-sky-500/10 border border-sky-400/40 text-sky-300 font-medium text-sm flex items-center justify-center gap-2">
+                <Snowflake className="w-4 h-4 text-sky-400" />
+                <span>Urlaubsmodus aktiv – Phasen eingefroren</span>
+              </div>
+              {totalDeckCount > 0 && (
+                <button
+                  onClick={() => setCustomizeModalCards(allDeckCards)}
+                  className="p-3.5 rounded-full bg-[#1C1C1E] border border-[#3A3A3D] text-[#8E8E93] hover:text-[#FF7A00] hover:border-[#FF7A00] transition-colors active:scale-95 cursor-pointer"
+                  title="Abfrage-Optionen anpassen"
+                >
+                  <SlidersHorizontal className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            {totalDeckCount > 0 && (
+              <button
+                onClick={() => handleDirectStart(dueCards.length > 0 ? dueCards : allDeckCards)}
+                className="w-full py-2.5 text-xs text-[#8E8E93] hover:text-white transition-colors text-center cursor-pointer"
+              >
+                Freiwillig üben (Phasen bleiben eingefroren)
+              </button>
+            )}
+          </div>
+        ) : dueCount > 0 ? (
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleDirectStart(dueCards)}
@@ -581,6 +714,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
         onClose={() => setShowReports(false)}
         progressMap={progressMap}
         vocabularies={vocabularies}
+        vacationStartedAt={frozenRef}
       />
 
       {/* Zusammenfassung Modal - Only shown when user deliberately taps "Einstellungen / Anpassen" */}
@@ -653,6 +787,7 @@ export const LearnView: React.FC<LearnViewProps> = ({
           progressMap={progressMap}
           initialDayOffset={forecastDayOffset}
           initialDirection={studyDirection}
+          vacationStartedAt={frozenRef}
           onStartSession={(cards, direction) => {
             onStartSession(cards, studyMode, direction, defaultInputMethod);
           }}

@@ -23,6 +23,7 @@ interface ReportsModalProps {
   onClose: () => void;
   progressMap: Record<string, UserProgress>;
   vocabularies: Vocabulary[];
+  vacationStartedAt?: string | null;
 }
 
 export const ReportsModal: React.FC<ReportsModalProps> = ({
@@ -30,6 +31,7 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
   onClose,
   progressMap,
   vocabularies,
+  vacationStartedAt = null,
 }) => {
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
   const [phaseFilter, setPhaseFilter] = useState<'all' | 'due' | 'future'>('all');
@@ -77,7 +79,7 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
         reviewDate = p.nextReviewDate;
       }
 
-      const dueInfo = formatDueDate(reviewDate);
+      const dueInfo = formatDueDate(reviewDate, vacationStartedAt);
 
       map[ph].push({
         vocab,
@@ -96,11 +98,11 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
     });
 
     return map;
-  }, [progressMap, vocabMap, selectedDirection]);
+  }, [progressMap, vocabMap, selectedDirection, vacationStartedAt]);
 
   const forecast = useMemo(() => {
-    return calculateReviewForecast(vocabularies, progressMap, selectedDirection, 5);
-  }, [vocabularies, progressMap, selectedDirection]);
+    return calculateReviewForecast(vocabularies, progressMap, selectedDirection, 5, vacationStartedAt);
+  }, [vocabularies, progressMap, selectedDirection, vacationStartedAt]);
 
   if (!isOpen) return null;
 
@@ -115,16 +117,16 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
       const dir = getDirectionProgress(p, 'de_to_th');
       totalCorrect += dir.correctCount || 0;
       totalIncorrect += dir.incorrectCount || 0;
-      if (formatDueDate(dir.nextReviewDate).isDue) dueTodayCount++;
+      if (formatDueDate(dir.nextReviewDate, vacationStartedAt).isDue) dueTodayCount++;
     } else if (selectedDirection === 'th_to_de') {
       const dir = getDirectionProgress(p, 'th_to_de');
       totalCorrect += dir.correctCount || 0;
       totalIncorrect += dir.incorrectCount || 0;
-      if (formatDueDate(dir.nextReviewDate).isDue) dueTodayCount++;
+      if (formatDueDate(dir.nextReviewDate, vacationStartedAt).isDue) dueTodayCount++;
     } else {
       totalCorrect += p.correctCount || 0;
       totalIncorrect += p.incorrectCount || 0;
-      if (formatDueDate(p.nextReviewDate).isDue) dueTodayCount++;
+      if (formatDueDate(p.nextReviewDate, vacationStartedAt).isDue) dueTodayCount++;
     }
   });
 
@@ -149,9 +151,14 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between pb-3.5 border-b border-[#2C2C2E] mb-4">
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+              <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2 flex-wrap">
                 <TrendingUp className="w-5 h-5 text-[#FF7A00]" />
-                Lernstatistik & Vokabel-Phasen
+                <span>Lernstatistik & Vokabel-Phasen</span>
+                {vacationStartedAt && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-bold border border-sky-400/40">
+                    ❄️ Eingefroren
+                  </span>
+                )}
               </h2>
               <p className="text-xs text-[#8E8E93] mt-0.5">
                 Klicke auf eine Phase, um alle enthaltenen Vokabeln & Fälligkeiten zu sehen
